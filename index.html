@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Wildling</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.1/p5.min.js"></script>
+  <script src="https://unpkg.com/ml5@1.4.0/dist/ml5.min.js"></script>
+</head>
+<body>
+  <main id="stage"></main>
+
+  <div id="ui">
+    <section id="hud" class="glass">
+      <div class="eyebrow" id="hudGen">Generation 1</div>
+      <div class="name" id="hudName">—</div>
+      <div class="sub" id="hudSub">Kitten · The Jungle Nursery</div>
+      <div id="lifeTrack">
+        <div class="seg"><i></i></div><div class="seg"><i></i></div><div class="seg"><i></i></div>
+      </div>
+      <div class="lifelabels"><span>Kitten · Jungle</span><span>Juvenile · Snow</span><span>Adult · Desert</span></div>
+      <div class="traits" id="hudTraits"></div>
+    </section>
+
+    <section id="mind" class="glass">
+      <div class="mind-head"><span class="eyebrow">Mind</span><span class="state" id="mindState">Sleeping</span></div>
+      <div class="thought" id="mindThought">“zzz…”</div>
+      <div id="needs"></div>
+      <div class="divider"></div>
+      <div class="mind-head"><span class="eyebrow">Desires</span><span class="note" id="scoresNote">highest score wins</span></div>
+      <div id="scores"></div>
+    </section>
+
+    <div id="status" class="glass">Mouse mode</div>
+    <div id="keys">M mind · D skeleton · G grow · 1 2 3 stage · N new cat · S sound · H hide UI · F fullscreen</div>
+    <div id="caption"><div id="capMain"></div><div id="capSub"></div></div>
+    <div id="hint" class="glass">Hold an open hand slowly over the cat to pet it</div>
+  </div>
+
+  <div id="intro">
+    <div class="card glass">
+      <div class="eyebrow">A procedural creature</div>
+      <h1>Wildling</h1>
+      <p class="tag">A wild cat that grows up between your hands.</p>
+      <p class="lede">Raise a procedurally generated cat from kitten to elder. It lives on its own — hunting, grooming, napping — and migrates from jungle to snow to desert as it grows. How you treat it shapes who it becomes.</p>
+      <div class="how">
+        <div><b>Pet</b><span>Hold an open hand slowly over its back</span></div>
+        <div><b>Chase</b><span>Sweep your hand quickly toward it</span></div>
+        <div><b>Watch</b><span>Step away and let it live</span></div>
+      </div>
+      <div class="btns">
+        <button class="primary" id="btnCamera">Begin with hand tracking</button>
+        <button id="btnMouse">Use mouse / touch</button>
+      </div>
+      <p class="privacy">Hand tracking runs entirely in your browser (ml5.js HandPose). No video is recorded or uploaded. Sound on recommended.</p>
+    </div>
+  </div>
+
+  <script src="utils.js"></script>
+  <script src="cat.js"></script>
+  <script src="world.js"></script>
+  <script src="interface.js"></script>
+  <script src="sketch.js"></script>
+</body>
+</html>
