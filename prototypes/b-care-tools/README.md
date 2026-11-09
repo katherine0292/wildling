@@ -5,7 +5,7 @@ care tools: **Feed**, **Play** and **Pet**. It was built to test the *first-time
 route of the original brief: can a stranger find one effective interaction quickly and
 understand what it changed?
 
-> Prototype A (repository root) and Prototype B are **two parallel explorations of the
+> Prototype A (`prototypes/a-autonomous-life/`) and Prototype B are **two parallel explorations of the
 > same Brief V1**, not two releases. "V1" and "V2" in `docs/` refer to *requirement
 > stages*, not to these code folders.
 

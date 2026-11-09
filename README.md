@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://katherine0292.github.io/wildling/v2/"><b>▶ Play Wildling</b></a> &nbsp;·&nbsp;
+  <a href="https://katherine0292.github.io/wildling/"><b>▶ Play Wildling</b></a> &nbsp;·&nbsp;
   <a href="docs/prd/prd-v2.md">PRD V2</a> &nbsp;·&nbsp;
   <a href="docs/decisions/README.md">Decisions</a> &nbsp;·&nbsp;
   <a href="docs/STATUS.md">Status</a>
@@ -128,7 +128,7 @@ PRD V2 sets acceptance targets for the venue phase:
 | [`v2/`](v2) | The V2 build ([README](v2/README.md)) |
 | [`test/`](test) | Replay tests mapped to acceptance cases |
 | [`tools/`](tools) | Research capture page and gesture evaluator |
-| [`prototypes/`](prototypes) · root `*.js` | Prototype B (care tools) · Prototype A (autonomous life, [page](docs/prototype-a.md)) |
+| [`prototypes/`](prototypes) | Prototype A, autonomous life ([page](docs/prototype-a.md)) · Prototype B, care tools |
 
 ## Run it
 
@@ -136,7 +136,7 @@ PRD V2 sets acceptance targets for the venue phase:
 python3 -m http.server 8790
 ```
 
-Open <http://localhost:8790/v2/> in Chrome (Prototype A is at <http://localhost:8790/>). The camera needs `localhost` or `https`; p5.js and the fonts ship locally, so mouse and keyboard work offline.
+Open <http://localhost:8790/> in Chrome; it opens the V2 build (Prototype A is at <http://localhost:8790/prototypes/a-autonomous-life/>). The camera needs `localhost` or `https`; p5.js and the fonts ship locally, so mouse and keyboard work offline.
 
 ```bash
 npm test

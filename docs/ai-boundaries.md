@@ -15,8 +15,8 @@ Brief V2 §6.3 asks the delivery to **state clearly what is a trained model, wha
 | Rhythm adaptation (contactDwell / playTempoScale / approachRadius) | **Statistical estimate** (median + smoothing + hard range) | `v2/core/memory.js` | Implemented; on/off comparison tested |
 | Kitten temperament | **Fixed starting values** per kitten, chosen by the visitor | `v2/core/config.js` `KITTENS` | Implemented; not learned, never changes rules |
 | Relationship recap | **Templates** citing event IDs | `v2/core/recap.js` | Implemented |
-| Prototype A utility AI | **Hand-written utility functions** | `cat.js` `Brain` | Prototype |
-| Prototype A genetics and mutation | **Random generation** of appearance, **not learning** | `cat.js` `Genome` | Prototype |
+| Prototype A utility AI | **Hand-written utility functions** | `prototypes/a-autonomous-life/cat.js` `Brain` | Prototype |
+| Prototype A genetics and mutation | **Random generation** of appearance, **not learning** | `prototypes/a-autonomous-life/cat.js` `Genome` | Prototype |
 | Generative recap | Language model (P2) | — | Out of P0 scope |
 
 ## How we describe it

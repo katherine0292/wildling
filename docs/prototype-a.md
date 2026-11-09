@@ -1,11 +1,11 @@
 # Prototype A — Autonomous life
 
-> Prototype A is the original repository code (`index.html`, `cat.js`, `world.js`, `interface.js`, `utils.js` at the root).
+> Prototype A is the first code exploration, in [`prototypes/a-autonomous-life/`](../prototypes/a-autonomous-life).
 > It explores the *autonomous* route of Brief V1: a creature that lives on its own and is read through a utility AI.
 > It is a prototype, not the product spec — see [`prd/prd-v1.md`](prd/prd-v1.md) for what was chosen for round one and why,
 > and [`../prototypes/README.md`](../prototypes/README.md) for how it compares with Prototype B.
 >
-> Play it: <https://katherine0292.github.io/wildling/> · Snapshot reviewed in the PRDs: `b0a769a`.
+> Play it: <https://katherine0292.github.io/wildling/prototypes/a-autonomous-life/> · Snapshot reviewed in the PRDs: `b0a769a`.
 
 ## Raise it with your hand
 
@@ -158,13 +158,13 @@ The sketch is seven files in one folder, nothing else:
 2. Drag all seven files into the editor's file panel. Replace the editor's own `index.html`, `style.css` and `sketch.js` when asked.
 3. Press ▶ Play. Allow the camera for hand tracking, or click **Use mouse / touch**.
 
-The `docs/` folder only holds the images for this page and is not needed to run the sketch.
+The files live in `prototypes/a-autonomous-life/`; the images on this page are not needed to run the sketch.
 
 ### Locally
 Camera access needs `localhost` or `https`, so serve the folder rather than double-clicking the file:
 
 ```bash
-cd wildling
+cd wildling/prototypes/a-autonomous-life
 python3 -m http.server 8790
 ```
 

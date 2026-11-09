@@ -6,7 +6,7 @@ They are named by **route**, not by date, so that nobody reads them as "version 
 
 | | Prototype A — Autonomous life | Prototype B — Care tools |
 |---|---|---|
-| Location | repository root (`index.html`, `cat.js`, `world.js`, `interface.js`) | `prototypes/b-care-tools/` |
+| Location | `prototypes/a-autonomous-life/` | `prototypes/b-care-tools/` |
 | Core question | Does the creature feel alive when nobody is touching it? | Can a first-time visitor find one effective interaction quickly? |
 | Interaction | Two natural gestures: slow hand = pet, fast hand = chase | Three explicit tools: Feed, Play, Pet |
 | Decision model | Utility AI: 4 needs score 6 behaviours, highest wins | Priority-ordered state machine |

@@ -3,7 +3,7 @@
 > Submitted to the project lead · Product, interaction design and implementation plan · Responds to [Brief V1](../brief/brief-v1.md)
 > Date 2026-10-09 · Status: submitted for review · PDF [`pdf/prd-v1.pdf`](pdf/prd-v1.pdf)
 >
-> **V1 and V2 are requirement stages**, not code versions. The code explorations are Prototype A (repository root)
+> **V1 and V2 are requirement stages**, not code versions. The code explorations are Prototype A (`prototypes/a-autonomous-life/`)
 > and Prototype B (`prototypes/b-care-tools/`). Features, parameters and acceptance targets become the development
 > baseline after review.
 
@@ -216,6 +216,6 @@ These become inputs to Brief V2 and PRD V2.
 
 ## 18 References and document control
 
-- Requirements: [Brief V1](../brief/brief-v1.md). Technical material: Prototype A (repository root) and Prototype B (`prototypes/b-care-tools/`).
+- Requirements: [Brief V1](../brief/brief-v1.md). Technical material: Prototype A (`prototypes/a-autonomous-life/`) and Prototype B (`prototypes/b-care-tools/`).
 - Technical references: p5.js, ml5.js, Processing reference, MDN getUserMedia. Dependency versions are pinned after verification.
 - **Planned, implemented, verified and confirmed are four different states**, tracked separately in [`../STATUS.md`](../STATUS.md).
