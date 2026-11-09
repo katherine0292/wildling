@@ -19,6 +19,8 @@ Status: **Proposed** (in the PRD, awaiting review) · **Adopted** (confirmed or 
 | [ADR-012](#adr-012-the-litter-is-part-of-the-kittens-life) | The litter is part of the kitten's life | V2 build | Proposed · implemented for review · amends ADR-010 |
 | [ADR-013](#adr-013-growth-the-visitor-can-see-and-work-towards) | Growth the visitor can see and work towards | V2 build | Proposed · implemented for review · amends F2-13 |
 | [ADR-014](#adr-014-peek-inside-the-decision-trace-as-a-visitor-feature) | Peek inside: the decision trace as a visitor feature | V2 build | Proposed · implemented for review |
+| [ADR-015](#adr-015-three-toys-one-set-of-play-rules) | Three toys, one set of play rules | V2 build | Proposed · implemented for review |
+| [ADR-016](#adr-016-keepsakes-stay-with-the-visitor-not-the-venue) | Keepsakes stay with the visitor, not the venue | V2 build | Proposed · implemented for review · extends F2-17 |
 
 ---
 
@@ -109,3 +111,23 @@ Status: **Proposed** (in the PRD, awaiting review) · **Adopted** (confirmed or 
 - **Decision:** a **Peek inside** toggle (`T`) shows, beside the scene, what the kitten is weighing: the top candidates with their relative scores, the winner, why each blocked option is blocked in plain words ("too tired", "too young yet"), and any reaction ("Hissed at Juniper: it was eating"). A footer states what it is: safety rules first, then hand-written scores, not a learned model.
 - **Kept:** exact numbers stay in the staff panel; the public view shows bars and words only.
 - **Overturned if:** visitors find it distracting or read the bars as a score to beat.
+
+## ADR-015 Three toys, one set of play rules
+- **Context:** Play meant waving the hand as a yarn ball. It was the most fun tool, but it never changed, and it excluded visitors who cannot keep a hand moving.
+- **Decision:** the Play tool offers three toys, switched from a small tray or by pressing `2` again.
+  - **Yarn:** the hand is the toy, as before.
+  - **Feather:** a feather on a springy string trails the hand. Above 0.9 S/s it is a leap and a miss (`pounce_missed`: a little fun, no reward), so slow, teasing swishes work best.
+  - **Ball:** a click or pinch throws it with the hand's own velocity. It rolls with friction and bounces off the edges, and every bat sends it rolling again, so the kitten plays on with no hand on screen.
+- **Kept:** every toy goes through the same PLAY candidate, the same energy, stress and pause limits, and the same capped rewards; catches feed the same adaptation sample.
+- **Evidence:** `test/toys.test.mjs` (yarn default, ball chased with no hand, fast feather missed and slow feather caught).
+
+## ADR-016 Keepsakes stay with the visitor, not the venue
+- **Context:** a visit felt complete but weightless: nothing carried over, and nothing could be taken home. Yet F2-17 requires every exhibition visitor to meet a fresh kitten, and visits must never be linked by the venue.
+- **Options:** ① no memory; ② a venue database of returning visitors; ③ memory that lives only with the visitor.
+- **Decision:** ③, in two forms.
+  - **Album and postcard (everywhere):** the page takes photos of key moments (first meal, first touch, a catch, a tumble, a hiss, a hunt, a gift, each new chapter). The photos are cropped from the canvas, which holds no interface. At the end the visitor can save a postcard with up to three photos, the journal lines, chapter stamps and a code. The postcard is drawn in the browser and nothing is uploaded.
+  - **Keepsake (website only):** a small record (visits, furthest chapter, gifts) is kept in that browser's `localStorage`. On the next visit with the same kitten, the core receives `set_returning`: a greeting, a cited journal line and a bounded trust head start (0.06 per visit, at most 0.18). The postcard's code carries the same record so it can continue on another device. "Forget me" clears it.
+- **Exhibition:** `?kiosk=1` keeps nothing, so F2-17 is unchanged at the venue.
+- **Never kept:** video, hand data, timings of the visitor's behaviour, or anything about the siblings.
+- **Evidence:** `test/toys.test.mjs` (no keepsake means a fresh kitten; the head start is capped; it applies only to the remembered kitten; it is cleared for the next visitor).
+- **Overturned if:** visitors find the head start unfair to first-timers, or the project lead prefers no persistence at all.

@@ -24,11 +24,12 @@ Open <http://localhost:8790/v2/> in Chrome. The camera needs `localhost` or `htt
 | Arrows + `Space` | Keyboard hand: move · offer, or hold to pet |
 | Click a sibling with Play | Invite it over (a request; your kitten may decline) |
 | `T` | Peek inside: what the kitten is weighing, and why |
+| `2` again | With Play selected: switch toy (yarn, feather, ball) |
 | `Esc` | Pause or continue |
 | `D` | Staff diagnostics: observed input, needs, decision trace, adaptation |
 | `M` | Sound on or off |
 
-URL options: `?input=mouse|keyboard` (skip the approach screen), `?kitten=ember|juniper|saffron`, `?staff=1`, `?adapt=0`, `?seed=42`.
+URL options: `?input=mouse|keyboard` (skip the approach screen), `?kitten=ember|juniper|saffron`, `?staff=1`, `?adapt=0`, `?seed=42`, `?kiosk=1` (exhibition: no keepsakes), `?adopt=…` (a postcard's code).
 
 ## Structure
 
@@ -52,6 +53,7 @@ v2/browser/     everything that touches the page
   staff.js        diagnostics panel
   camera.js       getUserMedia + ml5 HandPose, error kinds, single-hand lock, clean release
   keyboard.js     keyboard virtual hand
+  keepsake.js     keepsakes in the visitor's own browser, and the take-home postcard
   audio.js        Web Audio, the only sound source
   icons.js        one icon set for the interface and the canvas
   main.js         wiring

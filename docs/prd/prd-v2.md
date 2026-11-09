@@ -459,6 +459,7 @@ The service binds only to loopback and uses a temporary connection token generat
 
 ### 20.1 F2-17 Data minimisation
 - In the exhibition, camera frames and continuous keypoints live in memory only; **no video, audio or face images are written**. The relationship lasts only for the session. At the end: tracks stopped; action windows, preferences, events, cursor position, camera preview and old session ID destroyed.
+- **Revision after the build review [Proposal], see ADR-016:** the public website may keep a small keepsake (visits, furthest chapter, gifts) in the visitor's own browser, and any visitor may save a postcard drawn locally. Exhibition (kiosk) mode keeps nothing, so turnover is unchanged at the venue.
 - **[To confirm]** If anonymous research statistics are collected, the entry point explains purpose and opt-out. Minimum fields: random session ID, build and model version, input mode, completion state, latency buckets, accepted and refused action counts, error types and duration. Kept 7 days by default, then deleted. Different visits by the same person are never linked.
 
 ### 20.2 Diagnostics

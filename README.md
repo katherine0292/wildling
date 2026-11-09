@@ -24,7 +24,7 @@
 |---|---|
 | **Project** | An interactive installation for a Sydney game and interaction exhibition. The project lead issued two briefs: [Brief V1](docs/brief/brief-v1.md), and an AI-experience upgrade, [Brief V2](docs/brief/brief-v2.md). |
 | **My role** | Product and interaction designer and developer. I translated each brief into a PRD ([V1](docs/prd/prd-v1.md), [V2](docs/prd/prd-v2.md)), designed the AI behaviour and the visitor experience, built the prototypes and the V2 build, and kept requirements, decisions and evidence aligned in writing. |
-| **How requirements are written** | Every requirement is tagged **[Client]**, **[Proposal]** or **[To confirm]**. A [traceability matrix](docs/traceability.md) links each brief goal to a spec and an acceptance case; [14 decision records](docs/decisions/README.md) explain the trade-offs. |
+| **How requirements are written** | Every requirement is tagged **[Client]**, **[Proposal]** or **[To confirm]**. A [traceability matrix](docs/traceability.md) links each brief goal to a spec and an acceptance case; [16 decision records](docs/decisions/README.md) explain the trade-offs. |
 | **What's built** | Two V1 prototypes (A: autonomous life, B: care tools) and the **V2 build**: tracking-quality gate, windowed intent with `unknown`, hard constraints + utility, reason codes, bounded in-session adaptation, a full session lifecycle, an event-cited journal, a staff diagnostics panel and a procedural kitten body. |
 | **Evidence** | 40+ replay tests mapped to PRD acceptance cases, run in CI. Planned, implemented, verified and confirmed are tracked separately on the [status board](docs/STATUS.md). |
 

@@ -37,6 +37,8 @@ This board records the repository's state as of 2026-11-09.
 | Life with the litter: visits, wrestling, hissing, invitations | ADR-012 | ✅ Verified (replays) | `test/life.test.mjs`; whether visitors read hissing as a scolding is a study question |
 | Hunting (Chapter II) and gifts (Chapter III) | ADR-012 | ✅ Verified (replays) | `test/life.test.mjs` |
 | Peek inside: visitor view of the decision trace | ADR-014 | 🛠 Implemented | Press `T` during a visit |
+| Toys: yarn, feather, ball | ADR-015 | ✅ Verified (replays) | `test/toys.test.mjs` |
+| Keepsakes, album and postcard | ADR-016 | ✅ Verified (core replays) · 🛠 page | `test/toys.test.mjs` for the core rule; album, postcard and storage checked in a browser smoke test; `?kiosk=1` for the venue |
 | Painted habitats, foreground depth, follow camera, light and grain | ADR-011 | 🛠 Implemented | Frame rate on the target device is checked in WP06 |
 | Offline assets | AT16 | 🛠 Partly implemented | p5.js and fonts ship in `v2/vendor` and `v2/assets`; bundling ml5 and model weights is part of the offline-package milestone |
 | Node.js authority + WebSocket protocol | §18–19 | 📝 Planned (WP02) | The core is already pure modules with protocol field names; the move is a transport change |
