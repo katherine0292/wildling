@@ -13,6 +13,7 @@ import { SessionController } from './session.js';
 import { CreatureCore, BEHAVIOURS } from './creature.js';
 import { RelationshipMemory } from './memory.js';
 import { buildRecap } from './recap.js';
+import { growthCheck, PHASES, UNLOCKS } from './growth.js';
 
 export const PROTOCOL_VERSION = '1.0';
 
@@ -86,7 +87,19 @@ export class Simulation {
     this.lostSince = null;
     this.uncertainSince = null;
     this.errors = { duplicates: 0, rejected: 0 };
+    this.resetLife();
   }
+
+  // Visits, invitations, critters and gifts belong to one session and are cleared with it.
+  resetLife() {
+    this.life = { visit: null, invite: null, nextVisitAt: this.between(this.p.social.visitEverySec), inviteSeq: 0 };
+    this.critter = null;
+    this.critterSeq = 0;
+    this.nextCritterAt = this.between(this.p.hunt.everySec) * 0.5;
+    this.gifts = [];
+  }
+
+  between([a, b]) { return a + this.rand() * (b - a); }
 
   get demoCat() { return this.litter.find((c) => c.kitten.id === this.kittenId); }
   get siblings() { return this.litter.filter((c) => c.kitten.id !== this.kittenId); }
@@ -128,11 +141,20 @@ export class Simulation {
       case 'select_tool':
         if (['FEED', 'PLAY', 'PET', 'WAIT'].includes(cmd.tool)) { this.tool = cmd.tool; s.noteActivity(); }
         break;
-      case 'confirm': s.noteActivity(); if (s.state === 'ACTIVE' && this.tool === 'FEED') this.dropFood(cmd.x, cmd.y); break;
+      case 'confirm': {
+        s.noteActivity();
+        if (s.state !== 'ACTIVE') break;
+        // with the Play tool, confirming on a sibling invites it over (a request, like every tool)
+        const sib = this.tool === 'PLAY' && this.siblingAt(cmd.x, cmd.y);
+        if (sib) this.invite(sib.kitten.id);
+        else if (this.tool === 'FEED') this.dropFood(cmd.x, cmd.y);
+        break;
+      }
       case 'pause': s.pause(cmd.reason ?? 'user'); break;
       case 'resume': s.resume(); break;
       case 'end': s.end(cmd.reason ?? 'user'); break;
       case 'next': s.next(); break;
+      case 'invite_sibling': this.invite(cmd.kitten); break;
       case 'set_adaptation': this.memory.adaptation = !!cmd.on; break;
       case 'set_lang': if (COPY[cmd.lang]) { this.lang = cmd.lang; if (this.recap) this.recap = buildRecap(this.log, this.lang); } break;
       default: this.errors.rejected++; return { ack: cmd.id, error: 'unknown_command' };
@@ -164,6 +186,102 @@ export class Simulation {
       cat.stats.refusals++;
       cat.emit('refusal', this.ctx(), { reasonCode: 'TOO_FULL', measurement: { request: 'SEEK_FOOD' } });
       cat.hint('TOO_FULL');
+    }
+  }
+
+  siblingAt(nx, ny) {
+    if (!this.cat || !Number.isFinite(nx)) return null;
+    const x = nx * this.world.w, y = ny * this.world.h;
+    return this.siblings.find((o) => Math.hypot(o.x - x, o.y - y) < 0.1) ?? null;
+  }
+
+  // A visitor can invite a sibling over. Like every tool, it is a request: the kitten
+  // still decides, and a refusal comes with its reason.
+  invite(kitten) {
+    if (this.session.state !== 'ACTIVE' || !this.cat) return;
+    const sib = this.siblings.find((o) => o.kitten.id === kitten);
+    if (!sib || this.cat.wrestling) return;
+    this.endVisit();
+    this.life.invite = { sibId: sib.id, inviteId: ++this.life.inviteSeq, since: this.simTime };
+    sib.goal = { id: this.cat.id, x: this.cat.x, y: this.cat.y, stop: 0.2 };
+    sib.held = null;
+    this.session.noteActivity();
+    this.out.push({ type: 'invite', sibling: kitten });
+  }
+
+  endVisit(sibId = null) {
+    const L = this.life;
+    for (const key of ['visit', 'invite']) {
+      const v = L[key];
+      if (!v || (sibId && v.sibId !== sibId)) continue;
+      const sib = this.litter.find((o) => o.id === v.sibId);
+      if (sib) sib.goal = null;
+      L[key] = null;
+    }
+    if (!L.visit && !L.invite) L.nextVisitAt = this.simTime + this.between(this.p.social.visitEverySec);
+  }
+
+  // Directs the litter around the visitor's kitten: visits, waiting, wrestling, fleeing.
+  directLitter() {
+    const cat = this.cat, L = this.life, sp = this.p.social, t = this.simTime;
+    if (!cat || this.session.state !== 'ACTIVE') return;
+    if (!L.visit && !L.invite && t >= L.nextVisitAt && !cat.wrestling && cat.behaviour !== 'CONTACT') {
+      const free = this.siblings.filter((o) => !o.held);
+      if (free.length) {
+        const sib = free[Math.floor(this.rand() * free.length)];
+        L.visit = { sibId: sib.id, since: t };
+        sib.goal = { id: cat.id, x: cat.x, y: cat.y, stop: 0.19 };
+      } else L.nextVisitAt = t + 5;
+    }
+    for (const key of ['visit', 'invite']) {
+      const v = L[key];
+      if (!v) continue;
+      const sib = this.litter.find((o) => o.id === v.sibId);
+      const limit = key === 'visit' ? sp.visitTimeoutSec : sp.inviteTimeoutSec;
+      if (!sib || (t - v.since > limit && cat.behaviour !== 'SOCIAL')) { this.endVisit(v.sibId); continue; }
+      if (key === 'invite' && cat.social.refused === v.inviteId) { this.endVisit(v.sibId); continue; }
+      if (sib.goal) { sib.goal.x = cat.x; sib.goal.y = cat.y; }
+    }
+    for (const sib of this.siblings) {
+      if (cat.wrestling && cat.social.partner === sib.id) {
+        const a = t * 7;
+        sib.goal = null;
+        sib.held = { behaviour: 'SOCIAL', until: this.demoTime + 0.25, partner: cat.id, wrestle: true,
+          at: { x: cat.x + Math.cos(a) * 0.07, y: cat.y + Math.sin(a * 1.2) * 0.05 }, face: Math.atan2(cat.y - sib.y, cat.x - sib.x) };
+      } else if (cat.behaviour === 'SOCIAL' && cat.social.target === sib.id && !sib.held?.flee) {
+        sib.goal = null;
+        sib.held = { behaviour: 'OBSERVE', until: this.demoTime + 0.25, partner: cat.id, face: Math.atan2(cat.y - sib.y, cat.x - sib.x) };
+      }
+    }
+  }
+
+  // One small critter at a time drifts through the habitat. Kittens are too young to
+  // hunt it; from Chapter II on, the kitten may give chase.
+  stepCritter(dt) {
+    const hp = this.p.hunt, W = this.world.w, H = this.world.h - this.p.feed.toolbarBandS;
+    const t = this.simTime;
+    let c = this.critter;
+    if (!c && t >= this.nextCritterAt) {
+      const kind = ['butterfly', 'moth', 'dragonfly'][this.cat ? this.cat.phaseIndex : 0];
+      const side = this.rand() < 0.5;
+      c = this.critter = { id: `c${++this.critterSeq}`, kind, x: side ? 0.05 : W - 0.05, y: 0.15 + this.rand() * (H - 0.3), vx: side ? 0.06 : -0.06, vy: 0, born: t, fleeing: false, caught: false };
+    }
+    if (!c) return;
+    const cat = this.cat;
+    const d = cat ? Math.hypot(cat.x - c.x, cat.y - c.y) : 9;
+    if (!c.fleeing) {
+      c.vx += (this.rand() - 0.5) * 0.4 * dt; c.vy += (this.rand() - 0.5) * 0.6 * dt;
+      if (d < 0.18 && cat) { c.vx += ((c.x - cat.x) / d) * 0.25 * dt; c.vy += ((c.y - cat.y) / d) * 0.25 * dt; }
+      if (c.x < 0.12) c.vx += 0.1 * dt; if (c.x > W - 0.12) c.vx -= 0.1 * dt;
+      if (c.y < 0.12) c.vy += 0.1 * dt; if (c.y > H - 0.05) c.vy -= 0.2 * dt;
+      const v = Math.hypot(c.vx, c.vy), max = 0.11;
+      if (v > max) { c.vx *= max / v; c.vy *= max / v; }
+    }
+    c.x += c.vx * dt; c.y += c.vy * dt;
+    const gone = c.x < -0.1 || c.x > W + 0.1 || c.y < -0.1 || c.y > this.world.h + 0.1;
+    if (gone || (!c.fleeing && t - c.born > hp.lifeSec)) {
+      if (!gone && !c.fleeing) { c.fleeing = true; c.vx = (c.x < W / 2 ? -1 : 1) * 0.3; c.vy = -0.2; }
+      if (gone) { this.critter = null; this.nextCritterAt = t + this.between(hp.everySec); }
     }
   }
 
@@ -203,7 +321,8 @@ export class Simulation {
         this.clock, { keyboardHold: this.keyboardHold && this.tool === 'PET' });
     }
 
-    s.tick(dt, { trackingValid: this.track.valid, grown: this.cat ? this.cat.ageProgress >= 3 : false });
+    // a fully grown kitten gets its celebration before the visit ends
+    s.tick(dt, { trackingValid: this.track.valid, grown: this.cat ? this.cat.ageProgress >= 3 && this.simTime >= this.cat.transitionUntil : false });
     this.processTransitions();
 
     this.demoTime += dt;
@@ -212,7 +331,13 @@ export class Simulation {
     if (this.cat && s.state !== 'ATTRACT') {
       if (s.state === 'ACTIVE') this.simTime += dt;
       const ctx = this.ctx();
-      ctx.others = this.siblings.map((o) => ({ x: o.x, y: o.y }));
+      ctx.others = this.siblings.map((o) => ({ id: o.id, x: o.x, y: o.y }));
+      ctx.siblings = this.siblings.map((o) => ({
+        id: o.id, kitten: o.kitten.id, x: o.x, y: o.y,
+        visiting: this.life.visit?.sibId === o.id, invited: this.life.invite?.sibId === o.id, inviteId: this.life.invite?.sibId === o.id ? this.life.invite.inviteId : null,
+      }));
+      ctx.critter = this.critter && !this.critter.fleeing ? { id: this.critter.id, kind: this.critter.kind, x: this.critter.x, y: this.critter.y } : null;
+      if (s.state === 'ACTIVE') { this.directLitter(); this.stepCritter(dt); }
       this.cat.step(dt, ctx);
       this.collect(ctx);
       this.systemHints(nowS);
@@ -234,7 +359,7 @@ export class Simulation {
     ctx.active = false;
     const all = this.cat && this.session.state !== 'ATTRACT' ? [this.cat, ...cats] : cats;
     for (const c of cats) {
-      ctx.others = all.filter((o) => o !== c).map((o) => ({ x: o.x, y: o.y }));
+      ctx.others = all.filter((o) => o !== c).map((o) => ({ id: o.id, x: o.x, y: o.y }));
       c.step(dt, ctx); c.drainEvents(); c.drainHints();
     }
   }
@@ -244,6 +369,7 @@ export class Simulation {
     const accepting = s.state === 'ACTIVE';
     for (const e of this.cat.drainEvents()) {
       e.sessionId = s.sessionId;
+      this.react(e);
       this.log.push(e);
       this.out.push(e);
       for (const d of this.memory.record(e, { accepting })) {
@@ -255,6 +381,33 @@ export class Simulation {
       }
     }
     for (const code of this.cat.drainHints()) this.hints.offer(code, this.clock / 1000);
+  }
+
+  // How the world answers the kitten's own acts.
+  react(e) {
+    const m = e.measurement ?? {};
+    if (e.type === 'hiss') {
+      const sib = this.litter.find((o) => o.kitten.id === m.sibling);
+      if (sib && this.cat) {
+        this.endVisit(sib.id);
+        sib.goal = null;
+        sib.held = { behaviour: 'RETREAT', until: this.demoTime + 1.6, flee: { x: this.cat.x, y: this.cat.y } };
+      }
+    }
+    if (e.type === 'sibling_play') {
+      const sib = this.litter.find((o) => o.kitten.id === m.sibling);
+      if (sib) { sib.held = null; this.endVisit(sib.id); sib.forceRedecide = true; }
+    }
+    if (e.type === 'refusal' && m.request === 'SOCIAL') this.endVisit();
+    if (e.type === 'hunt_pounce' && this.critter?.id === m.critterId) {
+      const c = this.critter;
+      c.fleeing = true; c.caught = m.caught;
+      c.vx = (this.rand() - 0.5) * 0.4; c.vy = -0.3;
+    }
+    if (e.type === 'gift_given') {
+      this.gifts.push({ id: m.giftId, item: m.item, x: m.x, y: m.y, born: this.simTime });
+      if (this.gifts.length > this.p.gift.maxShown) this.gifts.shift();
+    }
   }
 
   systemHints(nowS) {
@@ -302,6 +455,7 @@ export class Simulation {
     this.cat.heading = chosen.heading;
     this.siblings.forEach((c, i) => c.setRegion(SIBLING_REGIONS[i]));
     this.catSession = s.sessionId;
+    this.resetLife();
     this.simTime = 0;
     this.memory.reset();
     this.log = [];
@@ -314,7 +468,8 @@ export class Simulation {
   resetSession() {
     this.cat = null;
     this.catSession = null;
-    for (const c of this.litter) c.setRegion(ATTRACT_REGION);
+    for (const c of this.litter) { c.goal = null; c.held = null; c.setRegion(ATTRACT_REGION); }
+    this.resetLife();
     this.memory.reset();
     this.log = [];
     this.recap = null;
@@ -331,6 +486,29 @@ export class Simulation {
   }
 
   drainEvents() { const o = this.out; this.out = []; return o; }
+
+  // What the visitor needs to see to want to keep caring: how far to the next chapter,
+  // which needs are holding growth back, and what the next chapter unlocks.
+  growthSnapshot(c) {
+    const g = this.p.growth, n = c.needs;
+    const check = growthCheck(n, this.p);
+    const chapter = Math.min(2, Math.floor(c.ageProgress));
+    const next = PHASES[chapter + 1] ?? null;
+    return {
+      chapter,
+      progress: Math.min(1, c.ageProgress - chapter),
+      total: c.ageProgress / 3,
+      growing: !!c.growing,
+      ok: check.ok,
+      blockedBy: check.blockedBy,
+      wellbeing: check.wellbeing,
+      checks: { fed: n.fullness >= g.minEach, rested: n.energy >= g.minEach, played: n.fun >= g.minEach, calm: n.stress <= g.maxStress },
+      levels: { fed: n.fullness, rested: n.energy, played: n.fun, calm: 1 - n.stress },
+      next,
+      unlocks: next ? UNLOCKS[next] : [],
+      grown: c.ageProgress >= 3,
+    };
+  }
 
   // ---------------------------------------------------------------- snapshot
   snapshot() {
@@ -362,7 +540,12 @@ export class Simulation {
         id: x.id, kitten: x.kitten.id, position: { x: x.x / W, y: x.y / H }, heading: x.heading,
         // litter-mates grow up alongside the visitor's kitten (display only; they have no growth of their own)
         speed: Math.hypot(x.vx, x.vy), behaviour: x.behaviour, ageProgress: this.cat && s.state !== 'ATTRACT' ? this.cat.ageProgress : x.ageProgress,
+        wrestling: !!x.held?.wrestle, visiting: this.life.visit?.sibId === x.id, invited: this.life.invite?.sibId === x.id,
+        fleeing: !!x.held?.flee,
       })),
+      growth: this.growthSnapshot(c),
+      critter: this.critter ? { id: this.critter.id, kind: this.critter.kind, position: { x: this.critter.x / W, y: this.critter.y / H }, fleeing: this.critter.fleeing, caught: this.critter.caught, heading: Math.atan2(this.critter.vy, this.critter.vx) } : null,
+      gifts: this.gifts.map((g) => ({ id: g.id, item: g.item, position: { x: g.x / W, y: g.y / H }, age: this.simTime - g.born })),
       creature: {
         id: c.id,
         kitten: c.kitten.id,
@@ -381,6 +564,11 @@ export class Simulation {
         growthBlockedBy: c.growthBlockedBy,
         transition: this.simTime < c.transitionUntil,
         stats: { ...c.stats },
+        wrestling: c.wrestling,
+        socialTarget: c.social.target ? this.litter.find((o) => o.id === c.social.target)?.kitten.id ?? null : null,
+        reaction: c.reaction ? { type: c.reaction.type, reasonCode: c.reaction.reasonCode, sibling: c.reaction.sibling } : null,
+        carrying: c.giftState.stage === 'bring' ? c.giftState.item : null,
+        lastBurst: c.lastBurst,
       },
       foods: c.foods.map((f) => ({ id: f.id, x: f.x / W, y: f.y / H, age: this.simTime - f.born })),
       input: {

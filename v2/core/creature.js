@@ -8,13 +8,26 @@
 // browser build and in `node --test`, which is the boundary a future Node.js service keeps.
 
 import { PARAMS, clamp } from './config.js';
-import { growthStep, phaseOf } from './growth.js';
+import { growthStep, growthBurst, GrowthLedger, phaseOf, PHASES } from './growth.js';
 import {
   dist, RewardLedger, updateFood, finishEating, updateStartle, updateDwell,
   updateContact, startContact, endContact, updatePlay, updateWaiting,
 } from './care.js';
 
-export const BEHAVIOURS = ['EXPLORE', 'SEEK_FOOD', 'REST', 'GROOM', 'APPROACH', 'PLAY', 'CONTACT', 'RETREAT', 'OBSERVE'];
+export const BEHAVIOURS = ['EXPLORE', 'SEEK_FOOD', 'REST', 'GROOM', 'APPROACH', 'PLAY', 'CONTACT', 'RETREAT', 'OBSERVE', 'SOCIAL', 'HUNT', 'GIFT'];
+export const GIFTS = ['pebble', 'feather', 'flower', 'shell'];
+// How rough each kitten plays: wrestling with Saffron gets tense sooner than with Juniper.
+const ROUGH = { ember: 1, juniper: 0.6, saffron: 1.5 };
+// Which completed act of care feeds which growth burst.
+const GROWTH_CAUSE = {
+  eat_completed: () => 'FEED',
+  pounce_success: () => 'PLAY',
+  contact_ended: (e) => (e.validity === 'valid' && e.measurement.duration >= 1.5 ? 'PET' : null),
+  space_respected: () => 'WAIT',
+  sibling_play: (e) => (e.measurement.endedBy === 'done' ? 'SOCIAL' : null),
+  hunt_pounce: () => 'HUNT',
+  gift_given: () => 'GIFT',
+};
 const IDLE = new Set(['EXPLORE', 'OBSERVE', 'GROOM']);
 // A lead-in may hand over to its follow-up without the switching margin
 // (walking up to the hand → being petted).
@@ -61,7 +74,16 @@ export class CreatureCore {
     this.growing = false;
     this.growthBlockedBy = null;
     this.ledger = new RewardLedger(params);
-    this.stats = { fed: 0, pounces: 0, contactSec: 0, startles: 0, refusals: 0 };
+    this.growthLedger = new GrowthLedger(params);
+    this.lastBurst = null;
+    // litter life: an external goal / held pose (siblings only), social and hunting state
+    this.goal = null;
+    this.held = null;
+    this.social = { target: null, partner: null, wrestleUntil: 0, wrestleStart: 0, cooldownUntil: 0, refused: null };
+    this.reaction = null; // { type: 'hiss', reasonCode, sibling, until }
+    this.huntState = { cooldownUntil: 0 };
+    this.giftState = { readyAt: 0, stage: null, spot: null, item: null, seq: 0 };
+    this.stats = { fed: 0, pounces: 0, contactSec: 0, startles: 0, refusals: 0, wrestles: 0, hisses: 0, hunts: 0, catches: 0, gifts: 0 };
     this.events = [];
     this.hints = [];
     this.decision = { candidates: [], chosen: 'OBSERVE', why: 'start', forced: null };
@@ -94,6 +116,8 @@ export class CreatureCore {
   }
 
   get phase() { return phaseOf(this.ageProgress); }
+  get phaseIndex() { return PHASES.indexOf(this.phase); }
+  get wrestling() { return this.social.partner !== null && (this.lastTime ?? 0) < this.social.wrestleUntil; }
   get relation() { const t = this.needs.trust; return t < 0.35 ? 0 : t < 0.6 ? 1 : 2; }
   get bodyRadius() { return this.p.creature.bodyRadius * (0.8 + 0.1 * this.ageProgress); }
 
@@ -130,6 +154,13 @@ export class CreatureCore {
   step(dt, ctx) {
     this.lastTime = ctx.time;
     if (ctx.frozen) { this.vx *= 0.8; this.vy *= 0.8; return { phaseChanged: false, grown: false }; }
+    if (this.reaction && ctx.time >= this.reaction.until) this.reaction = null;
+    if (this.held) {
+      if (ctx.time < this.held.until) { this.behaviour = this.held.behaviour; this.actHeld(dt, ctx); return { phaseChanged: false, grown: false }; }
+      this.held = null;
+      this.forceRedecide = true;
+    }
+    const firstEvent = this.events.length;
 
     this.updateNeeds(dt);
     updateFood(this, ctx);
@@ -146,13 +177,49 @@ export class CreatureCore {
     this.act(dt, ctx);
     updateContact(this, ctx, dt);
     updatePlay(this, ctx, dt);
+    this.updateWrestle(dt, ctx);
+    this.checkHiss(ctx);
 
-    const g = growthStep(this, dt, ctx.active && !this.demo && ctx.time >= this.transitionUntil, this.p);
+    const canGrow = ctx.active && !this.demo && ctx.time >= this.transitionUntil;
+    const g = growthStep(this, dt, canGrow, this.p);
+    this.afterGrowth(g, ctx);
+    // a completed act of care is also a burst of growth
+    const done = this.events.slice(firstEvent);
+    for (const e of done) {
+      const cause = GROWTH_CAUSE[e.type]?.(e);
+      if (!cause) continue;
+      const b = growthBurst(this, cause, ctx.time, canGrow && ctx.time >= this.transitionUntil, this.p);
+      if (!b.amount) continue;
+      this.lastBurst = { cause, amount: b.amount, time: ctx.time };
+      this.emit('growth_burst', ctx, { measurement: { cause, amount: b.amount, for: e.id } });
+      this.afterGrowth(b, ctx);
+    }
+    return g;
+  }
+
+  afterGrowth(g, ctx) {
     if (g.phaseChanged) {
       this.transitionUntil = ctx.time + this.p.growth.transitionSec;
       this.emit('phase_changed', ctx, { measurement: { phase: this.phase } });
     }
-    return g;
+    if (g.grown) {
+      this.transitionUntil = ctx.time + this.p.growth.transitionSec;
+      this.emit('fully_grown', ctx, { measurement: { phase: 'adult' } });
+    }
+  }
+
+  // Siblings are puppeteered by the simulation while they visit, wrestle or flee.
+  actHeld(dt, ctx) {
+    const h = this.held;
+    let dvx = 0, dvy = 0;
+    if (h.flee) {
+      const ax = this.x - h.flee.x, ay = this.y - h.flee.y, m = Math.hypot(ax, ay) || 1;
+      dvx = (ax / m) * this.p.creature.speed.retreat; dvy = (ay / m) * this.p.creature.speed.retreat;
+    } else if (h.at) {
+      const dx = h.at.x - this.x, dy = h.at.y - this.y, d = Math.hypot(dx, dy);
+      if (d > 0.01) { const s = Math.min(this.p.creature.speed.play, d * 4); dvx = (dx / d) * s; dvy = (dy / d) * s; }
+    }
+    this.move(dvx, dvy, dt, h.face ?? null);
   }
 
   updateNeeds(dt) {
@@ -228,6 +295,37 @@ export class CreatureCore {
     add('RETREAT', 0.2 + 0.7 * n.stress - 0.2 * n.trust,
       n.stress >= L.stressRefuse || ctx.time < this.retreatUntil ? null : 'calm');
 
+    // ---- life with the litter, hunting and gifts (ADR-012). Same rules for every kitten.
+    const sibs = ctx.siblings ?? [];
+    const invited = sibs.find((s) => s.invited);
+    const visitor = sibs.filter((s) => s.visiting && dist(s.x, s.y, this.x, this.y) < this.p.social.nearS)
+      .sort((a, b) => dist(a.x, a.y, this.x, this.y) - dist(b.x, b.y, this.x, this.y))[0];
+    const partner = invited ?? visitor ?? null;
+    this.social.target = partner?.id ?? null;
+    const tired = resting || n.energy <= L.playEnergy;
+    add('SOCIAL', 0.2 + 0.5 * (1 - n.fun) + 0.1 * n.energy,
+      !partner ? 'alone'
+        : ctx.time < this.social.cooldownUntil ? 'cooldown'
+        : tired ? 'NEED_REST'
+        : n.stress >= L.playStress ? 'PRESSURE_HIGH'
+        : n.fullness < L.hungerBlocksContact ? 'HUNGRY_FIRST' : null,
+      !!invited);
+    const cr = ctx.critter;
+    add('HUNT', 0.25 + 0.45 * (1 - n.fun),
+      this.phaseIndex < this.p.hunt.minPhase ? 'too_young'
+        : !cr ? 'none'
+        : ctx.time < this.huntState.cooldownUntil ? 'cooldown'
+        : tired ? 'NEED_REST'
+        : n.stress >= L.playStress ? 'PRESSURE_HIGH' : null);
+    const gp = this.p.gift;
+    add('GIFT', 0.3 + 0.3 * n.trust,
+      this.phaseIndex < gp.minPhase ? 'too_young'
+        : n.trust < gp.minTrust ? 'trust'
+        : !h.valid ? 'input'
+        : ctx.time < this.giftState.readyAt ? 'cooldown'
+        : tired ? 'NEED_REST'
+        : n.stress >= L.playStress ? 'PRESSURE_HIGH' : null);
+
     const bored = this.behaviour === 'EXPLORE' && ctx.time >= this.boutUntil;
     if (bored) c[0].score = c[0].base = clamp(c[0].base - 0.15);
     return c;
@@ -238,9 +336,12 @@ export class CreatureCore {
     const n = this.needs, L = this.p.limits;
     const cands = this.candidates(ctx);
     this.reportRefusals(ctx, cands);
+    this.reportInviteRefusal(ctx, cands);
     let forced = null;
 
     if (this.behaviour === 'EAT') forced = ['EAT', 'eating lock (1.2 s)'];
+    else if (this.goal) forced = ['EXPLORE', 'visiting a sibling'];
+    else if (this.wrestling) forced = ['SOCIAL', 'wrestling'];
     else if (ctx.time < this.retreatUntil) forced = ['RETREAT', 'pressure protection'];
     else if (n.energy < L.restEnter) forced = ['REST', 'energy below 0.15'];
     else if (this.behaviour === 'REST' && (n.energy < L.restExit || ctx.time < this.restMinUntil)) forced = ['REST', 'resting until energy 0.65'];
@@ -292,6 +393,19 @@ export class CreatureCore {
     if (ctx.tool === 'PLAY' && h.speed > 0.05) refuse('PLAY', false);
   }
 
+  // An invitation to play with a sibling is a request too: refused with a reason, once.
+  reportInviteRefusal(ctx, cands) {
+    const inv = (ctx.siblings ?? []).find((s) => s.invited);
+    if (!inv || this.social.refused === inv.inviteId) return;
+    const c = cands.find((x) => x.name === 'SOCIAL');
+    if (!c?.blocked || !/^[A-Z_]+$/.test(c.blocked)) return;
+    this.social.refused = inv.inviteId;
+    this.stats.refusals++;
+    if (c.blocked === 'NEED_REST' || c.blocked === 'PRESSURE_HIGH') this.markNeedsSpace(c.blocked, ctx.time);
+    this.emit('refusal', ctx, { reasonCode: c.blocked, measurement: { request: 'SOCIAL', sibling: inv.kitten } });
+    this.hint(c.blocked);
+  }
+
   setBehaviour(name, ctx) {
     if (name === this.behaviour) return;
     const prev = this.behaviour;
@@ -305,6 +419,91 @@ export class CreatureCore {
     if (name === 'REST') this.restMinUntil = ctx.time + this.p.limits.restMinSec;
     if (name === 'CONTACT') startContact(this, ctx);
     if (name === 'SEEK_FOOD') this.eatFoodId = null;
+    if (name === 'GIFT') { this.giftState.stage = 'fetch'; this.giftState.spot = this.randomPoint(); this.giftState.item = null; }
+    if (prev === 'GIFT') { this.giftState.stage = null; this.giftState.item = null; }
+  }
+
+  // ---------------------------------------------------------------- litter, hunting, gifts
+  updateWrestle(dt, ctx) {
+    const s = this.social, sp = this.p.social;
+    if (s.partner === null) return;
+    if (ctx.time < s.wrestleUntil) {
+      const partner = (ctx.siblings ?? []).find((o) => o.id === s.partner);
+      const rough = ROUGH[partner?.kitten] ?? 1;
+      this.needs.fun = clamp(this.needs.fun + (sp.fun / sp.wrestleSec) * dt);
+      this.needs.energy = clamp(this.needs.energy - (sp.energy / sp.wrestleSec) * dt);
+      this.needs.stress = clamp(this.needs.stress + sp.stressPerSec * rough * dt);
+      if (this.needs.stress < this.p.limits.playStress) return;
+      // play got too rough: it ends in a hiss, never in a penalty for the visitor
+      this.endWrestle(ctx, 'too_rough', partner);
+      this.hiss(ctx, 'SIB_TENSE', partner);
+      return;
+    }
+    this.endWrestle(ctx, 'done', (ctx.siblings ?? []).find((o) => o.id === s.partner));
+  }
+
+  endWrestle(ctx, endedBy, partner) {
+    const s = this.social;
+    const duration = Math.max(0, Math.min(ctx.time, s.wrestleUntil) - s.wrestleStart);
+    s.partner = null;
+    s.wrestleUntil = 0;
+    s.cooldownUntil = ctx.time + this.p.social.cooldownSec;
+    this.stats.wrestles++;
+    this.emit('sibling_play', ctx, { reasonCode: endedBy === 'done' ? 'SIB_PLAY' : 'SIB_TENSE', measurement: { sibling: partner?.kitten ?? null, duration, endedBy } });
+    if (endedBy === 'done') this.hint('SIB_PLAY');
+    this.behaviour = 'OBSERVE'; this.behaviourSince = ctx.time; this.boutUntil = ctx.time + 1.5;
+    this.forceRedecide = true;
+  }
+
+  hiss(ctx, reasonCode, sib) {
+    this.reaction = { type: 'hiss', reasonCode, sibling: sib?.kitten ?? null, siblingId: sib?.id ?? null, until: ctx.time + this.p.social.hissSec };
+    this.social.cooldownUntil = ctx.time + this.p.social.cooldownSec;
+    this.stats.hisses++;
+    this.emit('hiss', ctx, { reasonCode, measurement: { sibling: sib?.kitten ?? null, behaviour: this.behaviour } });
+    this.hint(reasonCode);
+  }
+
+  // A sibling that comes too close while the kitten eats, sleeps or is tense gets hissed at.
+  // This is the kitten's own boundary toward its litter-mates; it never touches trust.
+  checkHiss(ctx) {
+    if (this.demo || this.reaction || this.wrestling) return;
+    const n = this.needs, sp = this.p.social;
+    const near = (ctx.siblings ?? []).find((o) => dist(o.x, o.y, this.x, this.y) < sp.hissS && o.id !== this.social.target);
+    if (!near) return;
+    const code = this.behaviour === 'EAT' || (this.behaviour === 'SEEK_FOOD' && n.fullness < 0.6) ? 'SIB_FOOD'
+      : this.behaviour === 'REST' ? 'SIB_REST'
+      : n.stress >= this.p.limits.playStress ? 'SIB_TENSE' : null;
+    if (code) this.hiss(ctx, code, near);
+  }
+
+  startWrestle(ctx, partner) {
+    this.social.partner = partner.id;
+    this.social.wrestleStart = ctx.time;
+    this.social.wrestleUntil = ctx.time + this.p.social.wrestleSec;
+  }
+
+  huntPounce(ctx, critter) {
+    const hp = this.p.hunt;
+    const before = this.needSnapshot();
+    const caught = this.rand() < hp.catchChance;
+    this.needs.fun = clamp(this.needs.fun + hp.fun);
+    this.needs.energy = clamp(this.needs.energy - hp.energy);
+    this.huntState.cooldownUntil = ctx.time + hp.cooldownSec;
+    this.stats.hunts++;
+    if (caught) this.stats.catches++;
+    this.emit('hunt_pounce', ctx, { before, measurement: { critter: critter.kind, critterId: critter.id, caught } });
+    this.forceRedecide = true;
+  }
+
+  dropGift(ctx) {
+    const g = this.giftState;
+    g.readyAt = ctx.time + this.p.gift.cooldownSec;
+    this.stats.gifts++;
+    this.emit('gift_given', ctx, { reasonCode: 'GIFT_GIVEN', measurement: { item: g.item, giftId: `g${++g.seq}`, x: this.x + Math.cos(this.heading) * this.bodyRadius * 1.5 + Math.cos(this.heading + Math.PI / 2) * 0.06, y: this.y + Math.sin(this.heading) * this.bodyRadius * 1.5 + Math.sin(this.heading + Math.PI / 2) * 0.06 } });
+    this.hint('GIFT_GIVEN');
+    g.stage = null; g.item = null;
+    this.behaviour = 'OBSERVE'; this.behaviourSince = ctx.time; this.boutUntil = ctx.time + 2;
+    this.forceRedecide = true;
   }
 
   // ---------------------------------------------------------------- body
@@ -315,6 +514,7 @@ export class CreatureCore {
 
     switch (this.behaviour) {
       case 'EXPLORE': {
+        if (this.goal) { tx = this.goal.x; ty = this.goal.y; speed = sp.seek * 0.8; stopAt = this.goal.stop ?? 0.05; break; }
         if (!this.wanderTarget || dist(this.x, this.y, this.wanderTarget.x, this.wanderTarget.y) < 0.03) {
           this.wanderTarget = this.randomPoint();
         }
@@ -350,11 +550,39 @@ export class CreatureCore {
           speed = sp.retreat * (1 - 0.4 * this.needs.trust);
         }
         break;
+      case 'SOCIAL': {
+        const sid = this.social.partner ?? this.social.target;
+        const o = (ctx.siblings ?? []).find((q) => q.id === sid);
+        if (!o) { this.forceRedecide = true; break; }
+        if (this.social.partner !== null) { tx = o.x; ty = o.y; speed = sp.approach; stopAt = this.p.social.meetS * 0.6; break; }
+        tx = o.x; ty = o.y; speed = sp.seek; stopAt = this.p.social.meetS * 0.8;
+        if (this.social.partner === null && dist(this.x, this.y, o.x, o.y) < this.p.social.meetS) this.startWrestle(ctx, o);
+        break;
+      }
+      case 'HUNT': {
+        const cr = ctx.critter;
+        if (!cr) { this.forceRedecide = true; break; }
+        tx = cr.x; ty = cr.y; speed = sp.play * 0.85; stopAt = 0.01;
+        if (dist(this.x, this.y, cr.x, cr.y) < this.bodyRadius + this.p.hunt.pounceS) this.huntPounce(ctx, cr);
+        break;
+      }
+      case 'GIFT': {
+        const g = this.giftState;
+        if (g.stage === 'fetch' && g.spot) {
+          tx = g.spot.x; ty = g.spot.y; speed = sp.seek * 0.8;
+          if (dist(this.x, this.y, g.spot.x, g.spot.y) < 0.04) { g.stage = 'bring'; g.item = GIFTS[Math.floor(this.rand() * GIFTS.length)]; }
+        } else if (g.stage === 'bring' && h.valid) {
+          tx = h.x; ty = h.y; speed = sp.approach * 1.2; stopAt = this.p.gift.dropS;
+          if (dist(this.x, this.y, h.x, h.y) < this.p.gift.dropS + 0.02) this.dropGift(ctx);
+        }
+        break;
+      }
       default:
         break; // OBSERVE, REST, GROOM, CONTACT: stay put
     }
 
     let dvx = 0, dvy = 0;
+    if (this.wrestling) { const t = ctx.time * 9; dvx += Math.sin(t) * 0.12; dvy += Math.cos(t * 1.3) * 0.12; }
     if (tx !== null) {
       const dx = tx - this.x, dy = ty - this.y;
       const d = Math.hypot(dx, dy);
@@ -363,11 +591,19 @@ export class CreatureCore {
         dvx = (dx / d) * s; dvy = (dy / d) * s;
       }
     }
-    // personal space: litter-mates never walk through each other
+    // personal space: litter-mates never walk through each other (except a wrestling partner)
+    const pal = this.social.partner ?? (this.behaviour === 'SOCIAL' ? this.social.target : null) ?? this.goal?.id ?? this.held?.partner ?? null;
     for (const o of ctx.others ?? []) {
+      if (pal && o.id === pal) continue;
       const ox = this.x - o.x, oy = this.y - o.y, d = Math.hypot(ox, oy);
       if (d > 1e-6 && d < 0.22) { const push = (0.22 - d) / 0.22 * 0.25; dvx += (ox / d) * push; dvy += (oy / d) * push; }
     }
+    let face = null;
+    if (Math.hypot(dvx, dvy) < 0.01 && (this.behaviour === 'OBSERVE' || this.behaviour === 'CONTACT') && h.valid) face = Math.atan2(h.y - this.y, h.x - this.x);
+    this.move(dvx, dvy, dt, face);
+  }
+
+  move(dvx, dvy, dt, faceIfStill) {
     // keep away from the edges and the toolbar band
     const m = 0.08, bottom = this.world.h - this.p.feed.toolbarBandS;
     if (this.x < m) dvx += 0.1; if (this.x > this.world.w - m) dvx -= 0.1;
@@ -380,8 +616,8 @@ export class CreatureCore {
     this.y = clamp(this.y + this.vy * dt, 0.02, this.world.h - 0.02);
     const v = Math.hypot(this.vx, this.vy);
     let face = null;
-    if (v > 0.01) face = Math.atan2(this.vy, this.vx);
-    else if ((this.behaviour === 'OBSERVE' || this.behaviour === 'CONTACT') && h.valid) face = Math.atan2(h.y - this.y, h.x - this.x);
+    if (v > 0.01 && !this.wrestling) face = Math.atan2(this.vy, this.vx);
+    else face = faceIfStill;
     if (face !== null) {
       let d = face - this.heading;
       while (d > Math.PI) d -= 2 * Math.PI;

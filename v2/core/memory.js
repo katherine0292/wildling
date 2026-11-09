@@ -19,6 +19,7 @@ const median = (a) => {
 export const SEMANTIC = new Set([
   'eat_completed', 'pounce_success', 'contact_started', 'contact_ended',
   'refusal', 'startle', 'space_respected', 'phase_changed', 'rhythm_adapted',
+  'sibling_play', 'hiss', 'hunt_pounce', 'gift_given',
 ]);
 
 export class RelationshipMemory {
