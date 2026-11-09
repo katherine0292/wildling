@@ -350,8 +350,11 @@ A session's preferences **cannot change** the trajectory-quality gate, hard ener
 - Rate: (1/80) × (1 + 0.25 × trust) per second, so 0 → 3 needs about 192–240 s of qualifying time; poor care and pauses make it longer. At the 300 s limit the round still ends normally without padding progress.
 - Repeated rewards from one tool cap within a minute; growth never forces all three kinds of care. Waiting, rest and different inputs all complete the experience; visitors with limited mobility are never stuck in a chapter.
 
+- **Revision after the build review [Proposal], see ADR-013:** the gate above is unchanged. Behind it, growth now combines a slower drift (1/150 per second × (1 + 0.25 × trust)) with a burst for each completed act of care (meal 0.08, catch 0.04, quiet contact ≥ 1.5 s 0.10, space given 0.06, wrestle 0.09, hunt 0.06, gift 0.07 of a chapter), capped per cause at 0.24 per minute. Attentive, varied care takes about one minute per chapter; neglect cannot finish within the 300 s limit. A growth meter shows progress to the next chapter, the gating needs and the blocking reason.
+
 ### 16.2 Three chapters
-0–1 kitten in the jungle; 1–2 juvenile in the snowfields; 2–3 adult in the desert. A 1.5 s transition pauses new actions, keeps state and shows a chapter cue; changing scene never clears trust or preferences. P0 does not inherit Prototype A's 1.35× snow energy cost or full hunting, to keep the learning load low.
+0–1 kitten in the forest; 1–2 juvenile in the snowfields; 2–3 adult in the desert. A 1.5 s transition pauses new actions, keeps state and shows a chapter cue; changing scene never clears trust or preferences. P0 does not inherit Prototype A's 1.35× snow energy cost or full hunting, to keep the learning load low.
+- **Revision after the build review [Proposal], see ADR-012 and ADR-013:** the transition is 4 s with a title card listing what changed. Each chapter has a distinct body and one new ability: Chapter I yarn play and rough-and-tumble with the litter; Chapter II hunting a passing critter (a simplified, single-pounce hunt, not Prototype A's full hunting); Chapter III bringing a gift to a visitor it trusts. Becoming fully grown is celebrated before the reflection screen.
 
 ## 17 Explanation and feedback [Proposal]
 
