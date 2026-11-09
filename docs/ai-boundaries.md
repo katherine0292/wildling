@@ -16,7 +16,7 @@ Brief V2 §6.3 asks the delivery to **state clearly what is a trained model, wha
 | Life with the litter (visit, wrestle, hiss, invite) | **Rules** (hiss triggers) + **hand-written utility** (`SOCIAL`) | `v2/core/creature.js`, `v2/core/sim.js` | Implemented; tested |
 | Hunting and gifts | **Hand-written utility** with chapter and trust gates | `v2/core/creature.js` | Implemented; tested |
 | Growth meter | **Rule gate** + **capped bursts** per completed act of care | `v2/core/growth.js` | Implemented; tested |
-| Hand shapes (open hand, two fingers, fist, claw) | **Rule baseline** on HandPose keypoints, with `unknown` rejection and a 600 ms hold | `v2/core/pose.js` | Implemented; tested on synthetic keypoints; on-device accuracy not yet measured |
+| Hand shapes (open hand, two fingers, fist, claw) | **Rule baseline** on HandPose keypoints (3D when available), soft scores smoothed over frames, `unknown` rejection and a 500 ms hold | `v2/core/pose.js` | Implemented; tested on synthetic keypoints; on-device accuracy not yet measured |
 | Bonds with siblings | **Bounded counters** changed by completed acts; gate requests | `v2/core/creature.js` | Implemented; tested |
 | Toys (yarn, feather, ball) | **Physics** (spring, friction) feeding the same **play rules** | `v2/core/sim.js`, `v2/core/care.js` | Implemented; tested |
 | Returning-visitor greeting | **Stored count** in the visitor's own browser + a **bounded rule** | `v2/browser/keepsake.js`, `v2/core/sim.js` | Implemented; tested |

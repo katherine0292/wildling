@@ -26,7 +26,7 @@
 |---|---|
 | **Project** | An interactive installation for a Sydney game and interaction exhibition. The project lead issued two briefs: [Brief V1](docs/brief/brief-v1.md) (care, trust, a creature with its own rhythm), then [Brief V2](docs/brief/brief-v2.md), an AI-experience upgrade (evaluable gestures, explainable decisions, bounded adaptation). |
 | **My role** | AI product and interaction designer, and developer. I turned each brief into a PRD ([V1](docs/prd/prd-v1.md), [V2](docs/prd/prd-v2.md)), designed the AI behaviour and the visitor experience, built two prototypes and the V2 build, and kept requirements, decisions and evidence aligned in writing. |
-| **How requirements are written** | Every requirement is tagged **[Client]**, **[Proposal]** or **[To confirm]**. A [traceability matrix](docs/traceability.md) links each brief goal to a spec and an acceptance case. [21 decision records](docs/decisions/README.md) give the options, the trade-off and what would overturn each one. |
+| **How requirements are written** | Every requirement is tagged **[Client]**, **[Proposal]** or **[To confirm]**. A [traceability matrix](docs/traceability.md) links each brief goal to a spec and an acceptance case. [23 decision records](docs/decisions/README.md) give the options, the trade-off and what would overturn each one. |
 | **What's built** | The V2 build: a tracking-quality gate, motion intent and hand shapes with `unknown`, hard constraints + utility over 13 behaviours, reason codes, bounded adaptation, visible growth, a litter with bonds, **few-shot trick learning on the device**, keepsakes and a postcard, a staff panel and a fully procedural world. |
 | **Evidence** | 67 replay tests across 10 suites, mapped to the PRD's acceptance cases and run in CI. Planned, implemented, verified and confirmed are tracked separately on the [status board](docs/STATUS.md). What is not yet measured is labelled as such. |
 
@@ -148,7 +148,7 @@ record  { candidates, blocked reasons, winner, why } → staff panel, Peek insid
 |---|---|
 | Tracking quality | sample age ≤ 200 ms · jump > 0.35 S rejected · lost after 500 ms |
 | Motion intent | 600 ms window · top ≥ 0.80 and margin ≥ 0.20 for 2 cycles, else `unknown` |
-| Hand shapes | finger reach and knuckle bend · score ≥ 0.75, margin ≥ 0.25 · 600 ms hold · 1.5 s cooldown |
+| Hand shapes | 3D joint bend (2D reach fallback) · soft per-finger scores · smoothed α 0.35 · top ≥ 0.55, margin ≥ 0.15 · 500 ms hold · 1.5 s cooldown |
 | Tricks | 3 examples · 16 points → 32 features · 1-NN · reject beyond 0.32 or margin < 0.05 |
 | Adaptation | after 3 valid events · 0.8 / 0.2 smoothing · hard ranges · cleared at turnover |
 | Growth | gate: each need ≥ 0.20, mean ≥ 0.55, stress ≤ 0.40 · drift 1/150 per s · bursts capped at 0.24 of a chapter per cause per minute |
@@ -198,7 +198,7 @@ record  { candidates, blocked reasons, winner, why } → staff panel, Peek insid
 | Path | What |
 |---|---|
 | [`docs/brief/`](docs/brief) · [`docs/prd/`](docs/prd) | Both briefs and both PRDs, Markdown and PDF |
-| [`docs/traceability.md`](docs/traceability.md) · [`docs/decisions/`](docs/decisions/README.md) | Brief → spec → acceptance · 21 decision records |
+| [`docs/traceability.md`](docs/traceability.md) · [`docs/decisions/`](docs/decisions/README.md) | Brief → spec → acceptance · 23 decision records |
 | [`docs/design/experience-spec.md`](docs/design/experience-spec.md) | Two-layer state model, feedback mapping, recovery |
 | [`docs/research/`](docs/research) | Usability and adaptation study · gesture dictionary and data plan |
 | [`docs/ai-boundaries.md`](docs/ai-boundaries.md) · [`docs/STATUS.md`](docs/STATUS.md) | Model, rule, learned or statistics · planned, implemented, verified, confirmed |

@@ -26,6 +26,8 @@ Status: **Proposed** (in the PRD, awaiting review) · **Adopted** (confirmed or 
 | [ADR-019](#adr-019-teach-a-trick-few-shot-learning-on-the-device) | Teach a trick: few-shot learning on the device | V2 build | Proposed · implemented for review |
 | [ADR-020](#adr-020-the-litter-notices-passers-by) | The litter notices passers-by | V2 build | Proposed · implemented for review · exhibition only |
 | [ADR-021](#adr-021-dreams-replay-real-moments) | Dreams replay real moments | V2 build | Proposed · implemented for review |
+| [ADR-022](#adr-022-hand-shapes-that-hold-up-on-a-real-camera) | Hand shapes that hold up on a real camera | V2 build | Proposed · implemented for review · revises ADR-017 |
+| [ADR-023](#adr-023-a-tutorial-that-teaches-by-doing) | A tutorial that teaches by doing | V2 build | Proposed · implemented for review |
 
 ---
 
@@ -180,3 +182,22 @@ Status: **Proposed** (in the PRD, awaiting review) · **Adopted** (confirmed or 
 ## ADR-021 Dreams replay real moments
 - **Context:** memory was only visible at the end, in the journal.
 - **Decision:** while the kitten sleeps, a dream bubble cycles through the visit's own album photos ("Dreaming of: first fish"). Only real, photographed moments appear.
+
+## ADR-022 Hand shapes that hold up on a real camera
+- **Context:** first tests with a real camera found the hand shapes unreliable. Each finger was judged with hard yes/no thresholds on 2D distances, so jitter flipped answers, a tilted hand looked like a different shape, and a claw seen from the front looked like short straight fingers. The shape also had to be held exactly over a moving sibling.
+- **Decision:**
+  - Use the model's **3D keypoints** when present to measure how each finger bends at its joints, and fall back to 2D reach otherwise.
+  - Give every finger **soft scores** (straight, folded, claw-bent) instead of booleans, and average them per shape.
+  - **Smooth** the shape scores over recent frames (α = 0.35) before naming a shape, then require top ≥ 0.55 and margin ≥ 0.15, else `unknown`.
+  - Allow a 200 ms gap in the hold, shorten the hold to 500 ms, widen the target to 0.22 S, and keep the same sibling while a shape is held (up to 0.32 S).
+  - The visible cursor became a see-through hand, so it no longer hides the kitten.
+- **Evidence:** `test/litter-commands.test.mjs` (shapes at ±40° rotation, 0.6–1.4× scale and offset; 22 of 22 settled frames correct under heavy jitter; a claw curled toward the camera recognised from 3D). Accuracy on real hands at venue distance is still to be measured (WP06).
+
+## ADR-023 A tutorial that teaches by doing
+- **Context:** first-time visitors did not know the hand shapes existed, or how to start a play-fight.
+- **Decision:** a short tutorial on the first visit:
+  - **Steps:** say hello, offer a fish, play, then one step per hand shape (make friends, play-fight, cuddle, hiss).
+  - **Each step:** one line of text and the hand shape to make, drawn faintly on the scene, with the right tool selected.
+  - **Moving on:** a step only goes away when the visitor has done it (contact accepted, fish dropped, shape recognised, or the request chosen from the menu).
+  - **Escape hatches:** every step can be skipped, a Next button appears after 20 s, and "?" replays the tutorial.
+  - **When it shows:** once per browser on the website, and for every visitor in kiosk mode.
