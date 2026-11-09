@@ -380,3 +380,177 @@ A session's preferences **cannot change** the trajectory-quality gate, hard ener
 If a language model is added later, it receives only an anonymous structured summary and candidate fact IDs, and returns one or two short lines with `evidenceIds`. The server checks length, citations, forbidden inferences and language; a 2 s timeout, an invalid citation or any error falls back to the fixed template. **Generated text never enters the Brain, calls action tools, changes values or decides trust.** API keys stay server-side with a per-round call limit and budget; raw action data never leaves by default. This needs its own scope and data notes.
 
 ---
+
+## 18 Architecture across two languages
+
+**[Client]** Processing Java renders the exhibition display; JavaScript handles perception; a local Node.js service owns the single character state; the brain runs once. **[Proposal]** The deployment and module design below are mine.
+
+```mermaid
+flowchart LR
+    CAM[Camera] --> HP[Browser HandPose]
+    MK[Mouse / keyboard] --> IA
+    HP --> IA[InputAdapter<br/>coordinates · quality gate]
+    IA --> GC[GestureClassifier<br/>window · inference · rejection]
+    GC -->|input.intent| CORE
+    subgraph NODE[Local Node.js authority]
+      SC[SessionController] --> CORE[CreatureCore<br/>needs · constraints · utility]
+      CORE <--> RM[RelationshipMemory<br/>events · bounded adaptation]
+    end
+    CORE -->|state.snapshot 30 Hz| PJ[Processing exhibition display]
+    CORE -->|state.snapshot| BR[Browser p5 backup display]
+    CORE -->|semantic events| SA[Web Audio, the only sound source]
+```
+
+| Module | Language | Sole responsibility |
+|---|---|---|
+| InputAdapter | JavaScript, browser | Video permission, keypoints, mouse and keyboard, coordinates and quality |
+| GestureClassifier | JavaScript, browser | Features, windows, inference, rejection, model version |
+| SessionController | JavaScript, Node.js | Sessions, timers, turnover, connections and input ownership |
+| CreatureCore | JavaScript, Node.js | Needs, hard constraints, utility, movement targets, growth, semantic events |
+| RelationshipMemory | JavaScript, Node.js | Summaries, bounded adaptation, recap facts |
+| ExhibitionRenderer | Processing Java | Body and scenes, interpolation, main-screen cues, state expression |
+| BrowserRenderer | JavaScript p5.js | Development and backup display, consuming the same state |
+| SoundAdapter | JavaScript Web Audio | Consumes semantic events and state; the only sound source |
+
+- Node.js steps at a fixed 60 Hz, scores behaviour at 4 Hz and snapshots at 30 Hz. Processing targets 60 fps and interpolates the latest snapshot, **never changing trust itself**. Browser input positions are sent at up to 30 Hz, classification at 10 Hz, explicit commands immediately with acknowledgement.
+- **Porting to Processing:** p5.Vector, Canvas Path2D, DOM, Web Audio and ml5 do not run in Java mode. The Java side rebuilds visuals with PVector, PGraphics, shapes and a custom skeleton; audio and the hand model stay in the browser. The P0 body at least has heading interpolation, gait, tail, rest pose and stress expression. The eight-joint spine and two-bone IK are P1. Java 11+ uses `java.net.http.WebSocket` as a client; callbacks assemble fragments into a thread-safe queue and `draw` reads the latest snapshot.
+- **Proposed repository layout:** `browser/{input,perception,preview,audio}`, `server/{session,core,memory,protocol}`, `processing/WildlingExhibit`, `shared/{schema,reasonCodes,parameters,copy}`, `models/`, `fixtures/`, `docs/`.
+
+## 19 Protocol and state consistency [Proposal]
+
+### 19.1 F2-16 Message contract
+Every message carries `protocolVersion, type, sessionId, seq, payload`; commands add `commandId`. The server creates `sessionId`; a new client can never reuse an old one. Snapshots carry `simulationTime` and `stateRevision`.
+
+```json
+{
+  "protocolVersion": "1.0",
+  "type": "input.intent",
+  "sessionId": "session_example_01",
+  "seq": 241,
+  "payload": {
+    "source": "camera",
+    "valid": true,
+    "position": { "x": 0.52, "y": 0.48 },
+    "speedSPerSecond": 0.12,
+    "intent": "stable_contact",
+    "score": 0.88,
+    "margin": 0.31,
+    "modelVersion": "gesture_1.0",
+    "featureVersion": "features_1.0"
+  }
+}
+```
+
+- This input **does not authorise CONTACT by itself**; CreatureCore still checks the tool, the character's invitation, stress and energy. Mouse and keyboard send `score` and `margin` as `null` and never fake network scores.
+- Snapshots carry at least `sessionState, creatureId, stateRevision, position, heading, behaviour, phase, needs, ageProgress, acceptedContact, reasonCode, activeTool, displayHint`. Position and collision are decided on the server; the Java body outline follows the shared geometry so a hand never looks as if it touches the cat while the server says it doesn't.
+
+### 19.2 Event semantics and de-duplication
+- Continuous positions are latest-wins and stale frames may be dropped. Discrete commands (feeding, tool switches, start, end) are de-duplicated by `commandId` and acknowledged. Without an ack in 1 s, the same ID may be retried at most twice; **never a new ID for the same fish**.
+- Sound and eating events carry an `eventId`. Each consumer keeps the IDs it has handled this round, so a reconnect never replays every sound; effects older than 2 s are not replayed.
+- The server heartbeats every second; 3 s without a response marks a disconnect. A display without a snapshot for 1 s pauses interaction feedback and shows a recovery hint. After reconnect the server snapshot wins. Old session IDs, decreasing `seq`, invalid enums, NaN and out-of-range fields are rejected and counted.
+
+### 19.3 Local deployment
+The service binds only to loopback and uses a temporary connection token generated at start-up; only the expected local pages may connect. Browser and service use matching protocols; an HTTPS page cannot connect to an insecure WebSocket. Packets are limited to 64 KB, and input over the rate limit drops the oldest continuous frames. This is local inter-process communication, not a public service; any public deployment needs its own access, security and operations design.
+
+## 20 Privacy and logs [Proposal]
+
+### 20.1 F2-17 Data minimisation
+- In the exhibition, camera frames and continuous keypoints live in memory only; **no video, audio or face images are written**. The relationship lasts only for the session. At the end: tracks stopped; action windows, preferences, events, cursor position, camera preview and old session ID destroyed.
+- **[To confirm]** If anonymous research statistics are collected, the entry point explains purpose and opt-out. Minimum fields: random session ID, build and model version, input mode, completion state, latency buckets, accepted and refused action counts, error types and duration. Kept 7 days by default, then deleted. Different visits by the same person are never linked.
+
+### 20.2 Diagnostics
+The staff view shows camera, model, protocol and render connection state, valid-input rate, latest reasons, candidate utilities and current preferences. Diagnostic logs can export anonymous summaries and synthetic replays; public sessions never export continuous trajectories. Capture mode and public mode are clearly separated in UI and configuration. A README saying "nothing is uploaded" is no substitute for runtime checks; only after offline testing confirms that models, fonts and scripts are local can the package claim to need no internet.
+
+## 21 Performance and venue operation [Proposal]
+
+- **NFR01 Target device and budget:** provisional baseline of a recent computer with 8 GB+ RAM, integrated graphics, a 720p camera and a 1920×1080 main display; final acceptance records the exact model, OS, browser, Processing and model versions. Render at 60 fps with 95 % of frames ≤ 33 ms; below 30 fps for 3 s, particles, shadows and resolution drop first. **Lowering effects never changes behaviour timing, action thresholds or adaptation parameters.** Warm start to attract in 5 s; cold start to playable in 15 s. Memory after 4 hours grows ≤ 20 % above the warmed-up baseline.
+- **NFR02 Venue layout:** screen and camera placed so sitting and standing both calibrate; a marked single-operator area on the floor or table; no strong backlight or projection on hands. Volume set by staff with a quick mute; the piece never plays a burst of queued sound on recovery.
+
+## 22 Exceptions and recovery [Proposal]
+
+| Situation | Visitor sees | System does | Recovery acceptance |
+|---|---|---|---|
+| Camera denied or in use | Camera unavailable. Use mouse. | No detection loop; alternative input kept | One click continues the full experience |
+| Keypoints occluded | Tracking outline fades with a position guide | Confirmation stops; no trust loss | Window rebuilds after stability with no speed spike |
+| Model fails to load | Alternative inputs offered; staff see the cause | Rule fallback, clearly labelled | Data never mixed into ML test results |
+| Multiple hands | One hand at a time. | Keeps the track or pauses confirmation | Control never passes to a bystander |
+| Character tired | Rest pose and NEED_REST | Refuses play; energy recovers | Reopens after the recovery threshold |
+| WebSocket drops | Recovering, interaction paused | Input backlog dropped; formal state paused | Snapshot consistent after reconnect; no duplicate food |
+| Processing exits | Staff get a render-disconnect notice | Round paused; switch to browser display | Resumes after stable input when chosen |
+| Page goes to background | Pause or operations notice | Explicit pause; needs don't drain silently | Visitor resumes and the window rebuilds |
+| Visitor leaves suddenly | Timed close, no blame | Camera and session data cleared | Next visitor has no history |
+| Browser blocks audio | Sound off until enabled. | Visual experience unaffected | Resumes on an explicit click without a burst |
+
+## 23 Acceptance cases [Proposal]
+
+| ID | Setup and action | Required result |
+|---|---|---|
+| AT01 | Decline the camera, choose the mouse and play a round | Care, growth, recap and turnover; no camera step required |
+| AT02 | Occlude the hand for 1 s during contact, then recover | Contact timer stops at once; no trust lost; no fast-approach scare on recovery |
+| AT03 | Wave fast far away versus approach fast close by | The first is neutral; the second raises stress only when quality and context agree |
+| AT04 | Hold a pinch for 5 s and resend the same command | At most one confirm or one fish; another only after release |
+| AT05 | Feed repeatedly at fullness 0.90 | No fullness reward; TOO_FULL; no negative relationship change |
+| AT06 | Choose Play at energy 0.10 and trust 0.90 | Forced rest; high trust cannot bypass the boundary |
+| AT07 | Request contact at stress 0.70, then step back | A refusal with a reason; can invite again once stress recovers |
+| AT08 | Two valid contacts, then a third | No preference change after two; a bounded update after the third |
+| AT09 | Inject near-successful actions during `unknown` and pause | Memory samples, trust and growth unchanged |
+| AT10 | One need at 0.10, the others at 0.90 | No growth despite a high average; the matching need hint |
+| AT11 | Repeat a food command while disconnected, then reconnect | Authoritative snapshot restored; no duplicate meal or sound |
+| AT12 | Start the next round right after one ends | New sessionId, default trust and preferences, no old trajectories or camera |
+| AT13 | Switch scene or resize the display | Content coordinates consistent; no double mirroring; character and contact zone aligned |
+| AT14 | Stay on the attract screen 2 minutes, then start | The formal character starts from initial values, no growth carried over |
+| AT15 | Mute and use only the keyboard | All core actions and exit possible without sound or pinch |
+| AT16 | Cut the internet and restart the whole offline package | Local libraries, fonts and model load; mouse and hand both work |
+| AT17 | Reach 300 s without finishing growth | A normal recap based on facts; no padded progress or blame |
+| AT18 | 30 rounds and a 4-hour run | No data leakage, crashes or unbounded resource growth |
+
+Every case records build, model and configuration version, test device, steps, actual result and a log or video reference. Failures are fixed or re-agreed through a scope change; unfinished items are tracked as open, not closed as "known limits".
+
+## 24 AI and experience validation plan [Proposal]
+
+1. **Stage 1:** fixed replays verify product logic: invalid input never penalises; hard boundaries recover; state and events are unique; adaptation is bounded. These cases test the causal chain, not just function return values. (The V2 browser build already covers many of them with `node --test`; see [`../../test`](../../test).)
+2. **Stage 2:** compare four conditions: the old speed and distance rules; new features with quality rules; the trained model with the same quality gate; the trained model with gating and bounded adaptation. Same hardware and tasks; report false triggers, coverage, response time and understanding separately, to see where improvements come from.
+3. **Stage 3:** 10-person usability and counterbalanced adaptation study, recording the first action, one refusal, one lost-hand recovery, one autonomous rest, one explainable change and the ending. Avoid leading questions like "did it learn you?"; ask "what changes did you notice, and why do you think so?".
+4. **Stage 4:** real camera tests on the target device; speaker and headphone listening; offline start; disconnects; hidden pages; unplugging the camera; 30 turnovers. Prototype A's README frame-rate note is not performance evidence for this project, and code review never replaces real camera testing.
+
+## 25 Work breakdown and migration order [Proposal]
+
+| Work package | Days | Output and completion criteria |
+|---|---|---|
+| WP01 Scope and device validation | 3–4 | Freeze defaults; browser-to-Java state and pointer working; dependencies coexist |
+| WP02 Authoritative core and mouse loop | 5–6 | Sessions, three tools, needs, boundaries, utility, recap and turnover, replayable |
+| WP03 Perception and data model | 7–9 | Recruitment, capture, training, held-out evaluation, `unknown` and backup input |
+| WP04 Memory and explanation | 3–4 | Bounded summaries, adaptation ablation, reason codes and event recap |
+| WP05 Processing display and sound | 5–6 | Three scenes, body states, interpolation, unified sound and backup rendering |
+| WP06 User testing and handover | 5 | Usability revisions, stable runs, operations and delivery evidence |
+| Integration and risk buffer | 6–8 | Hardware, data and experience issues; not pre-allocated to new features |
+
+About 34–42 working days, scheduled over 8–10 weeks around feedback and recruitment. One person cannot run every package in parallel; recruitment and dependency-free visual work are interleaved. If both stages were built from scratch, PRD V1's 14–18 days add to this, about 48–60 days in total.
+
+**Migration order:** ① lift Prototype B's tools and clear guidance into a standalone InputAdapter, without inheriting click timing mixed into `draw`; ② lift Prototype A's utility decisions and state inertia, add Prototype B's fun and the hard boundaries; ③ move needs, movement and growth into the authoritative core, verified by replay; ④ connect the new gesture model and bounded memory; ⑤ rebuild an expressive body and scenes in Processing, then assess the P1 skeleton and hunting.
+
+## 26 Risks and decision gates [Proposal]
+
+| Risk | Signal | Response |
+|---|---|---|
+| Not enough data or classes too close | Held-out F1 or false triggers miss target | Narrow the gesture semantics, add confusable samples, keep explicit tools |
+| Two-client performance | Latency over target or sustained low frame rate | Lower visual cost, throttle, async inference; re-test the full chain |
+| Adaptation not noticed | Visitors can't name a change or think it's random | Better parameter mapping and factual hints; drop weak dimensions |
+| Too many refusals frustrate | 30 s with no effective action | Make possible actions explicit, reduce waiting, guarantee rest recovery |
+| Two engines drift apart | Trust, coordinates or growth differ in one round | No duplicate simulation; authoritative snapshot and one protocol version |
+| Scope creep | P1 visuals or generations become core dependencies | Freeze P0 first; new features through change requests |
+| Venue conditions change | Camera, screen or light outside what was validated | Re-validate those conditions; adjust configuration and commitments |
+
+**Gates:** week 1, communication, camera and model dependencies run together; week 5, independent model and rule testing done and P0 perception reviewable; final, core acceptance, stable turnover and clearing all pass. If a gate fails, report impact, mitigation and schedule; a demo video is never a substitute.
+
+## 27 Delivery and definition of done
+
+- **Done means:** P0 features verifiably implemented; all P0 acceptance passed; no blocking defects; 4-hour and 30-round tests on target hardware; camera permission and data clearing as designed; staff complete a start-up and recovery without a developer; design notes separate ML, rules and statistical adaptation; the project lead receives materials to run and continue the work independently.
+- **[To confirm] At kick-off:** actual devices, exhibition dates, target age, viewing distance and light, test recruitment, whether anonymous statistics are recorded, and final language. The defaults support technical and interaction design without implying signed commercial terms.
+- **[To confirm] Decisions for review:** accept this round's P0 and extension boundary; provide target devices and test resources; accept the single local authority and the English main interface; record anonymous statistics or not. Confirmations are recorded in the requirements log; **no reply is not agreement to new work**.
+
+## 28 References
+
+- Requirements: [Brief V2](../brief/brief-v2.md); product baseline: [PRD V1](prd-v1.md); code material: Prototype A and Prototype B.
+- R01 Processing reference · R02 Processing `loadJSONObject` (local configuration, not a live interface) · R03 MDN getUserMedia · R04 TensorFlow.js training · R05 TensorFlow.js save and load · R06 MDN WebSocket · R07 Java SE 11 `java.net.http.WebSocket` · R08 p5.js and ml5.js references.
+- References checked on 2026-11-09. Models, parameters, data plans, performance measures and acceptance gates in this document are my product translation of the brief; implementation, verification and client confirmation are tracked separately in [`../STATUS.md`](../STATUS.md).
