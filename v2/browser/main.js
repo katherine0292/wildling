@@ -78,11 +78,13 @@ const sketch = (p) => {
     }
 
     const stage = document.getElementById('stage');
-    stage.addEventListener('pointermove', (e) => { mouse.x = e.clientX / p.width; mouse.y = e.clientY / p.height; mouse.inside = true; });
+    // pointer positions are on screen; the core works in world coordinates behind the camera
+    const toWorld = (e) => { const w = renderer.screenToWorldN(e.clientX / p.width, e.clientY / p.height); mouse.x = w.x; mouse.y = w.y; };
+    stage.addEventListener('pointermove', (e) => { mouse.sx = e.clientX / p.width; mouse.sy = e.clientY / p.height; toWorld(e); mouse.inside = true; });
     stage.addEventListener('pointerleave', () => { mouse.inside = false; });
     stage.addEventListener('pointerdown', (e) => {
       sound.start();
-      mouse.x = e.clientX / p.width; mouse.y = e.clientY / p.height; mouse.inside = true;
+      mouse.sx = e.clientX / p.width; mouse.sy = e.clientY / p.height; toWorld(e); mouse.inside = true;
       if (sim.session.state === 'ATTRACT') { dispatch({ type: 'start' }); return; }
       if (sim.track.source === 'mouse') dispatch({ type: 'confirm', x: mouse.x, y: mouse.y });
     });
@@ -107,6 +109,7 @@ const sketch = (p) => {
       if (['1', '2', '3'].includes(k)) { ui.setTab('litter'); dispatch({ type: 'choose_kitten', kitten: KITTENS[Number(k) - 1].id }); return; }
       if (k === 'Enter' && !typing) { dispatch({ type: 'start' }); return; }
     }
+    if ((k === 't' || k === 'T') && st === 'ACTIVE') { ui.toggleMind(); return; }
     if (k === 'm' || k === 'M') { soundOn = !soundOn; sound.setOn(soundOn); return; }
     if (k === 'Escape') { if (st === 'ACTIVE') dispatch({ type: 'pause', reason: 'user' }); else if (st === 'PAUSED') dispatch({ type: 'resume' }); return; }
     if (['1', '2', '3', '4'].includes(k)) { dispatch({ type: 'select_tool', tool: ['FEED', 'PLAY', 'PET', 'WAIT'][Number(k) - 1] }); return; }
@@ -125,33 +128,42 @@ const sketch = (p) => {
     const src = sim.track.source;
     if (src === 'camera') {
       const s = camera.take();
+      if (s && Number.isFinite(s.x)) { const w = renderer.screenToWorldN(s.x, s.y); s.x = w.x; s.y = w.y; }
       if (s) sim.ingest(s);
     } else if (keyboard.active) {
       sim.ingest(keyboard.sample(dt, now, p.width / p.height, keyboard.keys.size && p.keyIsDown(p.SHIFT)));
     } else {
+      // re-project the resting pointer as the camera drifts, so it stays under the real cursor
+      if (mouse.sx !== undefined) { const w = renderer.screenToWorldN(mouse.sx, mouse.sy); mouse.x = w.x; mouse.y = w.y; }
       sim.ingest({ t: now, seq: ++mouse.seq, source: 'mouse', present: mouse.inside, x: mouse.x, y: mouse.y });
     }
 
     sim.update(dt, now);
-    for (const e of sim.drainEvents()) {
+    const events = sim.drainEvents();
+    const snap = sim.snapshot();
+    for (const e of events) {
       if (e.type === 'release_camera') camera.stop();
       if (soundOn) sound.play(e);
       staff.log(e);
+      renderer.onEvent(e, snap);
     }
-    const snap = sim.snapshot();
     sound.update(snap);
 
+    const bar = document.getElementById('gpTrack');
+    if (bar && bar.offsetParent) { const r = bar.getBoundingClientRect(); renderer.hudTarget = { x: r.left + r.width * 0.9, y: r.top + r.height / 2 }; }
     renderer.draw(snap, { keypoints: camera.keypoints, showSkeleton: staff.open }, dt);
     const S = Math.min(p.width, p.height);
     const c = snap.creature;
+    const z = renderer.cam.z;
+    const scr = (n) => renderer.worldNToScreen(n);
     ui.update(snap, {
       camera,
       soundOn,
       width: p.width,
       height: p.height,
-      catPx: { x: c.position.x * p.width, y: c.position.y * p.height, r: (0.075 + 0.015 * c.ageProgress) * S },
-      litterPx: snap.litter.map((l) => ({ kitten: l.kitten, x: l.position.x * p.width, y: l.position.y * p.height, r: 0.075 * S })),
-      cursorPx: snap.input.position ? { x: snap.input.position.x * p.width, y: snap.input.position.y * p.height } : null,
+      catPx: { ...scr(c.position), r: (0.06 + 0.025 * c.ageProgress) * S * z },
+      litterPx: snap.litter.map((l) => ({ kitten: l.kitten, ...scr(l.position), r: (0.06 + 0.025 * l.ageProgress) * S * z, wrestling: l.wrestling, fleeing: l.fleeing, invited: l.invited })),
+      cursorPx: snap.input.position ? scr(snap.input.position) : null,
     });
     staff.render(snap, camera);
     window.__wildling = { snapshot: () => snap, sim }; // for automated smoke tests

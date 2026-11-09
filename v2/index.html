@@ -42,7 +42,7 @@
           <div class="rows" id="careRows"></div>
         </div>
         <div class="pane" data-pane="habitats">
-          <p class="lede">Balanced, unhurried care lets your kitten grow through three chapters.</p>
+          <p class="lede">Balanced care grows your kitten through three chapters. Each one changes how it looks and unlocks something new.</p>
           <div class="rows" id="habitatRows"></div>
         </div>
         <div class="pane" data-pane="journal">
@@ -51,7 +51,7 @@
             <li><b>This visit only.</b> Your kitten remembers a few real moments from this session, and forgets them all when you leave.</li>
             <li><b>No video is saved.</b> The camera looks for one hand. Frames stay in this browser and are never recorded or uploaded.</li>
             <li><b>Your browser still asks.</b> Using the camera always needs your permission. A mouse or the keyboard works just as well.</li>
-            <li><b>No scores.</b> There is nothing to win. Stepping back is a valid way to care.</li>
+            <li><b>Growing up is the goal.</b> Balanced care fills the growth meter. Stepping back counts as care too, and your kitten still decides.</li>
           </ul>
         </div>
       </div>
@@ -98,11 +98,21 @@
         <div class="eyebrow" id="chapter"></div>
         <div class="kname"><span id="kname"></span><span class="temper" id="temper"></span></div>
         <div class="relation"><span class="pips" id="pips"><i></i><i></i><i></i></span><span id="relation"></span></div>
-        <div class="growth" aria-hidden="true"><i></i><i></i><i></i></div>
       </div>
     </header>
+    <section id="growthPanel" class="plate frame" aria-label="Growing up">
+      <div class="gp-head"><span class="gp-title" id="gpTitle">Growing up</span><span class="gp-pct" id="gpPct">0%</span></div>
+      <div class="gp-track" id="gpTrack"><i id="gpFill"></i><span class="gp-pop" id="gpPop"></span></div>
+      <div class="gp-steps" id="gpSteps"></div>
+      <div class="gp-needs" id="gpNeeds"></div>
+      <div class="gp-status" id="gpStatus"></div>
+      <div class="gp-next" id="gpNext"></div>
+    </section>
+    <div id="treasures" class="chip" hidden></div>
+    <aside id="mind" class="frame" hidden aria-live="off"></aside>
     <div id="topright">
       <div id="inputStatus" class="chip" role="status"></div>
+      <button id="btnMind" class="chip" aria-pressed="false"></button>
       <button id="btnSound" class="chip"></button>
       <button id="btnEnd" class="chip">End visit</button>
     </div>
@@ -112,6 +122,16 @@
     <nav id="toolbar" aria-label="Care tools"></nav>
     <div id="still" class="toast frame" hidden></div>
     <div id="offerEnd" class="toast slim" hidden></div>
+  </div>
+
+  <!-- CHAPTER CELEBRATION -->
+  <div id="celebrate" hidden aria-live="polite">
+    <div class="cel-card frame">
+      <div class="eyebrow center" id="celEyebrow"></div>
+      <h2 class="display center" id="celTitle"></h2>
+      <p class="center cel-sub" id="celSub"></p>
+      <ul class="cel-list" id="celList"></ul>
+    </div>
   </div>
 
   <!-- PAUSED -->
@@ -140,6 +160,7 @@
       </header>
       <div class="rule"><i></i></div>
       <ol id="recap"></ol>
+      <div class="steps-row" id="journalSteps"></div>
       <div class="tally" id="recapCounts"></div>
       <p class="fineprint">This relationship lives only in this visit. The next visitor meets a kitten that has never met anyone.</p>
       <button class="cta" id="btnNext"></button>
