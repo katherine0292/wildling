@@ -88,8 +88,9 @@ export class Renderer {
     const p = this.p;
     const st = PHASE_STYLE[c.phase];
     const age = c.ageProgress;
-    const L = (0.08 + 0.024 * age) * this.S;
-    const W = (0.048 + 0.008 * age) * this.S;
+    // ~25 % larger than Prototype B so body language reads from a viewing distance
+    const L = (0.1 + 0.03 * age) * this.S;
+    const W = (0.06 + 0.01 * age) * this.S;
     const { x, y } = this.px(c.position);
     const coat = p.color(...st.coat), mark = p.color(...st.mark);
     const b = c.behaviour;

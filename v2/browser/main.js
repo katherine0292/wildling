@@ -144,7 +144,7 @@ const sketch = (p) => {
       soundOn,
       width: p.width,
       height: p.height,
-      catPx: { x: c.position.x * p.width, y: c.position.y * p.height, r: (0.06 + 0.012 * c.ageProgress) * S },
+      catPx: { x: c.position.x * p.width, y: c.position.y * p.height, r: (0.075 + 0.015 * c.ageProgress) * S },
       cursorPx: snap.input.position ? { x: snap.input.position.x * p.width, y: snap.input.position.y * p.height } : null,
     });
     staff.render(snap, camera);
