@@ -100,3 +100,42 @@ test('an unclear hand shape asks for nothing', () => {
   d.run(2, () => cam(sib.x / d.sim.world.w, sib.y / d.sim.world.h, { keypoints: hand(['up', 'fold', 'bent', 'up']) }));
   assert.equal(d.sim.life.invite, null);
 });
+
+// ---- robustness for real cameras (ADR-022)
+import { PoseSmoother, poseScores } from '../v2/core/pose.js';
+
+const rot = (kp, a, s = 1, dx = 0, dy = 0) => kp.map((p) => ({ x: 0.5 + ((p.x - 0.5) * Math.cos(a) - (p.y - 0.8) * Math.sin(a)) * s + dx, y: 0.8 + ((p.x - 0.5) * Math.sin(a) + (p.y - 0.8) * Math.cos(a)) * s + dy }));
+let seed = 7;
+const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 - 0.5; };
+const jitter = (kp, j) => kp.map((p) => ({ x: p.x + rnd() * j, y: p.y + rnd() * j }));
+
+test('hand shapes survive rotation, scale and position', () => {
+  for (const [label, shape] of Object.entries(SHAPES)) {
+    for (const a of [-0.7, -0.3, 0.3, 0.7]) for (const s of [0.6, 1.4]) {
+      assert.equal(classifyPose(rot(hand(shape), a, s, 0.1, -0.1)).label, label, `${label} at ${a} rad, ×${s}`);
+    }
+  }
+});
+
+test('smoothing over frames holds the right shape through camera jitter', () => {
+  for (const [label, shape] of Object.entries(SHAPES)) {
+    const sm = new PoseSmoother({ alpha: 0.35, min: 0.55, margin: 0.15 });
+    let hits = 0;
+    for (let i = 0; i < 30; i++) { const r = sm.update(jitter(hand(shape), 0.03)); if (i >= 8 && r.label === label) hits++; }
+    assert.ok(hits >= 20, `${label}: ${hits} / 22 frames after settling`);
+  }
+});
+
+test('with 3D keypoints a claw curled toward the camera is still a claw', () => {
+  // seen from the front the fingers look short and straight; depth shows the bend
+  const kp2 = hand(['bent', 'bent', 'bent', 'bent']).map((p) => ({ ...p }));
+  const kp3 = Array.from({ length: 21 }, (_, i) => ({ x: kp2[i].x, y: kp2[i].y, z: 0 }));
+  for (const m of [5, 9, 13, 17]) {
+    const b = kp3[m];
+    kp3[m + 1] = { x: b.x, y: b.y - 0.07, z: 0 };
+    kp3[m + 2] = { x: b.x, y: b.y - 0.09, z: -0.05 };
+    kp3[m + 3] = { x: b.x, y: b.y - 0.07, z: -0.08 };
+  }
+  const s = poseScores(kp2, kp3);
+  assert.ok(s.claw > s.fist && s.claw > s.open_palm, JSON.stringify(s));
+});
