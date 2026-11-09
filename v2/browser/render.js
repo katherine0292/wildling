@@ -424,19 +424,25 @@ export class Renderer {
     const palmW = Math.hypot(kp[5].x - kp[17].x, kp[5].y - kp[17].y);
     const w = Math.max(6 * u, palmW * 0.24);
     ctx.save();
-    ctx.globalAlpha = q === 'lost' ? 0.35 : snap.creature.acceptedContact ? 0.78 : 0.93;
+    // a glassy, see-through hand: the kitten stays visible underneath
+    ctx.globalAlpha = q === 'lost' ? 0.3 : 1;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     const trace = () => { for (const b of bones) { ctx.beginPath(); b.forEach((i, k) => (k ? ctx.lineTo(kp[i].x, kp[i].y) : ctx.moveTo(kp[i].x, kp[i].y))); ctx.stroke(); } };
     const palm = () => { ctx.beginPath(); [0, 1, 5, 9, 13, 17].forEach((i, k) => (k ? ctx.lineTo(kp[i].x, kp[i].y) : ctx.moveTo(kp[i].x, kp[i].y))); ctx.closePath(); };
-    // soft shadow, ink outline, then the cream hand
-    ctx.translate(4 * u, 7 * u); ctx.strokeStyle = 'rgba(20,40,20,0.18)'; ctx.fillStyle = 'rgba(20,40,20,0.18)'; ctx.lineWidth = w + 4 * u; trace(); palm(); ctx.fill(); ctx.translate(-4 * u, -7 * u);
-    ctx.strokeStyle = uncertain ? `rgb(${COLD})` : `rgb(${INK})`; ctx.lineWidth = w + 5 * u;
-    if (uncertain) { ctx.setLineDash([6 * u, 6 * u]); ctx.lineDashOffset = -t * 20; }
-    trace(); palm(); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = ctx.strokeStyle = uncertain ? 'rgb(214,233,244)' : 'rgb(253,246,232)';
+    // a frosted, see-through hand: soft fill, bright bone lines and joints on top
+    const rim = uncertain ? `rgba(${COLD},0.9)` : 'rgba(255,255,255,0.95)';
+    ctx.globalAlpha = q === 'lost' ? 0.08 : 0.2;
+    ctx.fillStyle = ctx.strokeStyle = uncertain ? `rgb(${COLD})` : `rgb(${INK})`; // faint shadow so it reads on snow
+    ctx.translate(2 * u, 3 * u); ctx.lineWidth = w; trace(); palm(); ctx.fill(); ctx.translate(-2 * u, -3 * u);
+    ctx.globalAlpha = q === 'lost' ? 0.1 : 0.26;
+    ctx.fillStyle = ctx.strokeStyle = uncertain ? 'rgb(214,233,244)' : '#ffffff';
     ctx.lineWidth = w; trace(); palm(); ctx.fill();
-    ctx.fillStyle = 'rgba(240,170,160,0.85)'; // finger pads
-    for (const i of [4, 8, 12, 16, 20]) { ctx.beginPath(); ctx.arc(kp[i].x, kp[i].y, w * 0.32, 0, TAU); ctx.fill(); }
+    ctx.globalAlpha = q === 'lost' ? 0.3 : 1;
+    if (uncertain) { ctx.setLineDash([5 * u, 5 * u]); ctx.lineDashOffset = -t * 20; }
+    ctx.strokeStyle = rim; ctx.lineWidth = Math.max(1.5, 2 * u);
+    trace(); ctx.setLineDash([]);
+    ctx.fillStyle = rim;
+    for (let i = 1; i < 21; i++) { ctx.beginPath(); ctx.arc(kp[i].x, kp[i].y, (i % 4 === 0 ? 0.24 : 0.13) * w, 0, TAU); ctx.fill(); }
     // the active tool as a small badge on the palm
     const c = { x: (kp[0].x + kp[9].x) / 2, y: (kp[0].y + kp[9].y) / 2 };
     ctx.fillStyle = `rgba(${CREAM},0.95)`; ctx.strokeStyle = `rgb(${INK})`; ctx.lineWidth = 2 * u;
