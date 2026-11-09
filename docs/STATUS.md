@@ -42,6 +42,7 @@ This board records the repository's state as of 2026-11-09.
 | Tracked hand cursor, petting strokes, social animations | ADR-018 | 🛠 Implemented | Browser check with injected keypoints; real camera check on device |
 | Robust hand shapes (3D, soft scores, smoothing) | ADR-022 | ✅ Verified (synthetic rotation, scale, jitter, 3D) | Real hands at venue distance in WP06 |
 | First-visit tutorial | ADR-023 | 🛠 Implemented | Browser check with injected keypoints and with the mouse |
+| Sound for every moment (purr, hiss, scuffle, trill, hunt, gift, tricks, growth) | §18 | 🛠 Implemented | Synthesised with Web Audio; loudness checked in the browser (purr ≈ scuffle level); venue mix in WP06 |
 | Teach a trick (few-shot, nearest neighbour) | ADR-019 | ✅ Verified (replays) | `test/tricks.test.mjs`; the number of examples needed with real camera jitter is a study question |
 | Passers-by on the attract screen | ADR-020 | ✅ Verified (core) · 🛠 camera | `test/tricks.test.mjs`; `?watch=demo` in the browser; BodyPose in the venue (WP06) |
 | Dreams from the album | ADR-021 | 🛠 Implemented | Browser check |

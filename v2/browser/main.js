@@ -236,7 +236,7 @@ const sketch = (p) => {
       cursorPx: snap.input.position ? scr(snap.input.position) : null,
     });
     staff.render(snap, camera);
-    window.__wildling = { snapshot: () => snap, sim, renderer, camera, tutorial }; // for automated smoke tests
+    window.__wildling = { snapshot: () => snap, sim, renderer, camera, tutorial, sound }; // for automated smoke tests
   };
 
   p.windowResized = () => {
