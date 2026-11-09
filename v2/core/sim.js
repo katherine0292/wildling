@@ -15,6 +15,7 @@ import { RelationshipMemory } from './memory.js';
 import { buildRecap } from './recap.js';
 import { growthCheck, PHASES, UNLOCKS } from './growth.js';
 import { classifyPose, PoseGate, POSE_ACTS } from './pose.js';
+import { TrickLearner, MoveSegmenter, TRICKS } from './tricks.js';
 
 export const PROTOCOL_VERSION = '1.0';
 
@@ -89,6 +90,10 @@ export class Simulation {
     this.uncertainSince = null;
     this.errors = { duplicates: 0, rejected: 0 };
     this.poseGate = new PoseGate(params.social.pose);
+    this.learner = new TrickLearner({ examples: params.tricks.examples, reject: params.tricks.reject });
+    this.segmenter = new MoveSegmenter();
+    this.teach = { lastTrace: null, lastResult: null, consistency: null };
+    this.presence = { people: [], at: -Infinity };
     this.pose = { label: 'unknown', progress: 0, target: null, source: 'rule_baseline' };
     this.resetLife();
   }
@@ -145,7 +150,7 @@ export class Simulation {
         break;
       case 'calibration_failed': s.backToConsent(cmd.reason ?? 'camera_failed'); break;
       case 'select_tool':
-        if (['FEED', 'PLAY', 'PET', 'WAIT', 'LITTER'].includes(cmd.tool)) { this.tool = cmd.tool; s.noteActivity(); }
+        if (['FEED', 'PLAY', 'PET', 'WAIT', 'LITTER', 'TRICK'].includes(cmd.tool)) { this.tool = cmd.tool; s.noteActivity(); if (cmd.tool !== 'TRICK') this.learner.cancel(); }
         break;
       case 'confirm': {
         s.noteActivity();
@@ -160,6 +165,14 @@ export class Simulation {
       case 'end': s.end(cmd.reason ?? 'user'); break;
       case 'next': s.next(); break;
       case 'invite_sibling': this.invite(cmd.kitten); break;
+      case 'teach_start':
+        if (s.state === 'ACTIVE' && TRICKS.includes(cmd.trick)) { this.tool = 'TRICK'; this.learner.begin(cmd.trick); this.segmenter.reset(); this.teach.consistency = null; s.noteActivity(); }
+        break;
+      case 'teach_cancel': this.learner.cancel(); break;
+      // people walking past an exhibition screen: horizontal positions and apparent size only
+      case 'presence':
+        this.presence = { people: (cmd.people ?? []).slice(0, 4).map((q) => ({ x: Math.max(0, Math.min(1, +q.x || 0)), size: Math.max(0, Math.min(1, +q.size || 0)) })), at: this.demoTime };
+        break;
       case 'social_request': if (['befriend', 'cuddle', 'fight', 'hiss'].includes(cmd.act)) this.invite(cmd.kitten, cmd.act); break;
       // a returning visitor's own browser tells the core how many times they have met
       case 'set_returning':
@@ -371,6 +384,33 @@ export class Simulation {
     return { kind: 'ball', x: t.x, y: t.y, valid: true, speed: Math.hypot(t.vx, t.vy) };
   }
 
+  // Moves made with the Tricks tool either teach (while teaching) or ask for a trick.
+  readMoves() {
+    const t = this.track;
+    if (this.tool !== 'TRICK') { this.segmenter.reset(); return; }
+    const move = this.segmenter.update(t.x, t.y, t.speed, this.clock, t.valid);
+    if (!move) return;
+    const L = this.learner, cat = this.cat;
+    this.teach.lastTrace = move.map((p) => ({ x: p.x / this.world.w, y: p.y / this.world.h }));
+    if (L.teaching) {
+      const r = L.addExample(move);
+      if (!r) return;
+      this.teach.consistency = r.consistency;
+      this.out.push({ type: 'teach_example', trick: r.trick, count: r.count, done: r.done });
+      if (r.done) {
+        cat.emit('trick_learned', { time: this.simTime, hand: { source: t.source } }, { reasonCode: 'TRICK_LEARNED', measurement: { trick: r.trick, examples: L.need, consistency: Math.round(r.consistency * 100) / 100, model: 'knn_1' } });
+        cat.hint('TRICK_LEARNED');
+        cat.pendingTrick = r.trick; // it tries the new trick once, if it is up for it
+      }
+      return;
+    }
+    if (!L.learned.length) return;
+    const c = L.classify(move);
+    this.teach.lastResult = { trick: c.trick, distance: c.distance };
+    if (c.trick === 'unknown') this.hints.offer('TRICK_UNKNOWN', this.clock / 1000);
+    else cat.pendingTrick = c.trick;
+  }
+
   // ---------------------------------------------------------------- time
   update(dtSec, now) {
     this.clock = now;
@@ -424,7 +464,7 @@ export class Simulation {
         act: this.life.invite?.sibId === o.id ? this.life.invite.act : null,
       }));
       ctx.critter = this.critter && !this.critter.fleeing ? { id: this.critter.id, kind: this.critter.kind, x: this.critter.x, y: this.critter.y } : null;
-      if (s.state === 'ACTIVE') { this.directLitter(); this.stepCritter(dt); }
+      if (s.state === 'ACTIVE') { this.directLitter(); this.stepCritter(dt); this.readMoves(); }
       ctx.toy = s.state === 'ACTIVE' ? this.stepToy(dt) : null;
       this.cat.step(dt, ctx);
       this.collect(ctx);
@@ -437,8 +477,24 @@ export class Simulation {
     this.revision++;
   }
 
+  // Someone walking past the exhibition screen (ADR-020): every kitten looks, and the
+  // closest one trots to the near edge of the clearing. Positions only, never stored.
+  noticePassersBy(cats) {
+    const fresh = this.session.state === 'ATTRACT' && this.demoTime - this.presence.at < this.p.presence.lookSec;
+    const who = fresh ? [...this.presence.people].sort((a, b) => b.size - a.size)[0] : null;
+    for (const c of cats) {
+      if (c.goal?.id === 'passer_by' && !who) { c.goal = null; c.forceRedecide = true; }
+      c.lookAt = who ? { x: who.x * this.world.w, y: this.world.h * 0.98 } : null;
+    }
+    if (!who || who.size < this.p.presence.approachSize) return;
+    const x = who.x * this.world.w;
+    const near = cats.reduce((a, b) => (Math.abs(a.x - x) <= Math.abs(b.x - x) ? a : b));
+    near.goal = { id: 'passer_by', x: Math.max(0.15, Math.min(this.world.w - 0.15, x)), y: this.world.h - this.p.feed.toolbarBandS - 0.05, stop: 0.04 };
+  }
+
   // The litter lives on its own: it never sees the hand and remembers nothing.
   stepAmbient(cats, dt) {
+    if (this.session.state === 'ATTRACT') this.noticePassersBy(cats);
     const ctx = this.ctx();
     ctx.time = this.demoTime;
     ctx.hand = { valid: false, present: false, quality: 'lost', x: null, y: null, speed: 0, source: this.track.source };
@@ -553,6 +609,8 @@ export class Simulation {
     this.siblings.forEach((c, i) => c.setRegion(SIBLING_REGIONS[i]));
     this.catSession = s.sessionId;
     this.resetLife();
+    this.learner.reset(); this.segmenter.reset();
+    this.teach = { lastTrace: null, lastResult: null, consistency: null };
     const back = this.returning?.kitten === chosen.kitten.id ? this.returning : null;
     if (back) {
       const k = this.p.keepsake;
@@ -573,6 +631,8 @@ export class Simulation {
     this.cat = null;
     this.catSession = null;
     this.returning = null;
+    this.learner.reset(); this.segmenter.reset();
+    this.teach = { lastTrace: null, lastResult: null, consistency: null };
     for (const c of this.litter) { c.goal = null; c.held = null; c.setRegion(ATTRACT_REGION); }
     this.resetLife();
     this.memory.reset();
@@ -644,6 +704,7 @@ export class Simulation {
       litter: (s.state === 'ATTRACT' || !this.cat ? this.litter.filter((x) => x !== c) : this.siblings).map((x) => ({
         id: x.id, kitten: x.kitten.id, position: { x: x.x / W, y: x.y / H }, heading: x.heading,
         // litter-mates grow up alongside the visitor's kitten (display only; they have no growth of their own)
+        lookAt: x.lookAt ? { x: x.lookAt.x / W, y: x.lookAt.y / H } : null,
         speed: Math.hypot(x.vx, x.vy), behaviour: x.behaviour, ageProgress: this.cat && s.state !== 'ATTRACT' ? this.cat.ageProgress : x.ageProgress,
         wrestling: !!x.held?.wrestle, visiting: this.life.visit?.sibId === x.id, invited: this.life.invite?.sibId === x.id,
         mode: x.held?.wrestle ? 'wrestle' : x.held?.mode ?? null, standoff: !!x.held?.standoff,
@@ -653,6 +714,12 @@ export class Simulation {
       growth: this.growthSnapshot(c),
       critter: this.critter ? { id: this.critter.id, kind: this.critter.kind, position: { x: this.critter.x / W, y: this.critter.y / H }, fleeing: this.critter.fleeing, caught: this.critter.caught, heading: Math.atan2(this.critter.vy, this.critter.vx) } : null,
       pose: { ...this.pose },
+      tricks: {
+        learned: this.learner.learned, teaching: this.learner.teaching, count: this.learner.pending.length, need: this.learner.need,
+        consistency: this.teach.consistency, lastTrace: this.teach.lastTrace, lastResult: this.teach.lastResult, model: 'knn_1',
+        moving: this.segmenter.active,
+      },
+      presence: this.demoTime - this.presence.at < this.p.presence.lookSec ? this.presence.people : [],
       toy: this.toy.live || this.toy.kind === 'yarn' ? { kind: this.toy.kind, position: this.toy.live && this.toy.x !== null ? { x: this.toy.x / W, y: this.toy.y / H } : null } : { kind: this.toy.kind, position: null },
       gifts: this.gifts.map((g) => ({ id: g.id, item: g.item, position: { x: g.x / W, y: g.y / H }, age: this.simTime - g.born })),
       creature: {
@@ -680,6 +747,8 @@ export class Simulation {
         reaction: c.reaction ? { type: c.reaction.type, reasonCode: c.reaction.reasonCode, sibling: c.reaction.sibling } : null,
         carrying: c.giftState.stage === 'bring' ? c.giftState.item : null,
         lastBurst: c.lastBurst,
+        lookAt: c.lookAt && s.state === 'ATTRACT' ? { x: c.lookAt.x / W, y: c.lookAt.y / H } : null,
+        trick: c.trick ? { name: c.trick.name, t: (this.simTime - c.trick.start) / (c.trick.until - c.trick.start) } : null,
       },
       foods: c.foods.map((f) => ({ id: f.id, x: f.x / W, y: f.y / H, age: this.simTime - f.born })),
       input: {
