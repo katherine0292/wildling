@@ -1,0 +1,98 @@
+[
+ {
+  "participant": "P14",
+  "label": "gentle_approach",
+  "predicted": "gentle_approach",
+  "source": "model"
+ },
+ {
+  "participant": "P14",
+  "label": "gentle_approach",
+  "predicted": "gentle_approach",
+  "source": "model"
+ },
+ {
+  "participant": "P14",
+  "label": "gentle_approach",
+  "predicted": "gentle_approach",
+  "source": "model"
+ },
+ {
+  "participant": "P14",
+  "label": "stable_contact",
+  "predicted": "stable_contact",
+  "source": "model"
+ },
+ {
+  "participant": "P14",
+  "label": "stable_contact",
+  "predicted": "stable_contact",
+  "source": "model"
+ },
+ {
+  "participant": "P14",
+  "label": "stable_contact",
+  "predicted": "stable_contact",
+  "source": "model"
+ },
+ {
+  "participant": "P14",
+  "label": "fast_approach",
+  "predicted": "fast_approach",
+  "source": "model"
+ },
+ {
+  "participant": "P14",
+  "label": "fast_approach",
+  "predicted": "fast_approach",
+  "source": "model"
+ },
+ {
+  "participant": "P14",
+  "label": "fast_approach",
+  "predicted": "fast_approach",
+  "source": "model"
+ },
+ {
+  "participant": "P14",
+  "label": "neutral_motion",
+  "predicted": "neutral_motion",
+  "source": "model"
+ },
+ {
+  "participant": "P14",
+  "label": "neutral_motion",
+  "predicted": "neutral_motion",
+  "source": "model"
+ },
+ {
+  "participant": "P14",
+  "label": "neutral_motion",
+  "predicted": "neutral_motion",
+  "source": "model"
+ },
+ {
+  "participant": "P14",
+  "label": "stable_contact",
+  "predicted": "unknown",
+  "source": "model"
+ },
+ {
+  "participant": "P15",
+  "label": "gentle_approach",
+  "predicted": "stable_contact",
+  "source": "model"
+ },
+ {
+  "participant": "P15",
+  "label": "fast_approach",
+  "predicted": "fast_approach",
+  "source": "model"
+ },
+ {
+  "participant": "P15",
+  "label": "neutral_motion",
+  "predicted": "neutral_motion",
+  "source": "rule_baseline"
+ }
+]
