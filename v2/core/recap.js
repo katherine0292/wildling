@@ -14,6 +14,9 @@ const T = {
     recovered: () => 'We had a startled moment, and found our way back.',
     grew: (p) => `I grew into ${p === 'adult' ? 'an adult' : `a ${p}`} while you were here.`,
     quiet: () => 'We spent a quiet moment together.',
+    gift: (item) => `I brought you ${{ pebble: 'a smooth pebble', feather: 'a feather', flower: 'a dry flower', shell: 'a beetle shell' }[item] ?? 'a little gift'}.`,
+    wrestle: (name) => `I wrestled with ${name} while you watched.`,
+    hunt: (n) => `I chased ${n === 1 ? 'a critter' : `critters ${n} times`}. ${n === 1 ? 'It got away.' : 'Most got away.'}`,
   },
 };
 
@@ -33,12 +36,19 @@ export function buildRecap(log, lang = 'en') {
   const fed = of('eat_completed');
   const startles = log.filter((e) => e.type === 'startle');
   const grew = of('phase_changed');
+  const gifts = of('gift_given');
+  const wrestles = of('sibling_play', (e) => e.measurement?.endedBy === 'done');
+  const hunts = of('hunt_pounce');
+  const NAMES = { ember: 'Ember', juniper: 'Juniper', saffron: 'Saffron' };
 
+  if (gifts.length) push(t.gift(gifts[gifts.length - 1].measurement.item), ids(gifts, 1));
   push(t.space(), ids(space));
   if (contacts.length >= 2 && contactSec >= 3) push(t.contactLong(contactSec), ids(contacts));
   else if (contacts.length === 1) push(t.contactOne(), ids(contacts));
   push(t.adapted(), ids(adapted));
   if (pounces.length >= 2) push(t.play(pounces.length), ids(pounces));
+  if (wrestles.length) push(t.wrestle(NAMES[wrestles[0].measurement.sibling] ?? 'a sibling'), ids(wrestles, 1));
+  if (hunts.length) push(t.hunt(hunts.length), ids(hunts));
   if (fed.length) push(t.fed(fed.length), ids(fed));
   if (startles.length && (space.length || contacts.some((c) => c.simulationTime > startles[0].simulationTime))) {
     push(t.recovered(), [startles[0].id, ...ids(space.length ? space : contacts, 1)]);
@@ -48,6 +58,6 @@ export function buildRecap(log, lang = 'en') {
 
   return {
     lines,
-    counts: { fed: fed.length, pounces: pounces.length, contactSec, adapted: adapted.length },
+    counts: { fed: fed.length, pounces: pounces.length, contactSec, adapted: adapted.length, gifts: gifts.length, wrestles: wrestles.length, hunts: hunts.length },
   };
 }
