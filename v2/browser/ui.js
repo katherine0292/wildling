@@ -7,7 +7,14 @@ import { CAMERA_ERRORS } from './camera.js';
 import { svg } from './icons.js';
 import { drawPostcard } from './keepsake.js';
 
-const TOOLS = ['FEED', 'PLAY', 'PET', 'WAIT'];
+const TOOLS = ['FEED', 'PLAY', 'PET', 'WAIT', 'LITTER'];
+// What a visitor can ask of the kitten about a sibling (ADR-017), with the hand shape for each.
+export const ASKS = [
+  ['befriend', 'HAND', 'Make friends', 'open hand'],
+  ['cuddle', 'PEACE', 'Cuddle up', 'two fingers'],
+  ['fight', 'FIST', 'Play-fight', 'fist'],
+  ['hiss', 'CLAW', 'Hiss', 'claw'],
+];
 const TABS = ['litter', 'care', 'habitats', 'journal'];
 const ROMAN = ['1', '2', '3'];
 const CHAPTERS = {
@@ -31,7 +38,7 @@ const WHY_NOT = {
   NEED_REST: 'too tired', PRESSURE_HIGH: 'too tense', TOO_FULL: 'full', HUNGRY_FIRST: 'hungry first', NOT_READY: 'not ready yet',
   PLAY_PAUSE: 'catching its breath', tool: 'not offered', input: "can't see you", far: 'too far', no_invitation: 'not invited',
   intent: 'waiting for a calm hand', break: 'short break', dwell: 'almost', no_food: 'no food', cooldown: 'just did that',
-  alone: 'no sibling nearby', too_young: 'too young yet', none: 'nothing to chase', trust: 'needs more trust', calm: 'feels safe',
+  alone: 'no sibling nearby', NOT_CLOSE_YET: 'not close enough yet', FRIENDS: "they're friends", too_young: 'too young yet', none: 'nothing to chase', trust: 'needs more trust', calm: 'feels safe',
 };
 const TOYS = [['yarn', 'PLAY', 'Yarn'], ['feather', 'FEATHER', 'Feather'], ['ball', 'BALL', 'Ball']];
 const TOY_HINTS = {
@@ -39,13 +46,14 @@ const TOY_HINTS = {
   feather: 'A feather on a string. Slow swishes are easier to catch',
   ball: 'Click or pinch to throw the ball. It fetches on its own',
 };
-const HISS_WHY = { SIB_FOOD: 'it was eating', SIB_REST: 'it was napping', SIB_TENSE: 'it felt tense' };
+const HISS_WHY = { SIB_FOOD: 'it was eating', SIB_REST: 'it was napping', SIB_TENSE: 'it felt tense', SIB_STANDOFF: 'you asked, and it agreed' };
 const NAMES = Object.fromEntries(KITTENS.map((k) => [k.id, k.name]));
 const CARE = {
   FEED: 'Drop a fish where it can reach it. A full kitten will say so.',
   PLAY: 'Your hand becomes a yarn ball. It may chase, or ask for a pause.',
   PET: 'Rest a calm hand nearby. It comes closer when it is ready.',
   WAIT: 'Step back. Giving space is a way of caring too.',
+  LITTER: 'Ask your kitten to make friends, cuddle, play-fight or hiss with a sibling. With the camera, hold a hand shape over the sibling.',
 };
 const T = {
   calibLoading: 'Starting the camera…',
@@ -98,6 +106,8 @@ export class UI {
     }
     $('btnPostcard').innerHTML = `${svg('CAMERA', 18)}Save a postcard`;
     $('btnPostcard').onclick = () => this.savePostcard();
+    $('wheel').innerHTML = ASKS.map(([act, icon, label, shape], i) => `<button data-act="${act}"><kbd class="glyph">${i + 1}</kbd>${svg(icon, 22)}<span class="t">${label}</span><span class="d">${shape}</span></button>`).join('');
+    for (const b of $('wheel').children) b.addEventListener('click', (e) => { e.stopPropagation(); this.ask(b.dataset.act); });
     $('toyTray').innerHTML = TOYS.map(([id, icon, label]) => `<button data-toy="${id}" aria-pressed="false">${svg(icon, 18)}${label}</button>`).join('');
     for (const b of $('toyTray').children) b.addEventListener('click', (e) => { e.stopPropagation(); dispatch({ type: 'select_toy', toy: b.dataset.toy }); });
 
@@ -115,7 +125,7 @@ export class UI {
     this.toolbar = $('toolbar');
     TOOLS.forEach((tool, i) => {
       const b = document.createElement('button');
-      b.className = `slot${tool === 'WAIT' ? ' wait' : ''}`;
+      b.className = `slot${tool === 'WAIT' ? ' wait' : ''}${tool === 'LITTER' ? ' litter' : ''}`;
       b.dataset.tool = tool;
       b.innerHTML = `<kbd class="glyph">${i + 1}</kbd><span class="well">${svg(tool, 28)}</span><span class="label">${this.copy.tools[tool]}</span>`;
       b.addEventListener('click', (e) => { e.stopPropagation(); dispatch({ type: 'select_tool', tool }); });
@@ -139,6 +149,13 @@ export class UI {
   }
 
   toggleMind() { this.mindOn = !this.mindOn; }
+
+  // The ask wheel opens over a sibling; the kitten still decides.
+  // The menu is pinned where it opened, so it never runs away from the pointer.
+  openWheel(kitten) { this.wheelFor = kitten; this.wheelAt = null; this.show('wheel', true); }
+  closeWheel() { this.wheelFor = null; this.wheelAt = null; this.show('wheel', false); }
+  ask(act) { if (this.wheelFor) this.dispatch({ type: 'social_request', kitten: this.wheelFor, act }); this.closeWheel(); }
+  get wheelOpen() { return !!this.wheelFor; }
 
   setTab(tab) {
     this.tab = tab;
@@ -208,9 +225,9 @@ export class UI {
     const root = $('tags');
     const st = snap.sessionState;
     const on = st === 'ATTRACT';
-    const play = st === 'ACTIVE' && snap.activeTool === 'PLAY';
+    const litter = st === 'ACTIVE' && snap.activeTool === 'LITTER';
     const list = on ? [{ kitten: snap.kitten.id, ...x.catPx, chosen: true }, ...x.litterPx]
-      : play ? x.litterPx.filter((l) => !l.wrestling && !l.fleeing).map((l) => ({ ...l, invite: true })) : [];
+      : litter ? x.litterPx.filter((l) => !l.wrestling && !l.fleeing).map((l) => ({ ...l, invite: true })) : [];
     const keep = new Set(list.map((l) => l.kitten));
     for (const [k, el] of this.tags) if (!keep.has(k)) { el.remove(); this.tags.delete(k); }
     for (const l of list) {
@@ -227,8 +244,15 @@ export class UI {
       if (el.classList.contains('invite') !== !!l.invite) {
         el.classList.toggle('invite', !!l.invite);
         const k = KITTENS.find((q) => q.id === l.kitten);
-        el.innerHTML = l.invite ? `${svg('LITTER', 15)}<span class="n">Invite ${k.name}</span>` : `<span class="n">${k.name}</span><span class="k">${k.temperament}</span>`;
-        el.onclick = l.invite ? (e) => { e.stopPropagation(); this.dispatch({ type: 'invite_sibling', kitten: l.kitten }); } : null;
+        el.innerHTML = l.invite ? `<span class="n">${k.name}</span><span class="bond"></span>` : `<span class="n">${k.name}</span><span class="k">${k.temperament}</span>`;
+        el.onclick = l.invite ? (e) => { e.stopPropagation(); this.openWheel(l.kitten); } : null;
+      }
+      if (l.invite) { // how close your kitten feels to this sibling
+        const b = Math.max(0, Math.min(1, l.bond ?? 0.25)), n = b >= 0.6 ? 3 : b >= 0.35 ? 2 : b >= 0.15 ? 1 : 0;
+        const word = ['Wary', 'Getting along', 'Friends', 'Best friends'][n];
+        const html = `${'<i class="on"></i>'.repeat(n)}${'<i></i>'.repeat(3 - n)}<em>${word}</em>`;
+        const bel = el.querySelector('.bond');
+        if (bel && bel.innerHTML !== html) bel.innerHTML = html;
       }
       el.classList.toggle('invited', !!l.invited);
       el.style.left = `${l.x}px`;
@@ -313,7 +337,8 @@ export class UI {
     this.show('mind', this.mindOn);
     if (!this.mindOn) return;
     const c = snap.creature, d = snap.diagnostics;
-    const label = (name) => (name === 'SOCIAL' && c.socialTarget ? `Play with ${NAMES[c.socialTarget]}` : ACTS[name]?.[1] ?? name);
+    const actWord = { befriend: 'Make friends with', cuddle: 'Cuddle up with', fight: 'Play-fight with', hiss: 'Hiss at' };
+    const label = (name) => (name === 'SOCIAL' && c.socialTarget ? `${actWord[c.socialAct] ?? 'Play with'} ${NAMES[c.socialTarget]}` : ACTS[name]?.[1] ?? name);
     const rows = d.candidates.filter((q) => q.available || /^[A-Z_]+$/.test(q.blocked ?? '') || ['too_young', 'trust', 'alone'].includes(q.blocked))
       .slice(0, 5).map((q) => {
         const chosen = q.name === d.chosen || (d.chosen === 'EAT' && q.name === 'SEEK_FOOD');
@@ -380,8 +405,18 @@ export class UI {
     for (const b of this.toolbar.children) b.setAttribute('aria-pressed', String(b.dataset.tool === snap.activeTool));
     const play = snap.activeTool === 'PLAY';
     this.show('toyTray', play);
+    if (this.wheelFor) {
+      const at = x.litterPx.find((l) => l.kitten === this.wheelFor);
+      if (!at || snap.activeTool !== 'LITTER') this.closeWheel();
+      else if (!this.wheelAt) {
+        this.wheelAt = { x: Math.max(170, Math.min(x.width - 170, at.x)), y: Math.max(150, at.y - at.r - 20) };
+        const w = $('wheel'); w.style.left = `${this.wheelAt.x}px`; w.style.top = `${this.wheelAt.y}px`;
+      }
+    }
     if (play) for (const b of $('toyTray').children) b.setAttribute('aria-pressed', String(b.dataset.toy === snap.toy?.kind));
-    $('toolHint').textContent = play ? TOY_HINTS[snap.toy?.kind ?? 'yarn'] : this.copy.toolHints[snap.activeTool];
+    $('toolHint').textContent = play ? TOY_HINTS[snap.toy?.kind ?? 'yarn']
+      : snap.activeTool === 'LITTER' && snap.input.source === 'camera' ? 'Hold an open hand, two fingers, a fist or a claw over a sibling'
+      : snap.activeTool === 'LITTER' ? 'Click a sibling, then choose what to ask' : this.copy.toolHints[snap.activeTool];
     if (snap.sessionId !== this.albumSession) { this.albumSession = snap.sessionId; this.album = []; this.saved = false; }
     this.show('still', snap.stillThere);
     this.show('offerEnd', snap.offerEnd && !snap.stillThere);

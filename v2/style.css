@@ -347,3 +347,21 @@ body:has(#toyTray:not([hidden])) #toolHint { bottom: 226px; }
 #btnPostcard { display: inline-flex; align-items: center; gap: 8px; background: #fff; box-shadow: 0 3px 0 var(--stitch); }
 .kitten .memory { display: inline-block; margin-top: 4px; padding: 2px 9px; font: 700 11px var(--body); color: var(--ink); background: #fff7d6; border-radius: 999px; }
 .kitten[aria-pressed="true"] .memory { color: var(--ink); }
+
+/* ---------- siblings: ask wheel and bond ---------- */
+#wheel { position: absolute; transform: translate(-50%, -100%); display: grid; grid-template-columns: repeat(2, 150px); gap: 8px; padding: 12px; background: var(--cream); border-radius: 24px; box-shadow: var(--shadow); pointer-events: auto; animation: pop .35s var(--bounce) both; }
+#wheel::before { content: ''; position: absolute; inset: 6px; border: 2px dashed var(--stitch); border-radius: 19px; pointer-events: none; }
+#wheel::after { content: ''; position: absolute; left: 50%; bottom: -9px; width: 18px; height: 18px; background: var(--cream); transform: translateX(-50%) rotate(45deg); border-radius: 3px; }
+#wheel button { position: relative; z-index: 1; display: grid; grid-template-columns: 26px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center; padding: 8px 10px; text-align: left; background: #fff; border-radius: 16px; box-shadow: 0 3px 0 var(--stitch); transition: transform .15s var(--bounce); }
+#wheel button:hover { transform: translateY(-2px); background: #fff7d6; }
+#wheel button .icon { grid-row: span 2; color: var(--ink); }
+#wheel button .t { font: 700 15px var(--display); color: var(--ink); }
+#wheel button .d { font: 700 11px var(--body); color: var(--ink-3); }
+#wheel button .glyph { position: absolute; top: -6px; right: -4px; min-width: 18px; height: 18px; font-size: 10px; }
+#wheel button[data-act="hiss"] .icon { color: #c0574a; }
+.tag .bond { display: inline-flex; align-items: center; gap: 2px; margin-left: 8px; }
+.tag .bond i { width: 11px; height: 10px; background-color: #e9d9c0; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21S1.5 14.2 1.5 7.2A5.4 5.4 0 0 1 12 4.6a5.4 5.4 0 0 1 10.5 2.6C22.5 14.2 12 21 12 21Z'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21S1.5 14.2 1.5 7.2A5.4 5.4 0 0 1 12 4.6a5.4 5.4 0 0 1 10.5 2.6C22.5 14.2 12 21 12 21Z'/%3E%3C/svg%3E") center / contain no-repeat; }
+.tag .bond i.on { background-color: #e57f73; }
+.tag .bond em { margin-left: 5px; font: 700 11px var(--body); font-style: normal; color: var(--ink-3); }
+.slot.litter .well { background: #fff1e6; }
+.slot.litter[aria-pressed="true"] .well { background: var(--sage); color: #fff; }

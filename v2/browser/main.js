@@ -119,6 +119,11 @@ const sketch = (p) => {
       sound.start();
       mouse.sx = e.clientX / p.width; mouse.sy = e.clientY / p.height; toWorld(e); mouse.inside = true;
       if (sim.session.state === 'ATTRACT') { dispatch({ type: 'start' }); return; }
+      if (sim.session.state === 'ACTIVE' && sim.tool === 'LITTER') {
+        const sib = sim.siblingAt(mouse.x, mouse.y, 0.14);
+        if (sib) ui.openWheel(sib.kitten.id); else ui.closeWheel();
+        return;
+      }
       if (sim.track.source === 'mouse') dispatch({ type: 'confirm', x: mouse.x, y: mouse.y });
     });
     document.addEventListener('visibilitychange', () => {
@@ -144,13 +149,20 @@ const sketch = (p) => {
     }
     if ((k === 't' || k === 'T') && st === 'ACTIVE') { ui.toggleMind(); return; }
     if (k === 'm' || k === 'M') { soundOn = !soundOn; sound.setOn(soundOn); return; }
+    if (k === 'Escape' && ui.wheelOpen) { ui.closeWheel(); return; }
     if (k === 'Escape') { if (st === 'ACTIVE') dispatch({ type: 'pause', reason: 'user' }); else if (st === 'PAUSED') dispatch({ type: 'resume' }); return; }
     if (k === '2' && st === 'ACTIVE' && sim.tool === 'PLAY') { // press Play again to switch toy
       const toys = ['yarn', 'feather', 'ball'];
       dispatch({ type: 'select_toy', toy: toys[(toys.indexOf(sim.toy.kind) + 1) % toys.length] });
       return;
     }
-    if (['1', '2', '3', '4'].includes(k)) { dispatch({ type: 'select_tool', tool: ['FEED', 'PLAY', 'PET', 'WAIT'][Number(k) - 1] }); return; }
+    if (ui.wheelOpen && ['1', '2', '3', '4'].includes(k)) { ui.ask(['befriend', 'cuddle', 'fight', 'hiss'][Number(k) - 1]); return; }
+    if (['1', '2', '3', '4', '5'].includes(k)) { dispatch({ type: 'select_tool', tool: ['FEED', 'PLAY', 'PET', 'WAIT', 'LITTER'][Number(k) - 1] }); return; }
+    if (keyboard.active && k === ' ' && st === 'ACTIVE' && sim.tool === 'LITTER') {
+      const sib = sim.siblingAt(keyboard.x, keyboard.y, 0.16);
+      if (sib) ui.openWheel(sib.kitten.id);
+      return;
+    }
     if (keyboard.active) {
       const confirm = keyboard.down(k, e.repeat);
       if (confirm && st === 'ACTIVE') dispatch({ type: 'confirm', x: keyboard.x, y: keyboard.y });
@@ -210,7 +222,7 @@ const sketch = (p) => {
       cursorPx: snap.input.position ? scr(snap.input.position) : null,
     });
     staff.render(snap, camera);
-    window.__wildling = { snapshot: () => snap, sim }; // for automated smoke tests
+    window.__wildling = { snapshot: () => snap, sim, renderer, camera }; // for automated smoke tests
   };
 
   p.windowResized = () => {
