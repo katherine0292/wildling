@@ -21,6 +21,7 @@ import { KeyboardHand } from './keyboard.js';
 import { KITTENS } from '../core/config.js';
 import { Keepsakes } from './keepsake.js';
 import { PassersBy } from './presence.js';
+import { Tutorial } from './tutorial.js';
 
 // Moments worth a photo for the album: [event test, caption, delay in seconds].
 const NAMES = Object.fromEntries(KITTENS.map((k) => [k.id, k.name]));
@@ -51,7 +52,7 @@ const sketch = (p) => {
     return { w: p.width / S, h: p.height / S };
   };
 
-  let keepsakes, presence = null, lastMode = null;
+  let keepsakes, presence = null, lastMode = null, tutorial;
   const photoQueue = [];
   // The core only learns about a returning visitor from this browser's own keepsake.
   const tellReturning = () => {
@@ -106,6 +107,7 @@ const sketch = (p) => {
       onToggleSound: () => { soundOn = !soundOn; sound.setOn(soundOn); },
     });
     staff = new StaffPanel({ dispatch });
+    tutorial = new Tutorial({ dispatch, kiosk: params.get('kiosk') === '1' });
     if (params.get('kitten')) sim.command({ id: 'init_kitten', type: 'choose_kitten', kitten: params.get('kitten') });
     if (params.get('staff') === '1') staff.toggle();
     const direct = params.get('input');
@@ -214,6 +216,7 @@ const sketch = (p) => {
     if (mode && mode !== lastMode && partner && (mode === 'greet' || mode === 'cuddle')) photoQueue.push({ at: now + (mode === 'cuddle' ? 1800 : 1000), caption: mode === 'cuddle' ? `Cosy with ${NAMES[partner]}` : `Friends with ${NAMES[partner]}` });
     lastMode = mode;
     presence?.update(snap, now);
+    tutorial.update(snap, events, now);
     while (photoQueue.length && photoQueue[0].at <= now) {
       const ph = photoQueue.shift();
       if (snap.sessionState === 'ACTIVE') ui.addPhoto(renderer.capture(snap), ph.caption);
@@ -233,7 +236,7 @@ const sketch = (p) => {
       cursorPx: snap.input.position ? scr(snap.input.position) : null,
     });
     staff.render(snap, camera);
-    window.__wildling = { snapshot: () => snap, sim, renderer, camera }; // for automated smoke tests
+    window.__wildling = { snapshot: () => snap, sim, renderer, camera, tutorial }; // for automated smoke tests
   };
 
   p.windowResized = () => {

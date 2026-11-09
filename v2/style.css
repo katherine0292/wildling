@@ -404,3 +404,35 @@ body:has(#toyTray:not([hidden])) #toolHint { bottom: 226px; }
 #dream > i:nth-of-type(1) { left: 6px; bottom: -14px; width: 16px; height: 16px; }
 #dream > i:nth-of-type(2) { left: -6px; bottom: -28px; width: 9px; height: 9px; }
 @media (max-width: 760px) { #tricksPanel { right: 12px; bottom: 200px; width: calc(100vw - 24px); } }
+
+/* ---------- tutorial ---------- */
+#btnHelp { width: 40px; justify-content: center; padding: 0; font-size: 18px; }
+.coach { position: absolute; left: 50%; top: 92px; transform: translateX(-50%); width: min(460px, calc(100vw - 32px)); padding: 16px 22px 14px; background: rgba(251, 243, 227, .94); border-radius: 24px; box-shadow: var(--shadow); pointer-events: auto; text-align: center; }
+.coach::before { content: ''; position: absolute; inset: 7px; border: 2px dashed var(--stitch); border-radius: 18px; pointer-events: none; }
+.coach.in { animation: pop .45s var(--bounce) both; }
+.coach.ok { background: rgba(232, 244, 224, .96); }
+.c-top { display: flex; justify-content: space-between; align-items: center; font: 800 11px var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--sage-2); }
+.c-skip { font: 700 12px var(--display); color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; position: relative; z-index: 1; }
+.c-title { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 6px; font: 700 24px var(--display); color: var(--ink); }
+.c-title .icon { color: #e0a52a; }
+.c-text { margin: 6px 0 0; font: 700 17px/1.35 var(--display); color: var(--ink); }
+.c-note { margin: 4px 0 0; font: 600 13px var(--body); color: var(--ink-3); }
+.c-dots { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+.c-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--cream-2); }
+.c-dots i.on { background: var(--sage); transform: scale(1.25); }
+.c-dots i.done { background: var(--sage-2); }
+.c-next { margin-top: 10px; padding: 6px 18px; font: 700 14px var(--display); color: #fff; background: var(--sage); border-radius: 999px; box-shadow: 0 3px 0 var(--sage-2); position: relative; z-index: 1; }
+/* the hand shape to make, faintly printed on the scene */
+.coach-art { position: absolute; left: 50%; top: 54%; width: min(38vmin, 340px); aspect-ratio: 1; transform: translate(-50%, -50%); pointer-events: none; opacity: 0; transition: opacity .5s; }
+.coach-art.in { opacity: .34; animation: breathe-art 2.4s ease-in-out infinite; }
+.coach-art.ok { opacity: 0; transition: opacity .9s; }
+.coach-art .art { width: 100%; height: 100%; overflow: visible; }
+.coach-art .palm { fill: rgba(255, 255, 255, .35); stroke: none; }
+.coach-art .bones, .coach-art .mo, .coach-art .art > path:only-child { fill: none; stroke: #fff; stroke-width: .16; stroke-linecap: round; stroke-linejoin: round; }
+.coach-art .art > path:only-child { fill: rgba(255, 255, 255, .5); stroke-width: .06; }
+.coach-art circle { fill: #fff; }
+.coach-art .mo { stroke-width: .06; stroke-dasharray: .08 .1; }
+.coach-art.waving .art { animation: wave 1.4s ease-in-out infinite; transform-origin: 50% 85%; }
+@keyframes breathe-art { 50% { transform: translate(-50%, -50%) scale(1.04); } }
+@keyframes wave { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
+body.coaching #toolHint { visibility: hidden; }
