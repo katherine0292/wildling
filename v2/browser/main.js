@@ -20,6 +20,7 @@ import { CameraInput } from './camera.js';
 import { KeyboardHand } from './keyboard.js';
 import { KITTENS } from '../core/config.js';
 import { Keepsakes } from './keepsake.js';
+import { PassersBy } from './presence.js';
 
 // Moments worth a photo for the album: [event test, caption, delay in seconds].
 const NAMES = Object.fromEntries(KITTENS.map((k) => [k.id, k.name]));
@@ -34,6 +35,7 @@ const PHOTO_MOMENTS = [
   [(e) => e.type === 'gift_given', () => 'A gift for me', 0.4],
   [(e) => e.type === 'phase_changed', (e) => ({ juvenile: 'Chapter II', adult: 'Chapter III' }[e.measurement?.phase] ?? 'Growing up'), 2.4],
   [(e) => e.type === 'fully_grown', () => 'All grown up', 2.4],
+  [(e) => e.type === 'trick_done', (e) => ({ spin: 'A spin!', rollover: 'Rolled over', wave: 'A wave' }[e.measurement?.trick] ?? 'A trick'), 0.6],
 ];
 
 const params = new URLSearchParams(location.search);
@@ -49,7 +51,7 @@ const sketch = (p) => {
     return { w: p.width / S, h: p.height / S };
   };
 
-  let keepsakes;
+  let keepsakes, presence = null, lastMode = null;
   const photoQueue = [];
   // The core only learns about a returning visitor from this browser's own keepsake.
   const tellReturning = () => {
@@ -66,6 +68,7 @@ const sketch = (p) => {
 
   const chooseInput = async (source) => {
     sound.start();
+    presence?.stop(); // free the camera for the visitor's own hand
     if (source !== 'camera') camera.stop();
     keyboard.active = source === 'keyboard';
     dispatch({ type: 'choose_input', source });
@@ -88,6 +91,9 @@ const sketch = (p) => {
     keepsakes = new Keepsakes({ kiosk: params.get('kiosk') === '1' });
     const adopted = keepsakes.importFrom(params.get('adopt'));
     if (adopted && history.replaceState) { const q = new URLSearchParams(location.search); q.delete('adopt'); q.set('kitten', adopted); history.replaceState(null, '', `${location.pathname}?${q}`); }
+    // Exhibition only: notice people walking past (ADR-020). ?watch=1 uses the camera, ?watch=demo simulates.
+    const watch = params.get('watch');
+    if (watch === 'demo' || (watch === '1' && params.get('kiosk') === '1')) presence = new PassersBy({ demo: watch === 'demo', send: (people) => sim.command({ id: `pres_${++cmdSeq}`, type: 'presence', people }) });
     renderer = new Renderer(p);
     renderer.resize();
     sound = new SoundAdapter();
@@ -157,7 +163,7 @@ const sketch = (p) => {
       return;
     }
     if (ui.wheelOpen && ['1', '2', '3', '4'].includes(k)) { ui.ask(['befriend', 'cuddle', 'fight', 'hiss'][Number(k) - 1]); return; }
-    if (['1', '2', '3', '4', '5'].includes(k)) { dispatch({ type: 'select_tool', tool: ['FEED', 'PLAY', 'PET', 'WAIT', 'LITTER'][Number(k) - 1] }); return; }
+    if (['1', '2', '3', '4', '5', '6'].includes(k)) { dispatch({ type: 'select_tool', tool: ['FEED', 'PLAY', 'PET', 'WAIT', 'LITTER', 'TRICK'][Number(k) - 1] }); return; }
     if (keyboard.active && k === ' ' && st === 'ACTIVE' && sim.tool === 'LITTER') {
       const sib = sim.siblingAt(keyboard.x, keyboard.y, 0.16);
       if (sib) ui.openWheel(sib.kitten.id);
@@ -203,6 +209,11 @@ const sketch = (p) => {
     const bar = document.getElementById('gpTrack');
     if (bar && bar.offsetParent) { const r = bar.getBoundingClientRect(); renderer.hudTarget = { x: r.left + r.width * 0.9, y: r.top + r.height / 2 }; }
     renderer.draw(snap, { keypoints: camera.keypoints, showSkeleton: staff.open }, dt);
+    // social moments are photographed while they happen, not after
+    const mode = snap.creature.socialMode, partner = snap.litter.find((l) => l.mode)?.kitten;
+    if (mode && mode !== lastMode && partner && (mode === 'greet' || mode === 'cuddle')) photoQueue.push({ at: now + (mode === 'cuddle' ? 1800 : 1000), caption: mode === 'cuddle' ? `Cosy with ${NAMES[partner]}` : `Friends with ${NAMES[partner]}` });
+    lastMode = mode;
+    presence?.update(snap, now);
     while (photoQueue.length && photoQueue[0].at <= now) {
       const ph = photoQueue.shift();
       if (snap.sessionState === 'ACTIVE') ui.addPhoto(renderer.capture(snap), ph.caption);

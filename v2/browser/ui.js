@@ -7,7 +7,8 @@ import { CAMERA_ERRORS } from './camera.js';
 import { svg } from './icons.js';
 import { drawPostcard } from './keepsake.js';
 
-const TOOLS = ['FEED', 'PLAY', 'PET', 'WAIT', 'LITTER'];
+const TOOLS = ['FEED', 'PLAY', 'PET', 'WAIT', 'LITTER', 'TRICK'];
+const TRICK_INFO = { spin: ['SPIN', 'Spin'], rollover: ['ROLL', 'Roll over'], wave: ['WAVE', 'Wave'] };
 // What a visitor can ask of the kitten about a sibling (ADR-017), with the hand shape for each.
 export const ASKS = [
   ['befriend', 'HAND', 'Make friends', 'open hand'],
@@ -53,6 +54,7 @@ const CARE = {
   PLAY: 'Your hand becomes a yarn ball. It may chase, or ask for a pause.',
   PET: 'Rest a calm hand nearby. It comes closer when it is ready.',
   WAIT: 'Step back. Giving space is a way of caring too.',
+  TRICK: 'Teach a trick: show a move of your own three times. It learns it on this device, and does the trick when you make the move again.',
   LITTER: 'Ask your kitten to make friends, cuddle, play-fight or hiss with a sibling. With the camera, hold a hand shape over the sibling.',
 };
 const T = {
@@ -125,7 +127,7 @@ export class UI {
     this.toolbar = $('toolbar');
     TOOLS.forEach((tool, i) => {
       const b = document.createElement('button');
-      b.className = `slot${tool === 'WAIT' ? ' wait' : ''}${tool === 'LITTER' ? ' litter' : ''}`;
+      b.className = `slot${tool === 'WAIT' ? ' wait' : ''}${tool === 'LITTER' ? ' litter' : ''}${tool === 'TRICK' ? ' trick' : ''}`;
       b.dataset.tool = tool;
       b.innerHTML = `<kbd class="glyph">${i + 1}</kbd><span class="well">${svg(tool, 28)}</span><span class="label">${this.copy.tools[tool]}</span>`;
       b.addEventListener('click', (e) => { e.stopPropagation(); dispatch({ type: 'select_tool', tool }); });
@@ -161,6 +163,54 @@ export class UI {
     this.tab = tab;
     for (const b of document.querySelectorAll('.tabs [data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
     for (const p of document.querySelectorAll('[data-pane]')) p.hidden = p.dataset.pane !== tab;
+  }
+
+  // The Tricks panel: what has been learned, teaching progress, and what the model saw.
+  tricks(snap) {
+    const on = snap.activeTool === 'TRICK';
+    this.show('tricksPanel', on);
+    if (!on) return;
+    const T = snap.tricks, name = snap.kitten.name;
+    const rows = Object.entries(TRICK_INFO).map(([id, [icon, label]]) => {
+      const learned = T.learned.includes(id), teaching = T.teaching === id;
+      const dots = teaching ? `<span class="dots">${Array.from({ length: T.need }, (_, i) => `<i class="${i < T.count ? 'on' : ''}"></i>`).join('')}</span>` : '';
+      return `<div class="tr-row ${learned ? 'learned' : ''} ${teaching ? 'teaching' : ''}">${svg(icon, 20)}<span class="tl">${label}</span>${dots}
+        ${teaching ? '<button class="mini ghosty" data-cancel="1">Cancel</button>' : `<button class="mini" data-teach="${id}">${learned ? 'Re-teach' : 'Teach'}</button>`}</div>`;
+    }).join('');
+    const tr = T.teaching ? TRICK_INFO[T.teaching][1].toLowerCase() : null;
+    const status = T.teaching ? `Show ${name} your move for <b>${tr}</b>: ${T.count} of ${T.need}. Move, then pause.`
+      : T.learned.length ? `Make a move you taught, and ${name} may do the trick.` : `Pick a trick, then show ${name} a move of your own three times.`;
+    const cons = T.teaching && T.count >= 2 && T.consistency !== null && T.consistency !== undefined ? `<div class="tr-cons"><span>Your examples are alike</span><span class="bar"><i style="width:${Math.round(T.consistency * 100)}%"></i></span><b>${Math.round(T.consistency * 100)}%</b></div>` : '';
+    const res = !T.teaching && T.lastResult ? `<div class="tr-res ${T.lastResult.trick === 'unknown' ? 'unk' : ''}">${T.lastTrace ? traceSvg(T.lastTrace) : ''}${T.lastResult.trick === 'unknown' ? 'Last move: not recognised' : `Last move: ${TRICK_INFO[T.lastResult.trick][1].toLowerCase()} (distance ${T.lastResult.distance.toFixed(2)})`}</div>` : '';
+    const html = `<div class="tr-head">${svg('TRICK', 18)}<span>Tricks</span></div>${rows}<p class="tr-status">${status}</p>${cons}${res}
+      <div class="tr-foot">Learned on this device from your examples (nearest neighbour). Forgotten when you leave.</div>`;
+    const el = $('tricksPanel');
+    if (this.trHtml !== html) { // compare with what we wrote, not with the browser's re-serialised markup
+      this.trHtml = html;
+      el.innerHTML = html;
+      for (const b of el.querySelectorAll('[data-teach]')) b.onclick = (e) => { e.stopPropagation(); this.dispatch({ type: 'teach_start', trick: b.dataset.teach }); };
+      for (const b of el.querySelectorAll('[data-cancel]')) b.onclick = (e) => { e.stopPropagation(); this.dispatch({ type: 'teach_cancel' }); };
+    }
+  }
+
+  // Asleep, the kitten dreams of real moments from this visit: the album's own photos.
+  dream(snap, x) {
+    const c = snap.creature;
+    const dreams = this.album.filter((p) => p.caption !== 'Hss!');
+    const on = c.behaviour === 'REST' && !c.socialMode && dreams.length > 0;
+    this.show('dream', on);
+    if (!on) { this.dreamIdx = null; return; }
+    const now = performance.now();
+    if (this.dreamIdx === null || this.dreamIdx === undefined || now - this.dreamAt > 3500) {
+      this.dreamIdx = ((this.dreamIdx ?? -1) + 1) % dreams.length;
+      this.dreamAt = now;
+      const p = dreams[this.dreamIdx];
+      $('dreamImg').src = p.url; $('dreamCap').textContent = `Dreaming of: ${p.caption.toLowerCase()}`;
+      const cl = document.querySelector('.dream-cloud'); cl.classList.remove('in'); void cl.offsetWidth; cl.classList.add('in');
+    }
+    const d = $('dream');
+    d.style.left = `${Math.max(120, Math.min(x.width - 120, x.catPx.x + 40))}px`;
+    d.style.top = `${Math.max(250, x.catPx.y - x.catPx.r - 10)}px`;
   }
 
   // Photos taken automatically at moments that matter (first meal, a catch, a new chapter…).
@@ -348,7 +398,7 @@ export class UI {
     const now = d.forced ? `${label(d.chosen)}: ${d.forced}` : `${label(d.chosen)}: ${d.why}`;
     const react = c.reaction?.type === 'hiss' ? `<div class="m-react">Hissed at ${NAMES[c.reaction.sibling] ?? 'a sibling'}: ${HISS_WHY[c.reaction.reasonCode] ?? ''}.</div>` : '';
     const html = `<div class="m-head">${svg('THINK', 18)}<span>What ${snap.kitten.name} is weighing</span></div>${react}${rows}<div class="m-now">${now}</div><div class="m-foot">Safety rules first, then hand-written scores. Not a learned model.</div>`;
-    if (el.innerHTML !== html) el.innerHTML = html;
+    if (this.mindHtml !== html) { this.mindHtml = html; el.innerHTML = html; }
 
   }
 
@@ -388,6 +438,8 @@ export class UI {
     [...$('pips').children].forEach((el, i) => el.classList.toggle('on', i <= c.relation));
     this.growth(snap);
     this.mind(snap, x);
+    this.tricks(snap);
+    this.dream(snap, x);
     const gifts = c.stats.gifts ?? 0;
     this.show('treasures', gifts > 0);
     if (gifts) $('treasures').innerHTML = `${svg('GIFT', 16)}${gifts} gift${gifts > 1 ? 's' : ''} found`;
@@ -440,3 +492,11 @@ export class UI {
 }
 
 function clampX(v, w) { return Math.max(190, Math.min(w - 190, v)); }
+
+// A small drawing of the last move, as the model saw it.
+function traceSvg(pts) {
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+  const x0 = Math.min(...xs), y0 = Math.min(...ys), s = Math.max(Math.max(...xs) - x0, Math.max(...ys) - y0, 1e-6);
+  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${(8 + ((p.x - x0) / s) * 64).toFixed(1)} ${(8 + ((p.y - y0) / s) * 64).toFixed(1)}`).join(' ');
+  return `<svg class="tr-trace" viewBox="0 0 80 80"><path d="${d}"/></svg>`;
+}

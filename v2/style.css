@@ -365,3 +365,42 @@ body:has(#toyTray:not([hidden])) #toolHint { bottom: 226px; }
 .tag .bond em { margin-left: 5px; font: 700 11px var(--body); font-style: normal; color: var(--ink-3); }
 .slot.litter .well { background: #fff1e6; }
 .slot.litter[aria-pressed="true"] .well { background: var(--sage); color: #fff; }
+
+/* ---------- tricks ---------- */
+.slot.trick .well { background: #fff7d6; }
+.slot.trick[aria-pressed="true"] .well { background: var(--sage); color: #fff; }
+#tricksPanel { position: absolute; right: 24px; bottom: 26px; width: 300px; padding: 16px 18px 14px; pointer-events: auto; border-radius: 24px; }
+#tricksPanel::before { inset: 7px; border-radius: 18px; }
+.tr-head { display: flex; align-items: center; gap: 8px; font: 700 16px var(--display); margin-bottom: 8px; }
+.tr-row { display: grid; grid-template-columns: 22px 1fr auto auto; align-items: center; gap: 8px; padding: 5px 0; font: 700 14px var(--display); color: var(--ink); border-bottom: 2px dashed rgba(230, 191, 174, .5); }
+.tr-row.learned .icon { color: var(--sage-2); }
+.tr-row.learned .tl::after { content: ' ✓'; color: var(--sage-2); }
+.tr-row.teaching { color: var(--sage-2); }
+.tr-row .dots { display: inline-flex; gap: 4px; }
+.tr-row .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--cream-2); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .1); }
+.tr-row .dots i.on { background: #ffd36a; box-shadow: 0 1px 0 #e0a52a; }
+.mini { padding: 4px 11px; font: 700 12px var(--display); color: #fff; background: var(--sage); border-radius: 999px; box-shadow: 0 2px 0 var(--sage-2); }
+.mini.ghosty { color: var(--ink-2); background: var(--cream-2); box-shadow: none; }
+.tr-status { margin: 8px 0 4px; font: 600 13px/1.4 var(--body); color: var(--ink-2); }
+.tr-status b { color: var(--ink); }
+.tr-cons { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; font: 700 11px var(--body); color: var(--ink-3); }
+.tr-cons .bar { height: 6px; border-radius: 999px; background: var(--cream-2); overflow: hidden; }
+.tr-cons .bar i { display: block; height: 100%; background: #ffd36a; }
+.tr-cons b { color: var(--ink); }
+.tr-res { display: flex; align-items: center; gap: 8px; margin-top: 6px; font: 700 12px var(--body); color: var(--sage-2); }
+.tr-res.unk { color: var(--sky-ink); }
+.tr-trace { flex: none; width: 40px; height: 40px; background: #fff; border-radius: 10px; box-shadow: 0 2px 0 var(--stitch); }
+.tr-trace path { fill: none; stroke: #e0a52a; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.tr-foot { margin-top: 8px; font: 600 11px/1.35 var(--body); color: var(--ink-3); }
+
+/* ---------- dream bubble ---------- */
+#dream { position: absolute; transform: translate(-10%, -100%); pointer-events: none; }
+.dream-cloud { width: 168px; padding: 10px 10px 8px; background: rgba(255, 255, 255, .92); border-radius: 46% 54% 50% 50% / 60% 60% 40% 40%; box-shadow: 0 8px 24px rgba(34, 64, 90, .2); text-align: center; }
+.dream-cloud img { display: block; width: 120px; height: 120px; margin: 0 auto; border-radius: 50%; object-fit: cover; filter: sepia(.35) saturate(.85) brightness(1.06) blur(.3px); }
+.dream-cloud span { display: block; margin-top: 5px; font: 700 12px var(--display); color: var(--ink-2); }
+.dream-cloud.in { animation: dreamin 3.5s ease-in-out both; }
+@keyframes dreamin { 0% { opacity: 0; transform: scale(.9); } 15%, 85% { opacity: 1; transform: none; } 100% { opacity: .2; } }
+#dream > i { position: absolute; display: block; border-radius: 50%; background: rgba(255, 255, 255, .9); }
+#dream > i:nth-of-type(1) { left: 6px; bottom: -14px; width: 16px; height: 16px; }
+#dream > i:nth-of-type(2) { left: -6px; bottom: -28px; width: 9px; height: 9px; }
+@media (max-width: 760px) { #tricksPanel { right: 12px; bottom: 200px; width: calc(100vw - 24px); } }
