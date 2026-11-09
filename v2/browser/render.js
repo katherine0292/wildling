@@ -745,115 +745,212 @@ export class Renderer {
     for (let k = 1; k <= 4; k++) { x.beginPath(); x.arc(cx + k * 0.8 * this.u, cy, R * 0.18 * k, 0, TAU); x.stroke(); }
   }
 
+  // ---- Snowfield (after the reference): clean fine-grained snow, soft drifts,
+  // snow-laden firs with long cool shadows, a snow-capped boulder, an old fence.
   makeSnow() {
     const r = rng(202), u = this.u, W = this.W, H = this.H;
     const [ground, x] = this.newLayer();
-    const bg = x.createLinearGradient(0, 0, W, H);
-    bg.addColorStop(0, '#f4f8fb'); bg.addColorStop(1, '#dfeaf3');
+    const bg = x.createLinearGradient(W, 0, 0, H);
+    bg.addColorStop(0, '#fbfdff'); bg.addColorStop(1, '#e9f0f7');
     x.fillStyle = bg; x.fillRect(0, 0, W, H);
-    // soft drifts and hollows
-    this.blobs(x, r, 30, [90, 260], [200, 218, 234], 0.45, null, 40);
-    this.blobs(x, r, 18, [70, 180], [255, 255, 255], 0.7, null, 30);
-    // wind-carved drift lines
-    x.lineCap = 'round';
-    for (let i = 0; i < 70; i++) {
-      const cx = r() * W, cy = r() * H, l = (60 + r() * 140) * u;
-      x.strokeStyle = `rgba(180,202,224,${0.25 + r() * 0.2})`; x.lineWidth = (2 + r() * 3) * u;
-      x.beginPath(); x.moveTo(cx, cy); x.quadraticCurveTo(cx + l * 0.5, cy - 10 * u, cx + l, cy + 4 * u); x.stroke();
-      x.strokeStyle = 'rgba(255,255,255,0.8)'; x.lineWidth = 1.5 * u;
-      x.beginPath(); x.moveTo(cx, cy - 3 * u); x.quadraticCurveTo(cx + l * 0.5, cy - 13 * u, cx + l, cy + 1 * u); x.stroke();
-    }
-    // a frozen pond
-    const px = W * 0.82, py = H * 0.72;
-    const ice = x.createRadialGradient(px - 30 * u, py - 20 * u, 0, px, py, 130 * u);
-    ice.addColorStop(0, '#e9f6fc'); ice.addColorStop(1, '#a8cfe4');
-    x.fillStyle = ice; x.beginPath(); x.ellipse(px, py, 140 * u, 80 * u, -0.2, 0, TAU); x.fill();
-    x.strokeStyle = 'rgba(255,255,255,0.9)'; x.lineWidth = 6 * u; x.stroke();
-    x.strokeStyle = 'rgba(120,170,200,0.6)'; x.lineWidth = 1.2 * u;
-    for (let i = 0; i < 6; i++) { x.beginPath(); let qx = px + (r() - 0.5) * 120 * u, qy = py + (r() - 0.5) * 60 * u; x.moveTo(qx, qy); for (let k = 0; k < 4; k++) { qx += (r() - 0.5) * 40 * u; qy += (r() - 0.5) * 20 * u; x.lineTo(qx, qy); } x.stroke(); }
-    // sparkle
-    for (let i = 0; i < 500; i++) { x.fillStyle = r() < 0.5 ? 'rgba(255,255,255,0.95)' : 'rgba(160,200,235,0.6)'; x.beginPath(); x.arc(r() * W, r() * H, (0.6 + r() * 1.2) * u, 0, TAU); x.fill(); }
-    // snow-capped rocks
-    for (const [fx, fy, s] of [[0.12, 0.26, 28], [0.18, 0.7, 22], [0.72, 0.16, 24], [0.55, 0.86, 18], [0.9, 0.42, 20]]) {
-      this.rock(x, r, W * fx, H * fy, s, { base: [120, 132, 146], light: [160, 172, 186], dark: [80, 90, 104], cap: [250, 252, 255], shadowDir: [-1.2, 1] });
-    }
-    // long blue shadows cast by the same pines that stand in the foreground (sun low, upper right)
-    const trees = [...this.edgePoints(r, 22, 30 * u).map(([a, b]) => [a, b, 70 + r() * 40]),
-      ...[[-10 * u, -10 * u], [W + 10 * u, -10 * u], [W, H + 10 * u], [-10 * u, H]].map(([a, b]) => [a, b, 150])];
-    this.blurred(x, 6 * u, (g) => {
+    // gentle drifts: broad soft hollows (cool) and crests (bright)
+    this.blobs(x, r, 26, [120, 300], [214, 226, 238], 0.5, null, 50);
+    this.blobs(x, r, 16, [100, 240], [255, 255, 255], 0.8, null, 40);
+    // fine crystalline grain, the texture of fresh snow up close
+    this.speckle(x, r, 0.06, [[205, 218, 232], [255, 255, 255], [225, 235, 245]]);
+    // tree layout first, so ground shadows and foreground firs line up
+    const trees = [
+      [W * 0.06, H * 0.08, 120], [W * 0.0, H * 0.4, 110], [-10 * u, H * 0.75, 100],
+      [W * 0.96, H * 0.06, 110], [W * 1.0, H * 0.42, 130], [W * 0.95, H * 0.95, 140],
+      [W * 0.55, -20 * u, 90], [W * 0.3, H + 10 * u, 90], [W * 0.75, H + 20 * u, 110],
+    ];
+    // long soft shadows, cast to the lower left by a low sun at the upper right
+    this.blurred(x, 14 * u, (g) => {
+      g.fillStyle = 'rgba(120,150,190,0.32)';
       for (const [cx, cy, R] of trees) {
-        g.fillStyle = 'rgba(105,145,195,0.3)';
-        g.save(); g.translate(cx, cy); g.rotate(Math.PI * 0.75);
-        g.beginPath(); g.ellipse(R * u * 1.4, 0, R * u * 1.8, R * u * 0.55, 0, 0, TAU); g.fill(); g.restore();
+        g.save(); g.translate(cx, cy); g.rotate(Math.PI * 0.78);
+        g.beginPath(); g.ellipse(R * u * 1.9, 0, R * u * 2.2, R * u * 0.62, 0, 0, TAU); g.fill(); g.restore();
       }
     });
-    this.texture(x, 0.035);
+    // a snow-capped boulder and its shadow
+    const bx = W * 0.38, by = H * 0.13, br = 32 * u;
+    this.blurred(x, 8 * u, (g) => { g.fillStyle = 'rgba(110,140,180,0.38)'; g.save(); g.translate(bx, by); g.rotate(Math.PI * 0.78); g.beginPath(); g.ellipse(br * 1.6, 0, br * 2.1, br * 0.8, 0, 0, TAU); g.fill(); g.restore(); });
+    this.boulder(x, r, bx, by, br);
+    this.boulder(x, r, W * 0.82, H * 0.7, 18 * u);
+    this.texture(x, 0.03);
 
     const [fore, f] = this.newLayer();
-    for (const [cx, cy, R] of trees) this.pine(f, r, cx, cy, R, { snow: true });
+    this.fence(f, r, -10 * u, H * 0.86, 0.12);
+    this.fence(f, r, W - 30 * u, H * 0.55, -1.48);
+    for (const [cx, cy, R] of trees) this.snowFir(f, r, cx, cy, R);
     return { ground, fore };
   }
 
+  // per-pixel grain at screen resolution, cheap because it is baked once
+  speckle(x, r, density, colours) {
+    const u = this.u, n = Math.round((this.W * this.H) * density / (u * u * 40));
+    for (let i = 0; i < n; i++) { x.fillStyle = rgb(pick(r, colours), 0.5 + r() * 0.5); x.fillRect(r() * this.W, r() * this.H, (0.8 + r()) * u, (0.8 + r()) * u); }
+  }
+
+  boulder(x, r, cx, cy, R) {
+    const u = this.u, pts = [];
+    for (let i = 0; i < 10; i++) { const a = (i / 10) * TAU; pts.push([cx + Math.cos(a) * R * (0.85 + r() * 0.2), cy + Math.sin(a) * R * 0.8 * (0.85 + r() * 0.2)]); }
+    const poly = (arr) => { x.beginPath(); arr.forEach(([a, b], i) => (i ? x.lineTo(a, b) : x.moveTo(a, b))); x.closePath(); };
+    const g = x.createLinearGradient(cx + R, cy - R, cx - R, cy + R);
+    g.addColorStop(0, '#6d6f74'); g.addColorStop(1, '#2f3136');
+    x.fillStyle = g; poly(pts); x.fill();
+    // a smooth snow cap on top, shaded cool on its lower edge
+    const cap = pts.map(([a, b]) => [lerp(cx + R * 0.05, a, 0.66), lerp(cy - R * 0.25, b, 0.5)]);
+    x.fillStyle = '#f8fbff'; poly(cap); x.fill();
+    x.strokeStyle = 'rgba(160,185,215,0.8)'; x.lineWidth = 2.5 * u; poly(cap); x.stroke();
+  }
+
+  // A snow-laden fir from above: dark needles under heavy, rounded clumps of snow.
+snowFir(x, r, cx, cy, R) {
+    const u = this.u, RR = R * u;
+    // layered boughs from the outside in, each tier a darker-to-lighter green star
+    for (let tier = 0; tier < 4; tier++) {
+      const rr = RR * (1 - tier * 0.22), spikes = 11 + tier * 2, rot = tier * 0.37 + r() * 0.2;
+      x.fillStyle = ['#183a2e', '#21483a', '#2b5746', '#356552'][tier];
+      x.beginPath();
+      for (let i = 0; i <= spikes * 2; i++) { const a = rot + (i / (spikes * 2)) * TAU, d = i % 2 ? rr * 0.62 : rr; x.lineTo(cx + Math.cos(a) * d, cy + Math.sin(a) * d); }
+      x.closePath(); x.fill();
+      // heavy snow resting on the upper side of each bough, leaving dark gaps between
+      for (let i = 0; i < spikes; i++) {
+        if (r() < 0.25) continue;
+        const a = rot + (i / spikes) * TAU, d = rr * (0.62 + r() * 0.18);
+        const px = cx + Math.cos(a) * d, py = cy + Math.sin(a) * d, s2 = rr * 0.17 * (0.8 + r() * 0.4);
+        x.fillStyle = 'rgba(196,210,228,0.95)';
+        x.beginPath(); x.ellipse(px - s2 * 0.15, py + s2 * 0.18, s2, s2 * 0.7, a, 0, TAU); x.fill();
+        x.fillStyle = '#ffffff';
+        x.beginPath(); x.ellipse(px + s2 * 0.06, py - s2 * 0.08, s2 * 0.82, s2 * 0.56, a, 0, TAU); x.fill();
+      }
+    }
+    x.fillStyle = '#ffffff'; x.beginPath(); x.arc(cx, cy, RR * 0.12, 0, TAU); x.fill();
+  }
+
+  // Weathered planks with snow along their tops, half out of frame.
+  fence(x, r, cx, cy, rot) {
+    const u = this.u;
+    x.save(); x.translate(cx, cy); x.rotate(rot);
+    for (let i = 0; i < 6; i++) {
+      const px = i * 34 * u, len = (110 + r() * 30) * u;
+      x.fillStyle = 'rgba(110,130,160,0.3)'; x.fillRect(px + 8 * u, 10 * u, 22 * u, len);
+      const g = x.createLinearGradient(px, 0, px + 24 * u, 0);
+      g.addColorStop(0, '#b9a58a'); g.addColorStop(1, '#8c7a63');
+      x.fillStyle = g; x.fillRect(px, 0, 24 * u, len);
+      x.strokeStyle = 'rgba(90,75,60,0.5)'; x.lineWidth = 1 * u;
+      for (let k = 0; k < 3; k++) { x.beginPath(); x.moveTo(px + (5 + k * 7) * u, 6 * u); x.lineTo(px + (5 + k * 7) * u + r() * 3 * u, len - 6 * u); x.stroke(); }
+      x.fillStyle = '#fbfdff'; x.beginPath(); x.ellipse(px + 12 * u, len * (0.2 + r() * 0.5), 14 * u, 6 * u, 0, 0, TAU); x.fill();
+    }
+    x.fillStyle = '#9b876d'; x.fillRect(-10 * u, 30 * u, 220 * u, 14 * u);
+    x.fillStyle = '#fbfdff'; x.fillRect(-10 * u, 27 * u, 220 * u, 6 * u);
+    x.restore();
+  }
+
+  // ---- Desert (after the references): smooth wind ripples, a broad pale dune valley,
+  // faceted low-poly red rock with succulents and dry grass gathered at its feet.
   makeDesert() {
     const r = rng(303), u = this.u, W = this.W, H = this.H;
     const [ground, x] = this.newLayer();
-    const bg = x.createLinearGradient(0, 0, W * 0.4, H);
-    bg.addColorStop(0, '#f3d49c'); bg.addColorStop(1, '#e2b679');
-    x.fillStyle = bg; x.fillRect(0, 0, W, H);
-    // broad dune shading: sweeping light and shadow bands
-    this.blurred(x, 26 * u, (g) => {
-      for (let i = 0; i < 6; i++) {
-        const y0 = H * (i / 6) + r() * 60 * u;
-        g.strokeStyle = i % 2 ? 'rgba(204,150,92,0.35)' : 'rgba(255,236,196,0.45)';
-        g.lineWidth = (70 + r() * 60) * u;
-        g.beginPath(); g.moveTo(-50 * u, y0); g.bezierCurveTo(W * 0.3, y0 - 120 * u, W * 0.6, y0 + 140 * u, W + 50 * u, y0 - 30 * u); g.stroke();
+    x.fillStyle = '#efcf93'; x.fillRect(0, 0, W, H);
+    // broad dune shading and a pale wind-swept valley through the middle
+    this.blurred(x, 40 * u, (g) => {
+      g.fillStyle = 'rgba(214,166,104,0.45)';
+      for (let i = 0; i < 9; i++) { g.beginPath(); g.ellipse(r() * W, r() * H, (160 + r() * 220) * u, (80 + r() * 120) * u, r() * TAU, 0, TAU); g.fill(); }
+      g.strokeStyle = 'rgba(255,238,200,0.75)'; g.lineWidth = 170 * u; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(W * 0.1, -40 * u); g.bezierCurveTo(W * 0.35, H * 0.35, W * 0.15, H * 0.6, W * 0.55, H + 40 * u); g.stroke();
+      g.lineWidth = 120 * u; g.strokeStyle = 'rgba(255,240,206,0.55)';
+      g.beginPath(); g.moveTo(W * 0.6, -40 * u); g.bezierCurveTo(W * 0.75, H * 0.3, W * 0.45, H * 0.55, W * 0.85, H + 40 * u); g.stroke();
+    });
+    // wind ripples: smooth crests (lit) over troughs (shade), tapering at both ends
+    this.blurred(x, 1.2 * u, (g) => {
+      g.lineCap = 'round';
+      const gap = 20 * u;
+      for (let row = -3; row < H / gap + 3; row++) {
+        let xx = -60 * u + r() * 40 * u;
+        while (xx < W + 60 * u) {
+          const len = (120 + r() * 260) * u, y0 = row * gap + r() * 6 * u;
+          const curve = (q) => y0 + Math.sin(q * 0.011 + row * 0.7) * 7 * u + Math.sin(q * 0.0031 + row * 0.2) * 22 * u;
+          for (const [dy, col, w] of [[2.5, 'rgba(196,140,84,0.42)', 3.2], [-1.5, 'rgba(255,244,214,0.7)', 2.4]]) {
+            const N = 14;
+            for (let k = 0; k < N; k++) {
+              const t0 = k / N, t1 = (k + 1) / N, taper = Math.sin(((t0 + t1) / 2) * Math.PI);
+              const q0 = xx + t0 * len, q1 = xx + t1 * len;
+              g.strokeStyle = col; g.lineWidth = w * u * taper + 0.3;
+              g.beginPath(); g.moveTo(q0, curve(q0) + dy * u); g.lineTo(q1, curve(q1) + dy * u); g.stroke();
+            }
+          }
+          xx += len + (10 + r() * 50) * u;
+        }
       }
     });
-    // wind ripples: paired light and shadow lines following a gentle flow field
-    x.lineCap = 'round';
-    for (let row = -2; row < H / (11 * u) + 2; row++) {
-      const y0 = row * 11 * u;
-      let xx = -20 * u;
-      while (xx < W + 20 * u) {
-        const len = (40 + r() * 90) * u, amp = 4 * u;
-        const ph = xx * 0.012 + y0 * 0.03;
-        x.strokeStyle = 'rgba(196,140,84,0.35)'; x.lineWidth = 1.6 * u;
-        x.beginPath();
-        for (let k = 0; k <= 8; k++) { const qx = xx + (k / 8) * len; const qy = y0 + Math.sin(ph + qx * 0.02) * amp + Math.sin(qx * 0.004) * 18 * u; if (k) x.lineTo(qx, qy); else x.moveTo(qx, qy); }
-        x.stroke();
-        x.strokeStyle = 'rgba(255,240,206,0.55)'; x.lineWidth = 1.2 * u;
-        x.beginPath();
-        for (let k = 0; k <= 8; k++) { const qx = xx + (k / 8) * len; const qy = y0 - 2.4 * u + Math.sin(ph + qx * 0.02) * amp + Math.sin(qx * 0.004) * 18 * u; if (k) x.lineTo(qx, qy); else x.moveTo(qx, qy); }
-        x.stroke();
-        xx += len + (6 + r() * 30) * u;
-      }
-    }
     // pebbles
-    for (let i = 0; i < 220; i++) { x.fillStyle = rgb(pick(r, [[214, 170, 120], [190, 150, 110], [240, 220, 190]]), 0.9); x.beginPath(); x.ellipse(r() * W, r() * H, (1.4 + r() * 2.4) * u, (1 + r() * 1.8) * u, r() * TAU, 0, TAU); x.fill(); }
-    // dry grass and small succulents near the rocks
-    for (let i = 0; i < 26; i++) {
-      const cx = pick(r, [r() * W * 0.25, W * 0.75 + r() * W * 0.25]), cy = r() * H;
-      x.strokeStyle = 'rgba(186,160,90,0.9)'; x.lineWidth = 1.4 * u;
-      for (let k = 0; k < 7; k++) { const a = -Math.PI / 2 + (r() - 0.5) * 1.6; x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + Math.cos(a) * 14 * u, cy + Math.sin(a) * 14 * u); x.stroke(); }
+    for (let i = 0; i < 160; i++) { x.fillStyle = rgb(pick(r, [[205, 160, 110], [180, 140, 100], [246, 228, 196]]), 0.9); x.beginPath(); x.ellipse(r() * W, r() * H, (1.4 + r() * 2.6) * u, (1 + r() * 2) * u, r() * TAU, 0, TAU); x.fill(); }
+    // rock outcrops on the ground, each with plants gathered in its lee
+    const outcrops = [[0.12, 0.2, 46], [0.88, 0.16, 40], [0.86, 0.82, 52], [0.2, 0.86, 36], [0.64, 0.1, 22], [0.07, 0.55, 26]];
+    for (const [fx, fy, s] of outcrops) {
+      const cx = W * fx, cy = H * fy;
+      for (let k = 0; k < 5; k++) this.desertPlant(x, r, cx + (r() - 0.3) * s * 2.4 * u, cy + (r() - 0.2) * s * 2 * u, r() < 0.45);
+      this.lowPolyCluster(x, r, cx, cy, s, 3);
     }
-    for (let i = 0; i < 8; i++) {
-      const cx = r() * W, cy = r() * H, R = (10 + r() * 8) * u;
-      x.fillStyle = 'rgba(110,80,40,0.3)'; x.beginPath(); x.arc(cx + R * 0.4, cy + R * 0.4, R, 0, TAU); x.fill();
-      for (let k = 0; k < 7; k++) { const a = (k / 7) * TAU; x.fillStyle = k % 2 ? '#7fae6a' : '#98c27c'; x.beginPath(); x.ellipse(cx + Math.cos(a) * R * 0.45, cy + Math.sin(a) * R * 0.45, R * 0.55, R * 0.25, a, 0, TAU); x.fill(); }
-      x.fillStyle = '#f2a9b8'; x.beginPath(); x.arc(cx, cy, R * 0.22, 0, TAU); x.fill();
-    }
-    // low-poly rock outcrops on the ground
-    for (const [fx, fy, s] of [[0.1, 0.22, 34], [0.16, 0.3, 20], [0.88, 0.2, 30], [0.84, 0.8, 38], [0.24, 0.84, 24], [0.6, 0.12, 18]]) {
-      this.rock(x, r, W * fx, H * fy, s, { base: [222, 132, 76], light: [240, 170, 112], dark: [168, 88, 50], shadowDir: [0.8, 1] });
-    }
+    for (let i = 0; i < 7; i++) this.lowPolyRock(x, r, r() * W, r() * H, 6 + r() * 7);
     this.texture(x, 0.05);
 
     const [fore, f] = this.newLayer();
-    // foreground: big faceted rock formations in the corners
-    for (const [cx, cy, s] of [[0, 0, 140], [W, 0, 120], [W, H, 160], [0, H, 130], [W * 0.5, -40 * u, 70], [W + 30 * u, H * 0.5, 80], [-30 * u, H * 0.55, 70]]) {
-      for (let k = 0; k < 4; k++) this.rock(f, r, cx + (r() - 0.5) * s * u, cy + (r() - 0.5) * s * u, s * (0.5 + r() * 0.4), { base: [214, 120, 66], light: [238, 160, 100], dark: [150, 76, 44], shadowDir: [0.8, 1] });
+    for (const [cx, cy, s] of [[-20 * u, -20 * u, 120], [W + 20 * u, -10 * u, 100], [W + 10 * u, H + 20 * u, 130], [-10 * u, H + 10 * u, 110], [W * 0.42, -50 * u, 60], [W + 40 * u, H * 0.5, 70]]) {
+      this.lowPolyCluster(f, r, cx, cy, s, 5);
     }
     return { ground, fore };
+  }
+
+  // A faceted rock: every triangle from the peak to the rim is shaded by which way it
+  // faces the sun (upper left), which is what gives low-poly rock its look.
+  lowPolyRock(x, r, cx, cy, size) {
+    const u = this.u, R = size * u, n = 6 + Math.floor(r() * 3), rim = [];
+    for (let i = 0; i < n; i++) { const a = (i / n) * TAU + r() * 0.4; rim.push([cx + Math.cos(a) * R * (0.75 + r() * 0.4), cy + Math.sin(a) * R * 0.85 * (0.75 + r() * 0.4)]); }
+    const peak = [cx - R * 0.18 + (r() - 0.5) * R * 0.2, cy - R * 0.22];
+    // cast shadow, cool-tinted, toward the lower right
+    x.fillStyle = 'rgba(120,70,70,0.28)';
+    x.beginPath(); rim.forEach(([a, b], i) => (i ? x.lineTo(a + R * 0.5, b + R * 0.45) : x.moveTo(a + R * 0.5, b + R * 0.45))); x.closePath(); x.fill();
+    const L = [-0.62, -0.78];
+    const tones = [[150, 70, 46], [190, 96, 58], [222, 128, 74], [240, 162, 104], [250, 192, 138]];
+    for (let i = 0; i < n; i++) {
+      const a = rim[i], b = rim[(i + 1) % n];
+      const mx = (a[0] + b[0]) / 2 - peak[0], my = (a[1] + b[1]) / 2 - peak[1], m = Math.hypot(mx, my) || 1;
+      const lit = (mx / m) * L[0] + (my / m) * L[1];
+      const tone = tones[Math.max(0, Math.min(4, Math.round((lit + 1) * 2)))];
+      x.fillStyle = rgb(tone);
+      x.beginPath(); x.moveTo(peak[0], peak[1]); x.lineTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.closePath(); x.fill();
+      x.strokeStyle = rgb(tone); x.lineWidth = 0.8 * u; x.stroke();
+    }
+    x.strokeStyle = 'rgba(255,214,170,0.35)'; x.lineWidth = 1 * u;
+    for (const [a, b] of rim) { x.beginPath(); x.moveTo(peak[0], peak[1]); x.lineTo(a, b); x.stroke(); }
+  }
+
+  lowPolyCluster(x, r, cx, cy, size, n) {
+    const u = this.u, rocks = [];
+    for (let k = 0; k < n; k++) rocks.push([cx + (r() - 0.5) * size * 1.6 * u, cy + (r() - 0.5) * size * 1.2 * u, size * (0.45 + r() * 0.55)]);
+    rocks.sort((a, b) => a[1] - b[1]);
+    for (const [px, py, s] of rocks) this.lowPolyRock(x, r, px, py, s);
+  }
+
+  // Agave rosettes and dry grass tufts.
+  desertPlant(x, r, cx, cy, agave) {
+    const u = this.u;
+    if (agave) {
+      const R = (10 + r() * 8) * u;
+      x.fillStyle = 'rgba(110,70,40,0.25)'; x.beginPath(); x.ellipse(cx + R * 0.4, cy + R * 0.4, R, R * 0.8, 0, 0, TAU); x.fill();
+      for (let k = 0; k < 9; k++) {
+        const a = (k / 9) * TAU + r() * 0.2;
+        x.fillStyle = k % 2 ? '#4f9a6a' : '#6db27c';
+        x.beginPath(); x.moveTo(cx, cy); x.quadraticCurveTo(cx + Math.cos(a + 0.25) * R * 0.6, cy + Math.sin(a + 0.25) * R * 0.6, cx + Math.cos(a) * R, cy + Math.sin(a) * R);
+        x.quadraticCurveTo(cx + Math.cos(a - 0.25) * R * 0.6, cy + Math.sin(a - 0.25) * R * 0.6, cx, cy); x.fill();
+      }
+    } else {
+      x.strokeStyle = 'rgba(176,156,96,0.95)'; x.lineWidth = 1.3 * u; x.lineCap = 'round';
+      for (let k = 0; k < 9; k++) { const a = -Math.PI / 2 + (r() - 0.5) * 2; const l = (8 + r() * 10) * u; x.beginPath(); x.moveTo(cx, cy); x.quadraticCurveTo(cx + Math.cos(a) * l * 0.5, cy + Math.sin(a) * l * 0.6, cx + Math.cos(a) * l, cy + Math.sin(a) * l); x.stroke(); }
+    }
   }
 
   // Paper-like grain baked into the ground.
