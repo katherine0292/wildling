@@ -1,239 +1,156 @@
 <p align="center">
-  <img src="docs/readme/hero.webp" alt="Wildling: a ginger kitten exploring a top-down jungle, with its MIND panel showing needs and desires" width="100%">
+  <img src="docs/readme/v2-contact.webp" alt="Wildling V2: the kitten has come to the visitor's hand and accepts contact; a dashed ring and a hint show where contact is welcome" width="100%">
 </p>
 
 <h1 align="center">Wildling</h1>
 
-<p align="center"><em>A wild cat that grows up between your hands.</em></p>
+<p align="center"><em>An explainable AI creature: you build a short relationship with it through hand gestures.</em></p>
 
 <p align="center">
-  <a href="https://katherine0292.github.io/wildling/"><b>▶&nbsp; Play it in your browser</b></a>
-  &nbsp;·&nbsp; p5.js &nbsp;·&nbsp; ml5.js HandPose &nbsp;·&nbsp; Web Audio
+  <a href="https://katherine0292.github.io/wildling/v2/"><b>▶ Play the V2 slice</b></a> ·
+  <a href="https://katherine0292.github.io/wildling/">Prototype A</a> ·
+  <a href="docs/prd/prd-v2.md">PRD V2</a> ·
+  <a href="docs/STATUS.md">Status</a>
 </p>
 
-<p align="center">
-A procedurally generated cat, seen from above, that you raise with your bare hand through the webcam.<br>
-It lives on its own, grows from kitten to elder across three habitats, and remembers how you treated it.
-</p>
+Wildling is a top-down wild kitten for a public game and interaction exhibition. A visitor feeds it, plays with it,
+pets it, or gives it space, using one hand in front of a webcam, a mouse or the keyboard. Over a few minutes it grows
+through three habitats. The cat has its own needs and limits: it can refuse, rest, or step back, and it **always tells
+you whether the system lost your hand or the cat itself said no**.
 
-<br>
+## At a glance
 
-## Raise it with your hand
+| | |
+|---|---|
+| **Context** | Simulated client project for a Sydney game-and-interaction exhibition. The project lead issued **two briefs**: [Brief V1](docs/brief/brief-v1.md) and an AI-experience upgrade, [Brief V2](docs/brief/brief-v2.md). |
+| **My role** | Sole designer and developer. I translated each brief into a PRD ([V1](docs/prd/prd-v1.md), [V2](docs/prd/prd-v2.md)), designed the interaction and AI behaviour, built the prototypes, and kept requirements, decisions and evidence aligned in writing. |
+| **How the PRDs are written** | Every requirement is tagged **[客户] client requirement**, **[方案] my proposal**, or **[待确认] trade-off needing sign-off**. A [traceability matrix](docs/traceability.md) links brief goals to specs and acceptance cases. |
+| **What's built** | Two Brief V1 prototypes (A: autonomous life, B: care tools), plus a **V2 vertical slice** that implements the PRD V2 core loop: quality gate, intent with `unknown`, hard constraints + utility, reason codes, bounded adaptation, session lifecycle and an evidence-cited recap. |
+| **Evidence** | 36 replay tests mapped to PRD acceptance cases (`npm test`, CI). Planned, implemented, verified and client-confirmed are tracked separately in the [status board](docs/STATUS.md). |
+| **Stack** | p5.js · ml5.js HandPose · Web Audio API · Node test runner. PRD V2 plans a Processing Java exhibition renderer and a local Node.js authority. |
 
-<table>
-  <tr>
-    <td width="33%" align="center"><img src="docs/readme/pet.webp" alt="A slow open hand pets the kitten; it sits, squints and purrs" width="100%"></td>
-    <td width="33%" align="center"><img src="docs/readme/chase.webp" alt="A fast hand sweeps toward a juvenile in the snow; it hisses, puffs its tail and flees" width="100%"></td>
-    <td width="33%" align="center"><img src="docs/readme/hunt.webp" alt="Left alone, an adult stalks, pounces on and eats a beetle in the desert" width="100%"></td>
-  </tr>
-  <tr>
-    <td align="center"><b>Pet</b><br><sub>A slow, open hand over its back.<br>It sits, squints and purrs, and its trust grows.</sub></td>
-    <td align="center"><b>Chase</b><br><sub>A fast sweep toward it.<br>A wary cat hisses and flees; a trusting one plays.</sub></td>
-    <td align="center"><b>Let it be</b><br><sub>Step away and it lives on its own:<br>it explores, hunts, grooms and naps.</sub></td>
-  </tr>
-</table>
+## The problem I was solving
 
-Hand tracking runs entirely in the browser with ml5.js HandPose; no video is recorded or uploaded.
-A mouse or a touchscreen works the same way.
+The two Brief V1 prototypes read hand **speed** as intent: slow meant petting, fast meant threat. In a public room that
+breaks down. Tracking jumps, someone adjusting their posture, or a bystander's hand all looked like deliberate actions,
+and the cat either punished the visitor or obeyed a button. Trust was one number that went up and down, and nobody
+could say which of their actions had changed it.
 
-## It grows up, and moves on
+Brief V2 asked for an AI experience that people can **trust and understand**. My framing in PRD V2: *separate evidence,
+intent and choice*, so every "no" has a checkable cause.
 
-<p align="center">
-  <img src="docs/readme/life.webp" alt="The same cat at four ages: kitten in the jungle, juvenile in the snow, adult and elder in the desert" width="100%">
-</p>
-<table>
-  <tr>
-    <td width="25%" align="center"><b>Kitten</b><br><sub>Jungle nursery · blue kitten eyes</sub></td>
-    <td width="25%" align="center"><b>Juvenile</b><br><sub>Snowfields · tires faster in the cold</sub></td>
-    <td width="25%" align="center"><b>Adult</b><br><sub>Desert · slit pupils, long shadows</sub></td>
-    <td width="25%" align="center"><b>Elder</b><br><sub>Rests, and a mutated kitten is born</sub></td>
-  </tr>
-</table>
-
-Each change of habitat is a migration: the cat walks off-screen and arrives somewhere new, with its own prey, sounds and paw prints.
-When an elder rests, its kitten is born back in the jungle, carrying its genes and part of the trust you built.
-
-## Every cat is different
-
-<p align="center">
-  <img src="docs/readme/coats.webp" alt="Four generated coats: ginger tabby, spotted, rosetted and colour-point" width="100%">
-</p>
-
-A small genome sets coat colour, pattern (tabby, spotted, rosette, colour-point), eye colour and body proportions.
-Markings live in body coordinates, so the coat bends and stretches with the spine. Each new generation mutates a little.
-
-## A mind you can read
-
-<table>
-  <tr>
-    <td width="40%" align="center"><img src="docs/readme/mind.webp" alt="The MIND panel: current behaviour, an inner thought, four needs and the score of each desire" width="100%"></td>
-    <td width="60%">
-      The cat runs a small <b>utility AI</b>. Four needs (<i>energy, fullness, trust, stress</i>) drift over time and give every possible behaviour a score; the highest one wins.<br><br>
-      Your hand can interrupt: a slow hand means <b>petted</b>, a fast hand means <b>flee</b>, or <b>play</b> once it trusts you.<br><br>
-      The MIND panel shows all of this live, along with an inner thought, so you can always see <i>why</i> it is doing what it does.
-    </td>
-  </tr>
-</table>
-
-## A body made of motion
-
-<p align="center">
-  <img src="docs/readme/skeleton.webp" alt="Debug view: spine joints, inverse-kinematics legs, foot targets and the pet and chase radii" width="80%">
-</p>
-
-Nothing is pre-drawn or pre-animated. The head steers, an 8-joint spine follows it, the legs are solved with inverse kinematics and the paws stay planted.
-Sitting, curling up to sleep, crouching to stalk and a puffed-up tail all come from that same body. Press <kbd>D</kbd> to see the skeleton.
-
-<br>
-
----
-
-## Why it exists
-
-**Care is remembered.** Trust is the one need you can change directly. A cat you only chase stays wary; a cat you pet learns to play, and passes part of that trust to its kittens.
-
-It sits between the virtual pet (empathy through fragility) and artificial-life work, and treats the creature as an **agent whose reasoning is visible** rather than a black box.
-
-**Influences:** Design I/O, *Connected Worlds* (2015) · W. Grey Walter's tortoises (1948–49) · Karl Sims, *Evolved Virtual Creatures* (1994) · Daniel Shiffman, *The Nature of Code* · procedural-animation spines and IK · Tamagotchi.
-
-## Research and technical choices
-
-| Part | What I looked at | What I chose, and why |
-|---|---|---|
-| **One creature, not a flock** | Boids and flocking: Craig Reynolds' steering behaviours, Shiffman's [*Nature of Code*](https://github.com/nature-of-code/noc-book-2) ch. 5, [Flocking-p5js](https://github.com/AidenBurgess/Flocking-p5js) | Flocks look beautiful, but no single boid has a personality. The concept is a relationship with *one* cat, so there is one creature, and the depth goes into its needs and choices. Reynolds' **seek** and **flee** steering is still used to move the cat (`Cat.seek`, `Cat.awayFrom`). |
-| **Readable mind, not a neural net** | Neural-network visualisers: [netflow.js](https://github.com/hmkcode/netflow.js), [p5Perceptron](https://github.com/IainWinter/p5Perceptron) | A neural net needs training data and its reasons cannot be read. A **utility AI** (four needs score six behaviours; the highest wins) is shown live in the MIND panel, so you can always see *why* the cat acts. |
-| **Procedural body** | Karl Sims, *Evolved Virtual Creatures*; argonaut's [animal-proc-anim](https://github.com/argonautcode/animal-proc-anim) (a chain of joints with angle limits, in Processing) | The same chain idea, rebuilt in p5.js for a cat seen from above, plus **2-bone inverse kinematics** for the legs. One body can sit, curl, stalk and puff up with no pre-drawn frames. |
-| **Hand input** | [ml5.js](https://github.com/ml5js/ml5-next-gen) HandPose; the p5.js tutorial [*Speak With Your Hands*](https://p5js.org/tutorials/speak-with-your-hands/) | The standard way to use hand tracking in p5.js. It runs in the browser, so no video is uploaded. The mouse acts as the same hand when there is no camera. |
-| **Sound** | The browser's Web Audio API | Synthesised live rather than recorded, so the voice can follow age (kitten squeak → adult meow) and the purr can follow trust. |
-| **Genes and generations** | Genetic algorithms in *The Nature of Code* ch. 9; Karl Sims | Each kitten is a mutated copy of its parent and inherits part of the trust you built. |
-
-## How it works
-
-```
-            ┌──────────── INPUT ────────────┐
- webcam ──► ml5 HandPose (21 keypoints) ─┐  │
- mouse / touch ─────────────────────────┴─► HandInput: position · presence · speed
-                                               │  slow & over body = PET
-                                               │  fast & near head = CHASE
-                                               ▼
- ┌──────────────────────────── BRAIN (utility AI) ─────────────────────────────┐
- │ needs: energy · fullness · trust · stress   (drift every frame)             │
- │ desire scores: Wander · Hunt · Sleep · Groom · Curious · Wary → highest wins │
- │ hand overrides: PETTED · FLEE / PLAY (decided by trust)                     │
- │ life cycle overrides: MIGRATE · ARRIVE · REST                               │
- └──────────────────────────────────────┬──────────────────────────────────────┘
-                                         ▼
- ┌──────────────────────────── BODY (procedural) ──────────────────────────────┐
- │ head steering → 8-joint spine (follow-the-leader, bend limits)              │
- │ → 4 legs with 2-bone IK + planted-foot stepping (diagonal trot)             │
- │ → 13-joint tail driven by a mood wave · ears / eyes / pupils / purr / puff   │
- │ → coat pattern projected onto the moving spine (genome)                     │
- └──────────────────────────────────────┬──────────────────────────────────────┘
-                                         ▼
- WORLD: biome (ground, light, weather, plants) · prey · footprints · effects · audio
- LIFE CYCLE: Kitten/Jungle → Juvenile/Snow → Adult/Desert → rest → mutated kitten (Gen n+1)
-```
-
-### Environment shapes behaviour (abiotic elements)
-| Biome | Life stage | Prey | Effect on the cat |
+| Why it didn't respond | Who owns it | What the visitor sees | Effect on the relationship |
 |---|---|---|---|
-| Jungle Nursery | Kitten | butterflies | dappled light, swaying canopy shadows fall across the cat |
-| Snowfields | Juvenile | snow buntings | energy drains 35% faster (cold), 12% slower movement, paw prints in snow |
-| Desert | Adult → Elder | beetles | slit pupils in bright sun, long shadows, prints in sand, tumbleweeds |
+| The system lost your hand | System | The cursor turns dashed: *"I lost your hand. Hold it in the guide."* | **None** |
+| The gesture is not clear yet | System | *"Hold still for a moment."* | **None** |
+| The cat is tired, full or stressed | Cat | Body language and a reason: *"I'm tired. Give me a little space."* | None. Refusals never cost trust. |
 
-### Audio (all synthesised live, no recordings)
-- Ambience crossfades per biome: insects and bird chirps in the jungle, wind gusts and bell
-  chimes in the snow, wind, sand hiss, a drone and a distant hawk in the desert.
-- The cat's voice is pitched by age (kitten squeak → adult meow): trill when petted, yelp or
-  **hiss** when startled, and a **purr** whose volume follows how long and how trusted the petting is.
-- Footsteps change with the ground: leaf rustle, snow crunch, sand shush. There are also
-  sounds for pounces (whoosh), catches (chomp), growth (chimes) and birth.
+## From brief to product
 
-### Generative genome
-Each cat has a genome: coat colour, pattern (tabby / spotted / rosette / colour-point),
-pattern density and contrast, eye colour, ear, tail, leg and body proportions, white socks
-or muzzle, and tail tip. Markings are stored in body-local coordinates and re-projected onto
-the moving spine every frame, so the coat bends and stretches with the body. Kittens are
-born with blue eyes that shift to their adult colour as they grow.
+```
+Brief V1 ──► PRD V1 ──► Prototype A (autonomous life) + Prototype B (care tools)
+  "care builds trust"     tool route chosen for round one;      │
+                          A's ecology and IK deferred           ▼
+                                                     findings: speed ≠ intent, tools = commands,
+                                                     single trust number, average-based growth, no session
+Brief V2 ──► PRD V2 ──► V2 slice (browser) ──► planned: trained gesture model · Node authority · Processing exhibit
+  "AI interaction upgrade"   quality gate · utility + constraints · bounded adaptation · reason codes · session
+```
 
----
+| Stage | Client asked | I proposed | Needed sign-off |
+|---|---|---|---|
+| **V1** | Care builds trust; first-timers must understand; the creature has its own rhythm; three habitats | Three explicit tools, but **the tool states the request and the cat decides**; a state machine for readability; a recap on reaching adulthood; ecology and genetics deferred | Q1 short session vs full life cycle · Q2 browser prototype vs Processing main screen · Q3 duration and language |
+| **V2** | Trained, evaluated gesture classes with `unknown`; hard constraints + utility; bounded in-session adaptation after ≥ 3 events; session turnover; Processing + JS | Three-layer cause model; 600 ms windowed classifier with rejection thresholds; 8 candidate behaviours with inertia and request boost; three bounded preferences; reason-code copy; participant-split data plan; acceptance cases AT01–AT18 | Devices, venue light, test recruitment, anonymous statistics, final public copy |
 
-## Run it
+## Key product decisions
 
-### In the p5.js web editor
-The sketch is seven files in one folder, nothing else:
+1. **Tools are requests, not commands.** Feed, Play and Pet signal what you are *trying*. The cat may still refuse. *Give space* is a fourth, equally valid action. ([ADR-005](docs/decisions/README.md#adr-005-工具从命令改为请求))
+2. **System uncertainty never becomes a relationship penalty.** Lost or uncertain tracking stops contact and stops penalties, and it shows on the cursor rather than on the cat. ([ADR-004](docs/decisions/README.md#adr-004-区分系统不确定与角色拒绝))
+3. **Safety comes from rules; character comes from utility.** Exhaustion, stress and eating locks are hard constraints. The remaining choices are scored, and every decision records its candidates, blocked reasons and winner. ([ADR-006](docs/decisions/README.md#adr-006-硬约束--效用选择))
+4. **Adaptation is small, bounded and honest.** A preference moves only after three valid events, by 20 % toward the median, within a hard range, and it is cleared when the session ends. The copy says *"I'm getting used to this rhythm"*, never *"I know your personality"*. ([ADR-007](docs/decisions/README.md#adr-007-有界统计适应而非在线学习))
+5. **No trust bar on the public screen.** Visitors see *Still watching you · Warming up to you · Comes to you*. Exact numbers are for staff only. ([ADR-009](docs/decisions/README.md#adr-009-信任不作为主屏数值奖励))
+6. **No generative text in P0.** The recap is built from templates, and each line cites real event IDs. ([ADR-003](docs/decisions/README.md#adr-003-不做开放对话不用生成式文本作为结语))
 
-`index.html` · `style.css` · `sketch.js` · `utils.js` · `cat.js` · `world.js` · `interface.js`
+## What visitors see
 
-1. Open <https://editor.p5js.org> and create a new sketch.
-2. Drag all seven files into the editor's file panel. Replace the editor's own `index.html`, `style.css` and `sketch.js` when asked.
-3. Press ▶ Play. Allow the camera for hand tracking, or click **Use mouse / touch**.
+<table>
+  <tr>
+    <td width="50%"><img src="docs/readme/v2-consent.webp" alt="Consent screen offering hand, mouse or keyboard, explaining that video is never saved but the browser will still ask for permission"></td>
+    <td width="50%"><img src="docs/readme/v2-reflection.webp" alt="Reflection screen with three recap sentences drawn from this session's events"></td>
+  </tr>
+  <tr>
+    <td><b>Consent before the camera.</b> Three equal ways in. The copy says plainly that inference is local <i>and</i> that the browser will still ask for permission.</td>
+    <td><b>An honest goodbye.</b> At most three sentences, each backed by an event. If little happened, it says <i>"We spent a quiet moment together."</i> The session then clears itself after 15 s.</td>
+  </tr>
+</table>
 
-The `docs/` folder only holds the images for this page and is not needed to run the sketch.
+## What staff see
 
-### Locally
-Camera access needs `localhost` or `https`, so serve the folder rather than double-clicking the file:
+<p align="center"><img src="docs/readme/v2-refusal-staff.webp" alt="The cat refuses to play because it is tired; the staff panel shows observed input, exact needs, and the decision trace with PLAY blocked by NEED_REST" width="100%"></p>
+
+Press <kbd>D</kbd>. The panel answers the three questions Brief V2 asks a staff member to be able to answer:
+**what did the system observe**, **what does the creature need**, and **how did the two produce this choice**.
+Here, Play is blocked with `NEED_REST`. The visitor sees only the sleeping cat and one sentence.
+
+<sub>Screenshots were captured in mouse mode at 1440×900. Some states (low energy, chapter 2) were reached faster by setting needs from the browser console.</sub>
+
+## AI capability boundaries
+
+| Capability | What it actually is |
+|---|---|
+| Hand keypoints | **Pre-trained model** (ml5.js HandPose). Not yet tested on a real exhibition camera. |
+| Gesture intent | PRD: a trained time-series model. **Today: a rule baseline**, clearly labelled `rule_baseline`, behind the same rejection gate. No data has been collected and **no accuracy figure exists**. |
+| Behaviour | **Rules + hand-written utility functions.** Explainable and replayable. |
+| Adaptation | **Statistical estimate** (median, smoothing, hard bounds). Not online learning. |
+| Recap | **Templates** citing event IDs. |
+
+Full statement: [`docs/ai-boundaries.md`](docs/ai-boundaries.md).
+
+## Success metrics and where they stand
+
+The PRD V2 targets are **design targets, not results**:
+
+| Metric | Target | Status |
+|---|---|---|
+| First meaningful action | 8 / 10 first-time visitors within 30 s | Study planned ([plan](docs/research/usability-test-plan.md)) |
+| Reason understood | 8 / 10 correctly explain one accept or refuse | Study planned |
+| Adaptation noticed | 7 / 10 cite a concrete change and event | Study planned; on/off ablation already replays |
+| Gesture model | macro F1 ≥ 0.85 on held-out participants, with coverage and false-contact rate | Data plan, capture page and evaluator ready; **model not trained** |
+| No unfair penalty | 0 trust loss from invalid tracking | ✅ Verified on synthetic replays (AT02, AT09); not yet on a real camera |
+| Clean turnover | 30 rounds with no state carried over | ✅ Logic verified (AT12, AT14); 30-round hardware run planned |
+
+## Repository map
+
+| Path | What |
+|---|---|
+| [`docs/brief/`](docs/brief) | Both client briefs (Markdown + original PDF) |
+| [`docs/prd/`](docs/prd) | PRD V1 and V2 (Markdown + original PDF), with source tags on every requirement |
+| [`docs/traceability.md`](docs/traceability.md) · [`docs/decisions/`](docs/decisions/README.md) | Brief → spec → acceptance matrix · product decision records |
+| [`docs/design/experience-spec.md`](docs/design/experience-spec.md) | Two-layer state model, feedback mapping, recovery |
+| [`docs/research/`](docs/research) | Usability and adaptation study plan · gesture dictionary and data plan |
+| [`docs/ai-boundaries.md`](docs/ai-boundaries.md) · [`docs/STATUS.md`](docs/STATUS.md) | What is model, rule or statistics · what is planned, implemented or verified |
+| [`v2/`](v2) | The V2 browser slice ([README](v2/README.md)) |
+| [`test/`](test) | Replay tests mapped to acceptance cases |
+| [`tools/`](tools) | Research capture page and gesture evaluator |
+| [`prototypes/`](prototypes) · root `*.js` | Prototype B (care tools) · Prototype A (autonomous life, [page](docs/prototype-a.md)) |
+
+## Run
 
 ```bash
-cd wildling
 python3 -m http.server 8790
 ```
 
-Then open <http://localhost:8790> in **Chrome**.
+Then open <http://localhost:8790/v2/> for the V2 slice, or <http://localhost:8790/> for Prototype A, in Chrome. The camera needs `localhost` or `https`.
 
-### Controls
-| Key | Action |
-|---|---|
-| `M` | show / hide the MIND panel |
-| `D` | debug skeleton: spine, IK legs, foot targets, pet/chase radii |
-| `G` | grow faster (+⅓ stage) — for demos |
-| `1` `2` `3` | jump to Jungle / Snow / Desert stage |
-| `N` | new random cat |
-| `S` | mute · `H` hide UI · `C` camera preview · `F` fullscreen |
+```bash
+npm test
+```
 
-URL options for presenting: `?autostart=1&stage=1&pattern=rosette&coat=golden&wake=1&debug=1`
+Node 22 or later. No dependencies need installing.
 
-### Code structure (object-oriented)
-| File | Classes / role |
-|---|---|
-| `sketch.js` | p5 `setup()` / `draw()`, keys, URL options |
-| `cat.js` | `Genome` (inherited traits, mutation) · `Brain` (needs, utility scores, hand overrides) · `Cat` (procedural body, behaviours, drawing) |
-| `world.js` | `World` (life cycle, migration, rebirth, footprints, effects) · `Biome` → `JungleBiome` / `SnowBiome` / `DesertBiome` · `Prey` |
-| `interface.js` | `HandInput` (ml5 HandPose + mouse fallback) · `SoundEngine` (Web Audio synthesis) · `UI` (HUD, MIND panel, captions) |
-| `utils.js` | small math, colour and drawing helpers |
+## Known limits
 
----
-
-## Status
-
-### Working
-- Complete life cycle: kitten → juvenile → adult → elder rest → mutated next generation.
-- Migration between three hand-built procedural biomes, with captions and fades.
-- Pet / chase interaction via mouse and touch, with trust deciding between flee and play.
-- Autonomous life: exploring with pauses, stalk → wiggle → pounce → eat hunting (it can miss), grooming, curling up to sleep.
-- Procedural body: spine, IK legs with planted feet, expressive tail, ears, eyes, pupils, breathing.
-- Four coat patterns, colour inheritance and mutation; kitten blue eyes.
-- Synthesised soundscape and cat voice.
-- Live MIND panel (needs, desire scores, thought).
-- Runs at about 60 fps at 1440×900 in Chrome on a MacBook.
-
-### Not working yet / to test
-- **Webcam hand tracking still needs a live test with a real camera.** The code follows the
-  ml5.js v1 HandPose API and falls back to the mouse, but tracking jitter and the speed
-  thresholds for pet vs chase (`PET_SPEED`, `CHASE_SPEED` at the top of the `Brain` section in `cat.js`) must be tuned by hand.
-- Sound levels were balanced in code. They need a listening pass on speakers and on headphones.
-- Gesture recognition is not yet sensitive enough: pet and chase are told apart only by hand speed and distance.
-- The cat's drawing is still rough in places (body outline, fur, shading).
-- When the cat flees and is cornered against a wall, it sometimes bends into a tight U-shape.
-- No save state: refreshing starts a new lineage.
-
-### Roadmap
-1. **Deeper gesture recognition.** Tune the pet and chase thresholds with 3–5 people, and read the hand's shape as well as its speed (for example, an open palm for petting).
-2. **Refine the cat's rendering.** A cleaner body outline, better fur and shading.
-3. A short "family tree" strip of past generations, so the lineage is visible.
-4. Record a 60–90 s demo video.
-
-### Design decisions
-- A **utility-based decision system shown in the MIND panel** instead of a black-box neural net, so the creature's choices can be read.
-- Habitat changes are **tied to growth**, so each new background marks a life stage.
-- **Two gestures only** (pet, chase), explored in depth rather than many shallow ones.
+- The camera path has **not been tested on real hardware**. Thresholds are PRD starting values.
+- Gesture intent is a rule baseline. The trained model, the Node.js authority, the Processing exhibition renderer and the offline package are **planned** (see [status](docs/STATUS.md)).
+- Four implementation deviations from the PRD formulas are listed for review in [`docs/STATUS.md`](docs/STATUS.md#与-prd-的已知偏差需评审).
+- This is a simulated client project. Briefs, budgets and timelines are part of the exercise. No real user research has been run yet.
