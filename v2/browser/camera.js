@@ -107,6 +107,7 @@ export class CameraInput {
       handScale, open,
       pinchRatio: d2(px(4), px(8)) / Math.max(palmPx, 1),
       keypointCount: finite ? 21 : 0,
+      keypoints: finite ? kp : null, // screen-normalised; hand shapes are read from these (core/pose.js)
     };
   }
 
