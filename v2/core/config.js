@@ -94,7 +94,7 @@ export const PARAMS = Object.freeze({
     // ADR-017: what the visitor can ask for, and how close the kitten must feel first
     greetSec: 2.8, cuddleSec: 5.5, standoffSec: 2.6,
     startBond: 0.25, cuddleBond: 0.35, friendBond: 0.6,
-    pose: { holdMs: 600, cooldownMs: 1500, overS: 0.16 },
+    pose: { holdMs: 500, cooldownMs: 1500, overS: 0.22, keepS: 0.32, alpha: 0.35, min: 0.55, margin: 0.15 },
   },
   // Critters to chase (juvenile and older) and gifts (adult, once it comes to you).
   hunt: { everySec: [16, 28], lifeSec: 14, pounceS: 0.07, fun: 0.12, energy: 0.05, catchChance: 0.35, cooldownSec: 6, minPhase: 1 },

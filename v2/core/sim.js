@@ -14,7 +14,7 @@ import { CreatureCore, BEHAVIOURS } from './creature.js';
 import { RelationshipMemory } from './memory.js';
 import { buildRecap } from './recap.js';
 import { growthCheck, PHASES, UNLOCKS } from './growth.js';
-import { classifyPose, PoseGate, POSE_ACTS } from './pose.js';
+import { PoseSmoother, PoseGate, POSE_ACTS } from './pose.js';
 import { TrickLearner, MoveSegmenter, TRICKS } from './tricks.js';
 
 export const PROTOCOL_VERSION = '1.0';
@@ -90,6 +90,8 @@ export class Simulation {
     this.uncertainSince = null;
     this.errors = { duplicates: 0, rejected: 0 };
     this.poseGate = new PoseGate(params.social.pose);
+    this.poseSmoother = new PoseSmoother(params.social.pose);
+    this.poseTarget = null;
     this.learner = new TrickLearner({ examples: params.tricks.examples, reject: params.tricks.reject });
     this.segmenter = new MoveSegmenter();
     this.teach = { lastTrace: null, lastResult: null, consistency: null };
@@ -243,10 +245,18 @@ export class Simulation {
   // the Siblings tool. A rule baseline with rejection; the kitten still decides.
   readPose(sample) {
     const kp = sample.present && Array.isArray(sample.keypoints) ? sample.keypoints : null;
-    const raw = kp ? classifyPose(kp) : { label: 'unknown', score: 0 };
-    const target = this.tool === 'LITTER' && this.track.valid ? this.siblingAt(this.track.x / this.world.w, this.track.y / this.world.h, this.p.social.pose.overS) : null;
+    const raw = kp ? this.poseSmoother.update(kp, sample.keypoints3D ?? null) : (this.poseSmoother.reset(), { label: 'unknown', score: 0 });
+    const P = this.p.social.pose, nx = this.track.x / this.world.w, ny = this.track.y / this.world.h;
+    // the sibling under the hand; once a shape is being held, a small drift keeps the same target
+    let target = this.tool === 'LITTER' && this.track.valid ? this.siblingAt(nx, ny, P.overS) : null;
+    if (!target && this.poseTarget && this.poseGate.label !== 'unknown' && this.track.valid) {
+      const keep = this.siblings.find((o) => o.id === this.poseTarget);
+      if (keep && Math.hypot(keep.x - this.track.x, keep.y - this.track.y) < P.keepS) target = keep;
+    }
+    this.poseTarget = target?.id ?? null;
     const g = this.poseGate.update(raw.label, sample.t, this.track.valid && this.session.state === 'ACTIVE' && this.tool === 'LITTER');
-    this.pose = { label: g.label, progress: target ? g.progress : 0, target: target?.kitten.id ?? null, score: raw.score, source: 'rule_baseline' };
+    // the recognised shape is always reported (the tutorial and the cursor use it); only the Siblings tool acts on it
+    this.pose = { label: this.tool === 'LITTER' ? g.label : raw.label, progress: target ? g.progress : 0, target: target?.kitten.id ?? null, score: raw.score, scores: raw.scores, source: 'rule_baseline' };
     if (g.fire && target) this.command({ id: `pose_${sample.t}`, type: 'social_request', kitten: target.kitten.id, act: POSE_ACTS[g.fire], via: 'pose' });
   }
 

@@ -108,6 +108,7 @@ export class CameraInput {
       pinchRatio: d2(px(4), px(8)) / Math.max(palmPx, 1),
       keypointCount: finite ? 21 : 0,
       keypoints: finite ? kp : null, // screen-normalised; hand shapes are read from these (core/pose.js)
+      keypoints3D: finite && Array.isArray(results[pick].keypoints3D) && results[pick].keypoints3D.length === 21 ? results[pick].keypoints3D.map((k) => ({ x: k.x, y: k.y, z: k.z })) : null,
     };
   }
 
