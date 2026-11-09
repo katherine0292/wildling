@@ -16,6 +16,7 @@ const T = {
     quiet: () => 'We spent a quiet moment together.',
     befriend: (name) => `${name} and I became friends.`,
     cuddle: (name) => `I curled up with ${name}.`,
+    trick: (name, n) => `You taught me to ${{ spin: 'spin', rollover: 'roll over', wave: 'wave' }[name] ?? name}, from ${n} examples.`,
     returned: (n) => `You came back. This was visit ${n}.`,
     gift: (item) => `I brought you ${{ pebble: 'a smooth pebble', feather: 'a feather', flower: 'a dry flower', shell: 'a beetle shell' }[item] ?? 'a little gift'}.`,
     wrestle: (name) => `I wrestled with ${name} while you watched.`,
@@ -46,6 +47,8 @@ export function buildRecap(log, lang = 'en') {
   const cuddles = of('sibling_cuddle');
   const NAMES = { ember: 'Ember', juniper: 'Juniper', saffron: 'Saffron' };
 
+  const taught = of('trick_learned');
+  if (taught.length) push(t.trick(taught[0].measurement.trick, taught[0].measurement.examples), ids(taught, 1));
   const back = of('returned');
   if (back.length) push(t.returned(back[0].measurement.visits), ids(back, 1));
   if (gifts.length) push(t.gift(gifts[gifts.length - 1].measurement.item), ids(gifts, 1));

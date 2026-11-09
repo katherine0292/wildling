@@ -81,7 +81,7 @@ export const PARAMS = Object.freeze({
   growth: {
     minWellbeing: 0.55, minEach: 0.2, maxStress: 0.4, perSec: 1 / 150, trustBoost: 0.25,
     transitionSec: 4,
-    burst: { FEED: 0.08, PLAY: 0.04, PET: 0.1, WAIT: 0.06, SOCIAL: 0.09, HUNT: 0.06, GIFT: 0.07 },
+    burst: { FEED: 0.08, PLAY: 0.04, PET: 0.1, WAIT: 0.06, SOCIAL: 0.09, HUNT: 0.06, GIFT: 0.07, TRICK: 0.07 },
     burstCapPerMin: 0.24,
   },
 
@@ -98,6 +98,10 @@ export const PARAMS = Object.freeze({
   },
   // Critters to chase (juvenile and older) and gifts (adult, once it comes to you).
   hunt: { everySec: [16, 28], lifeSec: 14, pounceS: 0.07, fun: 0.12, energy: 0.05, catchChance: 0.35, cooldownSec: 6, minPhase: 1 },
+  // Teach a trick (ADR-019): a 1-nearest-neighbour model on the visitor's own examples.
+  tricks: { examples: 3, reject: 0.32, sec: { spin: 1.5, rollover: 1.9, wave: 1.7 }, fun: 0.06, energy: 0.03, minEnergy: 0.3 },
+  // Passers-by (ADR-020): in exhibition mode the litter notices people walking past.
+  presence: { lookSec: 4, approachSize: 0.18 },
   // Keepsakes (ADR-016): on the web, a kitten can remember a returning visitor, kept only in
   // that visitor's own browser. In exhibition (kiosk) mode nothing is kept.
   keepsake: { trustPerVisit: 0.06, maxTrustBonus: 0.18 },
@@ -142,6 +146,8 @@ export const REASONS = Object.freeze({
   SIB_FRIEND: 'result',
   SIB_CUDDLE: 'result',
   SIB_STANDOFF: 'creature',
+  TRICK_UNKNOWN: 'system',
+  TRICK_LEARNED: 'result',
 });
 
 // Hint priority: system recovery > creature boundary > care result > guidance.
@@ -175,16 +181,19 @@ export const COPY = Object.freeze({
     SIB_FRIEND: 'Friends now!',
     SIB_CUDDLE: 'Warm and cosy.',
     SIB_STANDOFF: 'Hsss! Back off!',
+    TRICK_UNKNOWN: "I didn't recognise that move. Try it like you taught me.",
+    TRICK_LEARNED: 'Oh! I think I get it.',
     attract: 'Move closer, or start with a mouse',
     stillThere: 'Still there?',
     relation: ['Still watching you', 'Warming up to you', 'Comes to you'],
-    tools: { FEED: 'Feed', PLAY: 'Play', PET: 'Pet', WAIT: 'Give space', LITTER: 'Siblings' },
+    tools: { FEED: 'Feed', PLAY: 'Play', PET: 'Pet', WAIT: 'Give space', LITTER: 'Siblings', TRICK: 'Tricks' },
     toolHints: {
       FEED: 'Click, pinch or press Space to offer a fish',
       PLAY: 'Your hand is a yarn ball. See if it wants to play',
       PET: 'Rest a calm hand nearby. Let it come to you',
       WAIT: 'Step back. Watching is a way of caring too',
       LITTER: 'Point at a sibling and pick what to ask',
+      TRICK: 'Make a move you taught it, or teach a new one',
     },
     quietMoment: 'We spent a quiet moment together.',
   },

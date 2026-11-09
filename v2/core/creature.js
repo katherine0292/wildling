@@ -14,7 +14,7 @@ import {
   updateContact, startContact, endContact, updatePlay, updateWaiting,
 } from './care.js';
 
-export const BEHAVIOURS = ['EXPLORE', 'SEEK_FOOD', 'REST', 'GROOM', 'APPROACH', 'PLAY', 'CONTACT', 'RETREAT', 'OBSERVE', 'SOCIAL', 'HUNT', 'GIFT'];
+export const BEHAVIOURS = ['EXPLORE', 'SEEK_FOOD', 'REST', 'GROOM', 'APPROACH', 'PLAY', 'CONTACT', 'RETREAT', 'OBSERVE', 'SOCIAL', 'HUNT', 'GIFT', 'TRICK'];
 export const GIFTS = ['pebble', 'feather', 'flower', 'shell'];
 // How rough each kitten plays: wrestling with Saffron gets tense sooner than with Juniper.
 const ROUGH = { ember: 1, juniper: 0.6, saffron: 1.5 };
@@ -29,6 +29,7 @@ const GROWTH_CAUSE = {
   sibling_cuddle: () => 'SOCIAL',
   hunt_pounce: () => 'HUNT',
   gift_given: () => 'GIFT',
+  trick_done: () => 'TRICK',
 };
 const IDLE = new Set(['EXPLORE', 'OBSERVE', 'GROOM']);
 // A lead-in may hand over to its follow-up without the switching margin
@@ -86,6 +87,8 @@ export class CreatureCore {
     this.bonds = {}; // how close the kitten feels to each sibling, 0..1 (this visit only)
     this.reaction = null; // { type: 'hiss', reasonCode, sibling, until }
     this.huntState = { cooldownUntil: 0 };
+    this.trick = null;         // { name, start, until } while performing
+    this.pendingTrick = null;  // asked for by a recognised move, answered on the next step
     this.giftState = { readyAt: 0, stage: null, spot: null, item: null, seq: 0 };
     this.stats = { fed: 0, pounces: 0, contactSec: 0, startles: 0, refusals: 0, wrestles: 0, hisses: 0, hunts: 0, catches: 0, gifts: 0 };
     this.events = [];
@@ -186,6 +189,7 @@ export class CreatureCore {
     updatePlay(this, ctx, dt);
     this.updateSocial(dt, ctx);
     this.checkHiss(ctx);
+    this.updateTrick(dt, ctx);
 
     const canGrow = ctx.active && !this.demo && ctx.time >= this.transitionUntil;
     const g = growthStep(this, dt, canGrow, this.p);
@@ -356,7 +360,8 @@ export class CreatureCore {
     let forced = null;
 
     if (this.behaviour === 'EAT') forced = ['EAT', 'eating lock (1.2 s)'];
-    else if (this.goal) forced = ['EXPLORE', 'visiting a sibling'];
+    else if (this.goal) forced = ['EXPLORE', this.goal.id === 'passer_by' ? 'greeting a passer-by' : 'visiting a sibling'];
+    else if (this.trick) forced = ['TRICK', `performing: ${this.trick.name}`];
     else if (this.socialActive) forced = ['SOCIAL', { wrestle: 'play-fighting', greet: 'making friends', cuddle: 'cuddling', standoff: 'standing off' }[this.social.mode]];
     else if (ctx.time < this.retreatUntil) forced = ['RETREAT', 'pressure protection'];
     else if (n.energy < L.restEnter) forced = ['REST', 'energy below 0.15'];
@@ -524,6 +529,38 @@ export class CreatureCore {
     if (code) this.hiss(ctx, code, near);
   }
 
+  // A recognised move asks for a trick. The kitten still decides: too tired, too tense or
+  // busy eating means no, with a reason, and a refusal costs nothing.
+  updateTrick(dt, ctx) {
+    const tp = this.p.tricks;
+    if (this.pendingTrick) {
+      const name = this.pendingTrick; this.pendingTrick = null;
+      const n = this.needs, resting = this.behaviour === 'REST';
+      const code = resting || n.energy < tp.minEnergy ? 'NEED_REST' : n.stress >= this.p.limits.playStress ? 'PRESSURE_HIGH' : null;
+      if (this.behaviour === 'EAT' || this.socialActive || this.trick) { /* busy: ignore quietly */ }
+      else if (code) {
+        this.stats.refusals++;
+        if (code === 'NEED_REST' || code === 'PRESSURE_HIGH') this.markNeedsSpace(code, ctx.time);
+        this.emit('refusal', ctx, { reasonCode: code, measurement: { request: 'TRICK', trick: name } });
+        this.hint(code);
+      } else {
+        this.trick = { name, start: ctx.time, until: ctx.time + tp.sec[name] };
+        this.setBehaviour('TRICK', ctx);
+        this.forceRedecide = true;
+      }
+    }
+    if (this.trick && ctx.time >= this.trick.until) {
+      const name = this.trick.name;
+      this.trick = null;
+      this.needs.fun = clamp(this.needs.fun + tp.fun);
+      this.needs.energy = clamp(this.needs.energy - tp.energy);
+      this.stats.tricks = (this.stats.tricks ?? 0) + 1;
+      this.emit('trick_done', ctx, { measurement: { trick: name } });
+      this.behaviour = 'OBSERVE'; this.behaviourSince = ctx.time; this.boutUntil = ctx.time + 1.5;
+      this.forceRedecide = true;
+    }
+  }
+
   huntPounce(ctx, critter) {
     const hp = this.p.hunt;
     const before = this.needSnapshot();
@@ -612,6 +649,14 @@ export class CreatureCore {
         if (!cr) { this.forceRedecide = true; break; }
         tx = cr.x; ty = cr.y; speed = sp.play * 0.85; stopAt = 0.01;
         if (dist(this.x, this.y, cr.x, cr.y) < this.bodyRadius + this.p.hunt.pounceS) this.huntPounce(ctx, cr);
+        break;
+      }
+      case 'TRICK': {
+        if (this.trick?.name === 'spin') { // a full turn on the spot
+          const sec = this.p.tricks.sec.spin;
+          this.heading += (Math.PI * 2 / sec) * dt;
+          face = this.heading;
+        }
         break;
       }
       case 'GIFT': {
