@@ -141,3 +141,81 @@ These are starting values to tune, not measured optima. Hand shape is used only 
 - **Known risk:** an average can hide one need being very low. Replays and tests check for this; if "one need is very low but it still grows" appears, the next round adds a per-need minimum (adopted in PRD V2 F2-13).
 - The recap shows effective feeds, successful pounces, accepted contact time and one relationship line. With no successful care, a neutral close: "We shared a quiet moment."
 - Speed-up exists only in an explicit Demo mode with an on-screen label; it is disabled in real sessions and testing.
+
+## 11 AI and technical approach [Proposal]
+
+- JavaScript and p5.js run the main loop; ml5.js HandPose provides keypoints (loaded only when the camera is chosen); Web Audio synthesises all sound; camera failure switches to the mouse immediately.
+- Processing Java is a separate motion and visual study: PVector movement, turning, tail, gait and rest pose, replaying anonymous synthetic state JSON. **It runs no second set of needs or growth.**
+- Modules: InputAdapter, CreatureState, BehaviourController, WorldView, SoundAdapter, SessionController and UI, with parameters and copy kept separately.
+- At least one event replay is kept: input, behaviour changes, effective care and state changes. It is the baseline for moving to an authoritative core next stage.
+
+## 12 Design expression and accessibility [Proposal]
+
+- Each of explore, eat, chase, contact, retreat and rest has defined motion, posture, text and sound: contact = closed eyes or relaxed tail + purr; retreat = backing away + ears + a short hint; rest = curling up + slower breathing. **All key states stay readable with sound off.**
+- Tools have selected states and text labels, not icons alone; danger and success never rely on red and green.
+- **[To confirm]** The mouse is the full alternative input this round. Keyboard control, a no-pinch path and complete focus navigation are next-round accessibility work; if required in round one, they are added to scope with test time.
+
+## 13 Testing and acceptance
+
+**[Proposal]** These targets are my proposal for review.
+
+| ID | Scenario | Pass condition |
+|---|---|---|
+| A1-01 | Full mouse session | Choose tools, care, rest, pass three chapters and restart |
+| A1-02 | Real camera | Position mapping, pinch and contact on the target device, live |
+| A1-03 | Camera declined | Choose the mouse directly; nothing locks up |
+| A1-04 | Repeated pinch and toolbar clicks | One pinch confirms once; tool clicks never drop food |
+| A1-05 | Full and tired | Refuses food and rests for matching reasons, then recovers |
+| A1-06 | Lost hand or jump during contact | Timer stops, no trust lost, no scare on the first recovered frame |
+| A1-07 | Watching only | Autonomous behaviour continues without clicks |
+| A1-08 | Mute and restart | Key feedback still readable; all relationship and care stats reset |
+| A1-09 | Processing motion replay | The same state reproduces the same pose, with no second relationship logic |
+| A1-10 | First usability test | At least 4 of 5 complete an effective act of care within 30 s and explain one piece of feedback |
+| A1-11 | Continuous demo | 30 minutes and 5 restarts on the target device without blocking errors |
+
+Builds, devices, parameters, observed issues and before/after changes are logged.
+
+## 14 Responsibilities
+
+- **I own:** turning the brief into a product plan, interaction flow, interface and motion-feedback spec; building the browser prototype, the Processing study, sound, state logic and demo package; agreed testing, fixes and delivery documentation.
+- **[Client] The project lead owns:** theme, main setting, devices, public copy, scope and phase acceptance, and support with venue conditions and test recruitment.
+- Review aligns key scope; not every visual detail is locked up front. Parameters and local interactions are updated after prototype testing. New features, multi-visitor support or a full Processing main screen are scheduled separately.
+
+## 15 Plan and deliverables [Proposal]
+
+About 14–18 working days over 3–4 weeks, reusing existing prototype material, including small-scale testing and revision. Large new visual assets, model training and unattended venue delivery are outside this stage.
+
+| Checkpoint | Content |
+|---|---|
+| CP1 Input and state skeleton | Mouse loop, camera mapping and simple poses |
+| CP2 Playable | Three kinds of care, refusal and recovery, three chapters and recap |
+| CP3 Delivery | Processing replay, user testing, run notes and demo material |
+
+Deliverables: product and interaction notes, interface and motion-feedback spec, browser source and build, Processing study and replay data, parameter and copy configuration, test and issue log, run notes and a 60–90 s demo video. Reused code and third-party resources are credited with their scope of change.
+
+## 16 Decisions for the project lead [To confirm]
+
+| ID | Decision | My recommendation | If not confirmed |
+|---|---|---|---|
+| Q1 | A short session built on "three tools + autonomous rest", or keep full autonomous hunting and life cycle | The former; the latter as a later observation mode | Hunting and generations in round one need a separate estimate |
+| Q2 | Accept the browser as the main prototype and Processing as a visual and motion study | Accept | A Processing public screen in round one adds communication and dual-client integration |
+| Q3 | Accept ~3–5 minutes and an adulthood recap; English main UI with a second language; when devices, venue conditions and testers are available | Accept; English UI with copy in config | Affects copy and test schedule |
+
+Until Q1 and Q2 are confirmed, only reversible input validation and low-fidelity design proceed.
+
+## 17 Triggers for the next iteration [Proposal]
+
+| If we observe | The next round should |
+|---|---|
+| Gestures often don't match intent | Add temporal features, quality gating and an evaluated gesture classifier |
+| Visitors watch the trust bar instead of the character | Strengthen body language, reasons and refusals |
+| Interaction feels like grinding tasks | Introduce event memory and bounded rhythm adaptation |
+| The piece goes to a public exhibition | Full start, pause, exit, end and turnover rules; staff diagnostics; offline package; Processing main display; repeated long runs |
+
+These become inputs to Brief V2 and PRD V2.
+
+## 18 References and document control
+
+- Requirements: [Brief V1](../brief/brief-v1.md). Technical material: Prototype A (repository root) and Prototype B (`prototypes/b-care-tools/`).
+- Technical references: p5.js, ml5.js, Processing reference, MDN getUserMedia. Dependency versions are pinned after verification.
+- **Planned, implemented, verified and confirmed are four different states**, tracked separately in [`../STATUS.md`](../STATUS.md).
