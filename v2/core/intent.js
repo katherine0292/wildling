@@ -31,7 +31,6 @@ export function extractFeatures(points, cat, p = PARAMS) {
   }
   const last = pts[pts.length - 1];
   const mean = (arr) => arr.reduce((s, v) => s + v, 0) / Math.max(arr.length, 1);
-  const recent = (arr, k) => mean(arr.slice(-k));
   const cx = mean(pts.map((q) => q.x)), cy = mean(pts.map((q) => q.y));
   const jitter = Math.sqrt(mean(pts.map((q) => (q.x - cx) ** 2 + (q.y - cy) ** 2)));
   const dist = Math.hypot(last.x - cat.x, last.y - cat.y);
@@ -46,7 +45,9 @@ export function extractFeatures(points, cat, p = PARAMS) {
   return {
     meanSpeed: mean(speeds),
     peakSpeed: Math.max(...speeds),
-    approachSpeed: recent(radial, 4),
+    // peak over the last ~300 ms: a fast approach usually *ends* with the hand stopping
+    // next to the cat, and an average would wash the approach out before it is confirmed
+    approachSpeed: Math.max(...radial.slice(-6)),
     dist,
     edgeDist: Math.max(0, dist - cat.bodyRadius),
     dwell,
