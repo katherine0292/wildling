@@ -25,6 +25,8 @@ const GROWTH_CAUSE = {
   contact_ended: (e) => (e.validity === 'valid' && e.measurement.duration >= 1.5 ? 'PET' : null),
   space_respected: () => 'WAIT',
   sibling_play: (e) => (e.measurement.endedBy === 'done' ? 'SOCIAL' : null),
+  sibling_befriend: () => 'SOCIAL',
+  sibling_cuddle: () => 'SOCIAL',
   hunt_pounce: () => 'HUNT',
   gift_given: () => 'GIFT',
 };
@@ -79,7 +81,9 @@ export class CreatureCore {
     // litter life: an external goal / held pose (siblings only), social and hunting state
     this.goal = null;
     this.held = null;
-    this.social = { target: null, partner: null, wrestleUntil: 0, wrestleStart: 0, cooldownUntil: 0, refused: null };
+    // mode: wrestle (play-fight) · greet (make friends) · cuddle · standoff (hiss)
+    this.social = { target: null, act: null, partner: null, mode: null, wrestleUntil: 0, wrestleStart: 0, cooldownUntil: 0, refused: null };
+    this.bonds = {}; // how close the kitten feels to each sibling, 0..1 (this visit only)
     this.reaction = null; // { type: 'hiss', reasonCode, sibling, until }
     this.huntState = { cooldownUntil: 0 };
     this.giftState = { readyAt: 0, stage: null, spot: null, item: null, seq: 0 };
@@ -117,7 +121,10 @@ export class CreatureCore {
 
   get phase() { return phaseOf(this.ageProgress); }
   get phaseIndex() { return PHASES.indexOf(this.phase); }
-  get wrestling() { return this.social.partner !== null && (this.lastTime ?? 0) < this.social.wrestleUntil; }
+  get socialActive() { return this.social.partner !== null && (this.lastTime ?? 0) < this.social.wrestleUntil; }
+  get socialMode() { return this.socialActive ? this.social.mode : null; }
+  get wrestling() { return this.socialMode === 'wrestle'; }
+  bond(kitten) { return this.bonds[kitten] ?? this.p.social.startBond; }
   get relation() { const t = this.needs.trust; return t < 0.35 ? 0 : t < 0.6 ? 1 : 2; }
   get bodyRadius() { return this.p.creature.bodyRadius * (0.8 + 0.1 * this.ageProgress); }
 
@@ -177,7 +184,7 @@ export class CreatureCore {
     this.act(dt, ctx);
     updateContact(this, ctx, dt);
     updatePlay(this, ctx, dt);
-    this.updateWrestle(dt, ctx);
+    this.updateSocial(dt, ctx);
     this.checkHiss(ctx);
 
     const canGrow = ctx.active && !this.demo && ctx.time >= this.transitionUntil;
@@ -304,13 +311,21 @@ export class CreatureCore {
     const partner = invited ?? visitor ?? null;
     this.social.target = partner?.id ?? null;
     const tired = resting || n.energy <= L.playEnergy;
-    add('SOCIAL', 0.2 + 0.5 * (1 - n.fun) + 0.1 * n.energy,
-      !partner ? 'alone'
-        : ctx.time < this.social.cooldownUntil ? 'cooldown'
-        : tired ? 'NEED_REST'
-        : n.stress >= L.playStress ? 'PRESSURE_HIGH'
-        : n.fullness < L.hungerBlocksContact ? 'HUNGRY_FIRST' : null,
-      !!invited);
+    // what to do with the sibling: the visitor's request, or the kitten's own idea
+    const bond = partner ? this.bond(partner.kitten) : 0;
+    const act = invited?.act ?? (!partner ? null
+      : n.fun < 0.5 && !tired ? 'fight'
+      : n.energy < 0.5 && bond >= this.p.social.cuddleBond ? 'cuddle' : 'befriend');
+    this.social.act = act;
+    const hungry = n.fullness < L.hungerBlocksContact;
+    const block = !partner ? 'alone'
+      : ctx.time < this.social.cooldownUntil && !invited ? 'cooldown'
+      : act === 'fight' ? (tired ? 'NEED_REST' : n.stress >= L.playStress ? 'PRESSURE_HIGH' : hungry ? 'HUNGRY_FIRST' : null)
+      : act === 'befriend' ? (resting ? 'NEED_REST' : n.stress >= L.stressRefuse ? 'PRESSURE_HIGH' : null)
+      : act === 'cuddle' ? (bond < this.p.social.cuddleBond ? 'NOT_CLOSE_YET' : hungry ? 'HUNGRY_FIRST' : null)
+      : act === 'hiss' ? (bond >= this.p.social.friendBond ? 'FRIENDS' : resting ? 'NEED_REST' : null) : null;
+    const base = { fight: 0.2 + 0.5 * (1 - n.fun) + 0.1 * n.energy, befriend: 0.35 + 0.2 * (1 - bond), cuddle: 0.3 + 0.4 * (1 - n.energy), hiss: 0.3 }[act] ?? 0.2;
+    add('SOCIAL', base, block, !!invited);
     const cr = ctx.critter;
     add('HUNT', 0.25 + 0.45 * (1 - n.fun),
       this.phaseIndex < this.p.hunt.minPhase ? 'too_young'
@@ -342,7 +357,7 @@ export class CreatureCore {
 
     if (this.behaviour === 'EAT') forced = ['EAT', 'eating lock (1.2 s)'];
     else if (this.goal) forced = ['EXPLORE', 'visiting a sibling'];
-    else if (this.wrestling) forced = ['SOCIAL', 'wrestling'];
+    else if (this.socialActive) forced = ['SOCIAL', { wrestle: 'play-fighting', greet: 'making friends', cuddle: 'cuddling', standoff: 'standing off' }[this.social.mode]];
     else if (ctx.time < this.retreatUntil) forced = ['RETREAT', 'pressure protection'];
     else if (n.energy < L.restEnter) forced = ['REST', 'energy below 0.15'];
     else if (this.behaviour === 'REST' && (n.energy < L.restExit || ctx.time < this.restMinUntil)) forced = ['REST', 'resting until energy 0.65'];
@@ -403,7 +418,7 @@ export class CreatureCore {
     this.social.refused = inv.inviteId;
     this.stats.refusals++;
     if (c.blocked === 'NEED_REST' || c.blocked === 'PRESSURE_HIGH') this.markNeedsSpace(c.blocked, ctx.time);
-    this.emit('refusal', ctx, { reasonCode: c.blocked, measurement: { request: 'SOCIAL', sibling: inv.kitten } });
+    this.emit('refusal', ctx, { reasonCode: c.blocked, measurement: { request: 'SOCIAL', act: inv.act ?? 'fight', sibling: inv.kitten } });
     this.hint(c.blocked);
   }
 
@@ -425,33 +440,65 @@ export class CreatureCore {
   }
 
   // ---------------------------------------------------------------- litter, hunting, gifts
-  updateWrestle(dt, ctx) {
-    const s = this.social, sp = this.p.social;
+  // One social moment at a time, with whichever sibling the kitten went to.
+  updateSocial(dt, ctx) {
+    const s = this.social, sp = this.p.social, n = this.needs;
     if (s.partner === null) return;
-    if (ctx.time < s.wrestleUntil) {
-      const partner = (ctx.siblings ?? []).find((o) => o.id === s.partner);
+    const partner = (ctx.siblings ?? []).find((o) => o.id === s.partner);
+    if (ctx.time >= s.wrestleUntil) { this.endSocial(ctx, 'done', partner); return; }
+    if (s.mode === 'wrestle') {
       const rough = ROUGH[partner?.kitten] ?? 1;
-      this.needs.fun = clamp(this.needs.fun + (sp.fun / sp.wrestleSec) * dt);
-      this.needs.energy = clamp(this.needs.energy - (sp.energy / sp.wrestleSec) * dt);
-      this.needs.stress = clamp(this.needs.stress + sp.stressPerSec * rough * dt);
-      if (this.needs.stress < this.p.limits.playStress) return;
+      n.fun = clamp(n.fun + (sp.fun / sp.wrestleSec) * dt);
+      n.energy = clamp(n.energy - (sp.energy / sp.wrestleSec) * dt);
+      n.stress = clamp(n.stress + sp.stressPerSec * rough * dt);
       // play got too rough: it ends in a hiss, never in a penalty for the visitor
-      this.endWrestle(ctx, 'too_rough', partner);
-      this.hiss(ctx, 'SIB_TENSE', partner);
-      return;
+      if (n.stress >= this.p.limits.playStress) { this.endSocial(ctx, 'too_rough', partner); this.hiss(ctx, 'SIB_TENSE', partner); }
+    } else if (s.mode === 'greet') {
+      n.stress = clamp(n.stress - 0.03 * dt);
+    } else if (s.mode === 'cuddle') {
+      n.energy = clamp(n.energy + 0.03 * dt);
+      n.stress = clamp(n.stress - 0.05 * dt);
+    } else if (s.mode === 'standoff') {
+      if (!this.reaction) this.reaction = { type: 'hiss', reasonCode: 'SIB_STANDOFF', sibling: partner?.kitten ?? null, siblingId: s.partner, until: s.wrestleUntil };
     }
-    this.endWrestle(ctx, 'done', (ctx.siblings ?? []).find((o) => o.id === s.partner));
   }
 
-  endWrestle(ctx, endedBy, partner) {
-    const s = this.social;
+  startSocial(ctx, partner) {
+    const s = this.social, sp = this.p.social;
+    const mode = { fight: 'wrestle', befriend: 'greet', cuddle: 'cuddle', hiss: 'standoff' }[s.act] ?? 'wrestle';
+    s.partner = partner.id;
+    s.mode = mode;
+    s.wrestleStart = ctx.time;
+    s.wrestleUntil = ctx.time + { wrestle: sp.wrestleSec, greet: sp.greetSec, cuddle: sp.cuddleSec, standoff: sp.standoffSec }[mode];
+    if (mode === 'standoff') this.hint('SIB_STANDOFF');
+  }
+
+  endSocial(ctx, endedBy, partner) {
+    const s = this.social, sp = this.p.social, kid = partner?.kitten ?? null;
+    const mode = s.mode;
     const duration = Math.max(0, Math.min(ctx.time, s.wrestleUntil) - s.wrestleStart);
-    s.partner = null;
-    s.wrestleUntil = 0;
-    s.cooldownUntil = ctx.time + this.p.social.cooldownSec;
-    this.stats.wrestles++;
-    this.emit('sibling_play', ctx, { reasonCode: endedBy === 'done' ? 'SIB_PLAY' : 'SIB_TENSE', measurement: { sibling: partner?.kitten ?? null, duration, endedBy } });
-    if (endedBy === 'done') this.hint('SIB_PLAY');
+    s.partner = null; s.mode = null; s.wrestleUntil = 0;
+    s.cooldownUntil = ctx.time + sp.cooldownSec;
+    const change = { wrestle: endedBy === 'done' ? 0.05 : -0.1, greet: 0.15, cuddle: 0.1, standoff: -0.15 }[mode] ?? 0;
+    if (kid) this.bonds[kid] = clamp(this.bond(kid) + change);
+    const m = { sibling: kid, duration, endedBy, bond: kid ? this.bonds[kid] : null };
+    if (mode === 'wrestle') {
+      this.stats.wrestles++;
+      this.emit('sibling_play', ctx, { reasonCode: endedBy === 'done' ? 'SIB_PLAY' : 'SIB_TENSE', measurement: m });
+      if (endedBy === 'done') this.hint('SIB_PLAY');
+    } else if (mode === 'greet') {
+      this.stats.friends = (this.stats.friends ?? 0) + 1;
+      this.emit('sibling_befriend', ctx, { reasonCode: 'SIB_FRIEND', measurement: m });
+      this.hint('SIB_FRIEND');
+    } else if (mode === 'cuddle') {
+      this.stats.cuddles = (this.stats.cuddles ?? 0) + 1;
+      this.emit('sibling_cuddle', ctx, { reasonCode: 'SIB_CUDDLE', measurement: m });
+      this.hint('SIB_CUDDLE');
+    } else if (mode === 'standoff') {
+      this.reaction = null;
+      this.stats.hisses++;
+      this.emit('hiss', ctx, { reasonCode: 'SIB_STANDOFF', measurement: { ...m, behaviour: 'SOCIAL' } });
+    }
     this.behaviour = 'OBSERVE'; this.behaviourSince = ctx.time; this.boutUntil = ctx.time + 1.5;
     this.forceRedecide = true;
   }
@@ -467,7 +514,7 @@ export class CreatureCore {
   // A sibling that comes too close while the kitten eats, sleeps or is tense gets hissed at.
   // This is the kitten's own boundary toward its litter-mates; it never touches trust.
   checkHiss(ctx) {
-    if (this.demo || this.reaction || this.wrestling) return;
+    if (this.demo || this.reaction || this.socialActive) return;
     const n = this.needs, sp = this.p.social;
     const near = (ctx.siblings ?? []).find((o) => dist(o.x, o.y, this.x, this.y) < sp.hissS && o.id !== this.social.target);
     if (!near) return;
@@ -475,12 +522,6 @@ export class CreatureCore {
       : this.behaviour === 'REST' ? 'SIB_REST'
       : n.stress >= this.p.limits.playStress ? 'SIB_TENSE' : null;
     if (code) this.hiss(ctx, code, near);
-  }
-
-  startWrestle(ctx, partner) {
-    this.social.partner = partner.id;
-    this.social.wrestleStart = ctx.time;
-    this.social.wrestleUntil = ctx.time + this.p.social.wrestleSec;
   }
 
   huntPounce(ctx, critter) {
@@ -511,7 +552,7 @@ export class CreatureCore {
   act(dt, ctx) {
     const sp = this.p.creature.speed;
     const h = ctx.hand;
-    let tx = null, ty = null, speed = 0, stopAt = 0.01;
+    let tx = null, ty = null, speed = 0, stopAt = 0.01, face = null;
 
     switch (this.behaviour) {
       case 'EXPLORE': {
@@ -556,9 +597,14 @@ export class CreatureCore {
         const sid = this.social.partner ?? this.social.target;
         const o = (ctx.siblings ?? []).find((q) => q.id === sid);
         if (!o) { this.forceRedecide = true; break; }
-        if (this.social.partner !== null) { tx = o.x; ty = o.y; speed = sp.approach; stopAt = this.p.social.meetS * 0.6; break; }
-        tx = o.x; ty = o.y; speed = sp.seek; stopAt = this.p.social.meetS * 0.8;
-        if (this.social.partner === null && dist(this.x, this.y, o.x, o.y) < this.p.social.meetS) this.startWrestle(ctx, o);
+        const close = this.social.act === 'cuddle' || this.social.act === 'befriend' ? 0.75 : this.social.act === 'hiss' ? 1.7 : 0.8;
+        if (this.social.partner !== null) {
+          if (this.social.mode === 'wrestle') { tx = o.x; ty = o.y; speed = sp.approach; stopAt = this.p.social.meetS * 0.6; }
+          else if (this.social.mode !== 'cuddle') face = Math.atan2(o.y - this.y, o.x - this.x);
+          break;
+        }
+        tx = o.x; ty = o.y; speed = sp.seek; stopAt = this.p.social.meetS * close * 0.9;
+        if (dist(this.x, this.y, o.x, o.y) < this.p.social.meetS * close) this.startSocial(ctx, o);
         break;
       }
       case 'HUNT': {
@@ -600,8 +646,7 @@ export class CreatureCore {
       const ox = this.x - o.x, oy = this.y - o.y, d = Math.hypot(ox, oy);
       if (d > 1e-6 && d < 0.22) { const push = (0.22 - d) / 0.22 * 0.25; dvx += (ox / d) * push; dvy += (oy / d) * push; }
     }
-    let face = null;
-    if (Math.hypot(dvx, dvy) < 0.01 && (this.behaviour === 'OBSERVE' || this.behaviour === 'CONTACT') && h.valid) face = Math.atan2(h.y - this.y, h.x - this.x);
+    if (face === null && Math.hypot(dvx, dvy) < 0.01 && (this.behaviour === 'OBSERVE' || this.behaviour === 'CONTACT') && h.valid) face = Math.atan2(h.y - this.y, h.x - this.x);
     this.move(dvx, dvy, dt, face);
   }
 

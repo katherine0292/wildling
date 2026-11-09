@@ -91,6 +91,10 @@ export const PARAMS = Object.freeze({
     visitEverySec: [22, 38], visitTimeoutSec: 12, nearS: 0.32, meetS: 0.16,
     wrestleSec: 3.6, fun: 0.2, energy: 0.06, stressPerSec: 0.02, hissSec: 1.3, hissS: 0.2,
     inviteTimeoutSec: 10, cooldownSec: 8,
+    // ADR-017: what the visitor can ask for, and how close the kitten must feel first
+    greetSec: 2.8, cuddleSec: 5.5, standoffSec: 2.6,
+    startBond: 0.25, cuddleBond: 0.35, friendBond: 0.6,
+    pose: { holdMs: 600, cooldownMs: 1500, overS: 0.16 },
   },
   // Critters to chase (juvenile and older) and gifts (adult, once it comes to you).
   hunt: { everySec: [16, 28], lifeSec: 14, pounceS: 0.07, fun: 0.12, energy: 0.05, catchChance: 0.35, cooldownSec: 6, minPhase: 1 },
@@ -133,6 +137,11 @@ export const REASONS = Object.freeze({
   GIFT_GIVEN: 'result',
   GROWTH_PAUSED: 'guide',
   RETURNING: 'result',
+  NOT_CLOSE_YET: 'creature',
+  FRIENDS: 'creature',
+  SIB_FRIEND: 'result',
+  SIB_CUDDLE: 'result',
+  SIB_STANDOFF: 'creature',
 });
 
 // Hint priority: system recovery > creature boundary > care result > guidance.
@@ -161,15 +170,21 @@ export const COPY = Object.freeze({
     SIB_PLAY: 'Rough and tumble!',
     GIFT_GIVEN: 'I found this for you.',
     RETURNING: 'You came back! I remember you.',
+    NOT_CLOSE_YET: "We're not close enough for that yet.",
+    FRIENDS: "But we're friends!",
+    SIB_FRIEND: 'Friends now!',
+    SIB_CUDDLE: 'Warm and cosy.',
+    SIB_STANDOFF: 'Hsss! Back off!',
     attract: 'Move closer, or start with a mouse',
     stillThere: 'Still there?',
     relation: ['Still watching you', 'Warming up to you', 'Comes to you'],
-    tools: { FEED: 'Feed', PLAY: 'Play', PET: 'Pet', WAIT: 'Give space' },
+    tools: { FEED: 'Feed', PLAY: 'Play', PET: 'Pet', WAIT: 'Give space', LITTER: 'Siblings' },
     toolHints: {
       FEED: 'Click, pinch or press Space to offer a fish',
       PLAY: 'Your hand is a yarn ball. See if it wants to play',
       PET: 'Rest a calm hand nearby. Let it come to you',
       WAIT: 'Step back. Watching is a way of caring too',
+      LITTER: 'Point at a sibling and pick what to ask',
     },
     quietMoment: 'We spent a quiet moment together.',
   },
