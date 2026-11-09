@@ -207,3 +207,59 @@ stateDiagram-v2
 - **ATTRACT never shares the ACTIVE character instance or memory.** A pause freezes needs, trust, stress, growth and active time; rendering can keep a breathing animation. While disconnected, no actions, feeding or adaptation events accumulate.
 
 ---
+
+## 11 Input and perception [Proposal]
+
+### 11.1 F2-01 Input choice and permission
+- The camera is requested only after the hand is chosen, video only. Denied, no device, in use, library failure and load timeout each get an actionable message and an immediate mouse switch. After **12 s** without valid video or a ready model, it reports failure; loading never holds the main flow hostage.
+- Leaving hand mode, ending a session or resetting stops every MediaStream track and the detection loop. Switching input clears speed filters, pinch locks, action windows and pending commands so nothing carries over.
+- The browser camera needs a secure context and permission. Locally the package uses localhost; **"runs locally" never replaces the permission flow**.
+
+### 11.2 F2-02 Coordinates and time
+- All cross-program positions use normalised content coordinates x, y ∈ [0, 1], origin top-left. Only the input module mirrors, once, verified with a raised hand; Processing does not mirror again.
+- Speed is always **S/s** (short screen side per second), replacing Prototype A's U/s and Prototype B's pixel unit. Hand-shape features normalise by palm width or wrist-to-middle-knuckle distance; below a minimum palm size the sample is invalid.
+- Inputs carry a monotonic `seq` and sample time. The receiver computes timeouts on its own monotonic clock. Windows resample by time, never by frame count. The fixed step is 1/60 s with at most 5 catch-up steps; longer gaps are pauses, never one large dt that drains energy.
+
+### 11.3 F2-03 Tracking-quality gate
+- **valid** requires all of: 21 usable keypoints; finite, structurally plausible coordinates; palm size in range; sample age ≤ 200 ms; ≤ 20 % missing in the window; no jump beyond the calibrated range.
+- When invalid or missing, **new contact decisions and trust penalties stop at once** and related memory events freeze. The last position may be held up to 200 ms for visual fade only. After 500 ms a lost-hand hint appears; after recovery the action window rebuilds only after 300 ms of stability, with first-frame speed at 0.
+- With two hands, the current track is kept; if it cannot continue, intent confirmation pauses with "One hand at a time." It never jumps to another person's hand.
+
+### 11.4 F2-04 Pinch and explicit actions
+- Pinch is for buttons and dropping food, not a prerequisite for every interaction. Close at thumb–index gap / palm size < 0.25, release at > 0.45, hold 100 ms, cooldown 400 ms. A command uses the current mapped sample, not the previous frame's cursor.
+- The toolbar has priority; a confirm on the toolbar only switches tools and never drops food. Long holds, continuous pinches and repeated packets produce one confirm until released. Switching source or losing the hand cancels a pending pinch.
+
+## 12 Gesture model and data [Proposal]
+
+### 12.1 F2-05 Labels and outputs
+
+| Label | Observable definition | Character meaning |
+|---|---|---|
+| `gentle_approach` | A steady open hand moving slowly toward the interaction zone | May observe or invite contact |
+| `stable_contact` | An open hand staying low-speed and steady in the contact zone | Under Pet, may request contact |
+| `fast_approach` | A high-quality trajectory moving quickly into the close zone | May cause alertness, combined with tool and state |
+| `neutral_motion` | Ordinary movement, far away, or posture adjustment | Neither care nor penalty |
+| `unknown` | Cannot reliably distinguish known classes, or out of quality range | No emotional reading; no trust change |
+| `lost` | No hand or stale input | Interaction stops; recovery hint if needed |
+
+The first four are trained classes. `unknown` is a rejection result and `lost` is a tracking state; neither is a trained class. `withdraw` is a **geometric rule** (a high-quality trajectory to a far zone held for 1 s) and is labelled as rule-sourced. The model never outputs "kind, angry, likes me" or any mental judgement; tool and character context are fused after the model, so a label is never directly a character action.
+
+### 12.2 Features and proposed model
+- A 600 ms window resampled at 20 Hz to 12 time points, classified every 100 ms. Each point carries palm centre, speed and acceleration, speed toward the character, distance to the body outline, openness, pinch ratio, trajectory stability and a keypoint validity mask.
+- Proposed: a small TensorFlow.js temporal network (1D convolution + global pooling + 4-way softmax), with **normalised statistical features + a small dense network** as the complexity baseline. Architecture is chosen on a held-out validation set, not on depth. Training and inference both run in JavaScript.
+- Normalisation parameters are fitted on the training set and exported with the model. Each model carries `labelMap, featureVersion, windowMs, sampleRateHz, normalization, modelVersion` and a checksum. A missing or incompatible model falls back to a clearly labelled **rule baseline**, which is never counted as an ML metric.
+
+### 12.3 Data capture and splits
+- Round one recruits 16 consenting participants; 20 independent clips per class per person, at least 1,280 clips, covering left and right hands, fast and slow, standing and sitting, and venue lighting.
+- **Split by participant:** 10 train, 3 validation, 3 test. All clips and overlapping windows from one person stay in one split. Test is about 240 clips; per-person results and limits are reported.
+- Labels come from scripted prompts plus manual review, never from old speed thresholds that would then validate themselves. 20 % of clips get a second reviewer; undecidable clips become ambiguous and go into the rejection stress set.
+- Stored by default: anonymous participant code, time, label and normalised keypoints only. No face, audio or raw video. Raw keypoints are kept only in an explicit capture mode; the public exhibit stores no trajectories. Research copies are deleted 30 days after handover.
+
+### 12.4 Confirmation and rejection
+- Start thresholds: top score ≥ 0.80 and top-minus-second ≥ 0.20, held for two consecutive 100 ms cycles; otherwise `unknown`. Thresholds are frozen on the validation set and must satisfy coverage and false-trigger targets together.
+- **A softmax score is a model output, not "80 % true probability".** Visitors see three states only: confirmed, confirming, lost.
+- 600 ms window + one confirmation cycle gives about 700 ms of start latency, plus inference, transport and display. If p95 exceeds 900 ms, scheduling and windowing are optimised first; observation time is never removed from the metric.
+
+### 12.5 Model acceptance and fallback
+- Deliver per-class precision, recall and F1, macro F1, per-person confusion matrices, unknown rate, coverage, false triggers per minute, end-to-end latency on a real camera and low-light results. The stress set includes occlusion, single-frame jumps, hands leaving and re-entering, multi-hand switches and ordinary body movement.
+- If the learned model does not beat the threshold baseline, it is not made the default. The failure cause, re-collection or narrower conditions are documented. The rule mode can serve as venue backup, but the model milestone is only closed when its targets are met.
