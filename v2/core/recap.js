@@ -9,11 +9,12 @@ const T = {
     contactLong: (s) => `Your hand felt gentle. We shared ${s} seconds of quiet contact.`,
     contactOne: () => 'You found a gentle way to say hello.',
     adapted: () => 'I got used to your rhythm.',
-    play: (n) => `We played. I caught the yarn ${n} time${n === 1 ? '' : 's'}.`,
+    play: (n) => `We played. I made ${n} catch${n === 1 ? '' : 'es'}.`,
     fed: (n) => `You fed me ${n} time${n === 1 ? '' : 's'}.`,
     recovered: () => 'We had a startled moment, and found our way back.',
     grew: (p) => `I grew into ${p === 'adult' ? 'an adult' : `a ${p}`} while you were here.`,
     quiet: () => 'We spent a quiet moment together.',
+    returned: (n) => `You came back. This was visit ${n}.`,
     gift: (item) => `I brought you ${{ pebble: 'a smooth pebble', feather: 'a feather', flower: 'a dry flower', shell: 'a beetle shell' }[item] ?? 'a little gift'}.`,
     wrestle: (name) => `I wrestled with ${name} while you watched.`,
     hunt: (n) => `I chased ${n === 1 ? 'a critter' : `critters ${n} times`}. ${n === 1 ? 'It got away.' : 'Most got away.'}`,
@@ -41,6 +42,8 @@ export function buildRecap(log, lang = 'en') {
   const hunts = of('hunt_pounce');
   const NAMES = { ember: 'Ember', juniper: 'Juniper', saffron: 'Saffron' };
 
+  const back = of('returned');
+  if (back.length) push(t.returned(back[0].measurement.visits), ids(back, 1));
   if (gifts.length) push(t.gift(gifts[gifts.length - 1].measurement.item), ids(gifts, 1));
   push(t.space(), ids(space));
   if (contacts.length >= 2 && contactSec >= 3) push(t.contactLong(contactSec), ids(contacts));

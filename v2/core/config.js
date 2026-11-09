@@ -53,6 +53,12 @@ export const PARAMS = Object.freeze({
 
   feed: { maxFood: 3, cooldownMs: 600, eatSec: 1.2, fullness: 0.25, trust: 0.025, foodLifeSec: 30, toolbarBandS: 0.16 },
   play: { fun: 0.12, energy: 0.04, trust: 0.01, minIntervalSec: 1.5, pounceS: 0.06 },
+  // Toys for the Play tool (ADR-015). Yarn is the hand itself; the feather trails the hand
+  // on a springy string; the ball is thrown and rolls on its own.
+  toys: {
+    feather: { spring: 60, damping: 4.5, catchBelow: 0.9, missFun: 0.03 },
+    ball: { friction: 1.1, throwScale: 1.2, maxThrow: 1.4, batSpeed: 0.75, maxIdleSec: 25 },
+  },
   contact: { trustPerSec: 0.02, stressPerSec: 0.08, maxSegmentSec: 6, trustBudgetSec: 12, budgetWindowSec: 60, breakSec: 2 },
   startle: { stress: 0.15, cooldownSec: 2, sustainAfterSec: 2, trustPerSec: 0.01, maxTrustLoss: 0.05 },
   wait: { farS: 0.25, stableSec: 1 },
@@ -88,6 +94,9 @@ export const PARAMS = Object.freeze({
   },
   // Critters to chase (juvenile and older) and gifts (adult, once it comes to you).
   hunt: { everySec: [16, 28], lifeSec: 14, pounceS: 0.07, fun: 0.12, energy: 0.05, catchChance: 0.35, cooldownSec: 6, minPhase: 1 },
+  // Keepsakes (ADR-016): on the web, a kitten can remember a returning visitor, kept only in
+  // that visitor's own browser. In exhibition (kiosk) mode nothing is kept.
+  keepsake: { trustPerVisit: 0.06, maxTrustBonus: 0.18 },
   gift: { minPhase: 2, minTrust: 0.6, cooldownSec: 22, fetchSec: 1.4, dropS: 0.12, maxShown: 6 },
 
   // §10 session
@@ -123,6 +132,7 @@ export const REASONS = Object.freeze({
   SIB_PLAY: 'result',
   GIFT_GIVEN: 'result',
   GROWTH_PAUSED: 'guide',
+  RETURNING: 'result',
 });
 
 // Hint priority: system recovery > creature boundary > care result > guidance.
@@ -150,6 +160,7 @@ export const COPY = Object.freeze({
     SIB_TENSE: 'Hss! Not now.',
     SIB_PLAY: 'Rough and tumble!',
     GIFT_GIVEN: 'I found this for you.',
+    RETURNING: 'You came back! I remember you.',
     attract: 'Move closer, or start with a mouse',
     stillThere: 'Still there?',
     relation: ['Still watching you', 'Warming up to you', 'Comes to you'],

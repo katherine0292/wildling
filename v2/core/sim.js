@@ -97,6 +97,8 @@ export class Simulation {
     this.critterSeq = 0;
     this.nextCritterAt = this.between(this.p.hunt.everySec) * 0.5;
     this.gifts = [];
+    this.toy = { kind: 'yarn', x: null, y: null, vx: 0, vy: 0, live: false, thrownAt: 0 };
+    this.handPrev = null;
   }
 
   between([a, b]) { return a + this.rand() * (b - a); }
@@ -148,6 +150,7 @@ export class Simulation {
         const sib = this.tool === 'PLAY' && this.siblingAt(cmd.x, cmd.y);
         if (sib) this.invite(sib.kitten.id);
         else if (this.tool === 'FEED') this.dropFood(cmd.x, cmd.y);
+        else if (this.tool === 'PLAY' && this.toy.kind === 'ball') this.throwBall(cmd.x, cmd.y);
         break;
       }
       case 'pause': s.pause(cmd.reason ?? 'user'); break;
@@ -155,6 +158,17 @@ export class Simulation {
       case 'end': s.end(cmd.reason ?? 'user'); break;
       case 'next': s.next(); break;
       case 'invite_sibling': this.invite(cmd.kitten); break;
+      // a returning visitor's own browser tells the core how many times they have met
+      case 'set_returning':
+        if (s.state === 'ATTRACT' || s.state === 'CONSENT') this.returning = cmd.visits > 0 ? { kitten: cmd.kitten, visits: Math.min(50, cmd.visits | 0) } : null;
+        break;
+      case 'select_toy':
+        if (['yarn', 'feather', 'ball'].includes(cmd.toy)) {
+          this.tool = 'PLAY';
+          if (cmd.toy !== this.toy.kind) Object.assign(this.toy, { kind: cmd.toy, live: false, vx: 0, vy: 0 });
+          s.noteActivity();
+        }
+        break;
       case 'set_adaptation': this.memory.adaptation = !!cmd.on; break;
       case 'set_lang': if (COPY[cmd.lang]) { this.lang = cmd.lang; if (this.recap) this.recap = buildRecap(this.log, this.lang); } break;
       default: this.errors.rejected++; return { ack: cmd.id, error: 'unknown_command' };
@@ -285,6 +299,50 @@ export class Simulation {
     }
   }
 
+  // The ball leaves the hand with the hand's own velocity, then rolls on its own.
+  throwBall(nx, ny) {
+    const b = this.p.toys.ball, t = this.toy;
+    const v = this.handVel ?? { x: 0, y: 0 };
+    let vx = v.x * b.throwScale, vy = v.y * b.throwScale;
+    const m = Math.hypot(vx, vy);
+    if (m > b.maxThrow) { vx *= b.maxThrow / m; vy *= b.maxThrow / m; }
+    if (m < 0.15 && this.cat) { // a still hand tosses it gently past the kitten
+      const dx = this.cat.x - nx * this.world.w, dy = this.cat.y - ny * this.world.h, d = Math.hypot(dx, dy) || 1;
+      vx = (dx / d) * 0.5; vy = (dy / d) * 0.5;
+    }
+    Object.assign(t, { x: nx * this.world.w, y: ny * this.world.h, vx, vy, live: true, thrownAt: this.simTime });
+    this.out.push({ type: 'toy_thrown', toy: 'ball' });
+  }
+
+  // Moves the toy for this step and returns what the kitten sees of it.
+  stepToy(dt) {
+    const t = this.toy, h = this.track, P = this.p.toys;
+    // hand velocity, for throwing and for the feather's lag
+    if (h.valid && h.x !== null) {
+      if (this.handPrev) this.handVel = { x: (h.x - this.handPrev.x) / dt, y: (h.y - this.handPrev.y) / dt };
+      this.handPrev = { x: h.x, y: h.y };
+    } else { this.handPrev = null; this.handVel = { x: 0, y: 0 }; }
+    if (this.tool !== 'PLAY') return null;
+    if (t.kind === 'yarn') return h.valid ? { kind: 'yarn', x: h.x, y: h.y, valid: true, speed: h.speed } : { kind: 'yarn', valid: false };
+    if (t.kind === 'feather') {
+      if (!h.valid) { t.live = false; return { kind: 'feather', valid: false }; }
+      if (!t.live) Object.assign(t, { x: h.x, y: h.y + 0.12, vx: 0, vy: 0, live: true });
+      // a springy string: the feather trails the hand, overshoots and swings
+      const f = P.feather, ax = (h.x - t.x) * f.spring - t.vx * f.damping, ay = (h.y + 0.12 - t.y) * f.spring - t.vy * f.damping;
+      t.vx += ax * dt; t.vy += ay * dt; t.x += t.vx * dt; t.y += t.vy * dt;
+      return { kind: 'feather', x: t.x, y: t.y, valid: true, speed: Math.hypot(t.vx, t.vy) };
+    }
+    // ball
+    if (!t.live) return { kind: 'ball', valid: false };
+    const b = P.ball, k = Math.exp(-b.friction * dt);
+    t.vx *= k; t.vy *= k; t.x += t.vx * dt; t.y += t.vy * dt;
+    const W = this.world.w, H = this.world.h - this.p.feed.toolbarBandS;
+    if (t.x < 0.05) { t.x = 0.05; t.vx = Math.abs(t.vx) * 0.7; } if (t.x > W - 0.05) { t.x = W - 0.05; t.vx = -Math.abs(t.vx) * 0.7; }
+    if (t.y < 0.05) { t.y = 0.05; t.vy = Math.abs(t.vy) * 0.7; } if (t.y > H) { t.y = H; t.vy = -Math.abs(t.vy) * 0.7; }
+    if (this.simTime - t.thrownAt > b.maxIdleSec) { t.live = false; return { kind: 'ball', valid: false }; }
+    return { kind: 'ball', x: t.x, y: t.y, valid: true, speed: Math.hypot(t.vx, t.vy) };
+  }
+
   // ---------------------------------------------------------------- time
   update(dtSec, now) {
     this.clock = now;
@@ -338,6 +396,7 @@ export class Simulation {
       }));
       ctx.critter = this.critter && !this.critter.fleeing ? { id: this.critter.id, kind: this.critter.kind, x: this.critter.x, y: this.critter.y } : null;
       if (s.state === 'ACTIVE') { this.directLitter(); this.stepCritter(dt); }
+      ctx.toy = s.state === 'ACTIVE' ? this.stepToy(dt) : null;
       this.cat.step(dt, ctx);
       this.collect(ctx);
       this.systemHints(nowS);
@@ -399,6 +458,10 @@ export class Simulation {
       if (sib) { sib.held = null; this.endVisit(sib.id); sib.forceRedecide = true; }
     }
     if (e.type === 'refusal' && m.request === 'SOCIAL') this.endVisit();
+    if (e.type === 'pounce_success' && m.toy === 'ball' && this.cat) { // a bat sends the ball rolling again
+      const t = this.toy, a = this.cat.heading + (this.rand() - 0.5) * 1.6, sp = this.p.toys.ball.batSpeed * (0.7 + this.rand() * 0.6);
+      t.vx = Math.cos(a) * sp; t.vy = Math.sin(a) * sp; t.thrownAt = this.simTime;
+    }
     if (e.type === 'hunt_pounce' && this.critter?.id === m.critterId) {
       const c = this.critter;
       c.fleeing = true; c.caught = m.caught;
@@ -456,6 +519,13 @@ export class Simulation {
     this.siblings.forEach((c, i) => c.setRegion(SIBLING_REGIONS[i]));
     this.catSession = s.sessionId;
     this.resetLife();
+    const back = this.returning?.kitten === chosen.kitten.id ? this.returning : null;
+    if (back) {
+      const k = this.p.keepsake;
+      this.cat.needs.trust = Math.min(1, this.cat.needs.trust + Math.min(k.maxTrustBonus, k.trustPerVisit * back.visits));
+      this.cat.emit('returned', { time: 0, hand: {} }, { reasonCode: 'RETURNING', measurement: { visits: back.visits + 1 } });
+      this.cat.hint('RETURNING');
+    }
     this.simTime = 0;
     this.memory.reset();
     this.log = [];
@@ -468,6 +538,7 @@ export class Simulation {
   resetSession() {
     this.cat = null;
     this.catSession = null;
+    this.returning = null;
     for (const c of this.litter) { c.goal = null; c.held = null; c.setRegion(ATTRACT_REGION); }
     this.resetLife();
     this.memory.reset();
@@ -545,6 +616,7 @@ export class Simulation {
       })),
       growth: this.growthSnapshot(c),
       critter: this.critter ? { id: this.critter.id, kind: this.critter.kind, position: { x: this.critter.x / W, y: this.critter.y / H }, fleeing: this.critter.fleeing, caught: this.critter.caught, heading: Math.atan2(this.critter.vy, this.critter.vx) } : null,
+      toy: this.toy.live || this.toy.kind === 'yarn' ? { kind: this.toy.kind, position: this.toy.live && this.toy.x !== null ? { x: this.toy.x / W, y: this.toy.y / H } : null } : { kind: this.toy.kind, position: null },
       gifts: this.gifts.map((g) => ({ id: g.id, item: g.item, position: { x: g.x / W, y: g.y / H }, age: this.simTime - g.born })),
       creature: {
         id: c.id,
