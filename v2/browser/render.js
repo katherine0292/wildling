@@ -148,21 +148,41 @@ export class Renderer {
 
     if (snap.toy?.kind === 'ball' && snap.toy.position && interactive) { const b = this.px(snap.toy.position); this.drawBall(ctx, b.x, b.y, t); }
     const seen = new Set();
-    for (const s of snap.litter) { seen.add(s.kitten); this.body(ctx, s.kitten, s, null, dt, 1, { wrestling: s.wrestling }); }
+    const partner = snap.litter.find((s) => s.mode);
+    const pp = partner ? this.px(partner.position) : null;
+    if (c.socialMode === 'wrestle' && pp) this.dustBehind(ctx, main, pp, t);
+    if (c.socialMode === 'cuddle' && pp) this.warmGlow(ctx, main, pp, t);
+    for (const s of snap.litter) {
+      seen.add(s.kitten);
+      const reaction = s.standoff ? (s.kitten === 'saffron' ? 'hiss' : 'cower') : s.fleeing ? 'cower' : null;
+      this.body(ctx, s.kitten, s, null, dt, 1, { wrestling: s.wrestling, socialMode: s.mode === 'wrestle' ? null : s.mode, reaction });
+    }
     const look = ['OBSERVE', 'APPROACH', 'CONTACT', 'PLAY', 'GIFT'].includes(c.behaviour) ? hand : null;
     seen.add(c.kitten);
-    this.body(ctx, c.kitten, c, look, dt, 1, { wrestling: c.wrestling, reaction: c.reaction?.type, carrying: c.carrying });
+    this.body(ctx, c.kitten, c, look, dt, 1, { wrestling: c.wrestling, socialMode: c.socialMode, reaction: c.reaction?.type, carrying: c.carrying });
     for (const k of [...this.bodies.keys()]) if (!seen.has(k)) this.bodies.delete(k);
 
     for (const g of snap.gifts ?? []) this.giftOnGround(ctx, this.px(g.position), g.age, g.item, t);
     if (snap.critter) this.critter(ctx, snap.critter, t);
     if (c.behaviour === 'REST' && !c.reaction) this.sleepZ(ctx, main, t);
-    if (c.acceptedContact) this.hearts(ctx, main, t);
-    if (c.wrestling) { const o = snap.litter.find((s) => s.wrestling); if (o) this.scuffle(ctx, main, this.px(o.position), t); }
+    if (c.acceptedContact) { this.purr(ctx, main, t); this.hearts(ctx, main, t); }
+    this.strokeTrail(ctx, snap, hand, main, dt);
+    if (c.socialMode === 'wrestle' && pp) this.scuffle(ctx, main, pp, t, dt);
+    if (c.socialMode === 'greet' && pp) this.noseHearts(ctx, main, pp, t);
+    if (c.socialMode === 'cuddle' && pp) this.cuddleHeart(ctx, main, pp, t);
+    if (c.socialMode === 'standoff' && pp) this.standoff(ctx, main, pp, t);
     if (c.reaction?.type === 'hiss') this.hissMarks(ctx, main, c.heading, t);
     this.atmosphere(ctx, dt, t);
     if (interactive && snap.activeTool === 'PLAY' && snap.toy?.kind === 'feather' && snap.toy.position && hand) this.feather(ctx, hand, this.px(snap.toy.position), t);
-    if (interactive || st === 'CALIBRATING') this.cursor(ctx, snap, ui, t);
+    if (interactive || st === 'CALIBRATING') {
+      // the real tracked hand, drawn a little smaller around its palm so it never hides the kitten
+      let kp = snap.input.source === 'camera' && ui?.keypoints && snap.input.quality !== 'lost' ? ui.keypoints.map((q) => this.px(this.screenToWorldN(q.x, q.y))) : null;
+      if (kp) { const c = { x: (kp[0].x + kp[9].x) / 2, y: (kp[0].y + kp[9].y) / 2 }; kp = kp.map((q) => ({ x: c.x + (q.x - c.x) * 0.7, y: c.y + (q.y - c.y) * 0.7 })); }
+      const handTool = snap.activeTool === 'PET' || snap.activeTool === 'LITTER';
+      if (kp) this.handCursor(ctx, snap, kp, t);
+      else if (handTool && hand) this.handCursor(ctx, snap, this.templateHand(hand, snap, t), t);
+      else this.cursor(ctx, snap, ui, t);
+    }
     this.burstFx(ctx, dt);
     ctx.restore();
 
@@ -375,6 +395,198 @@ export class Renderer {
     ctx.fill();
     ctx.strokeStyle = 'rgba(30,50,60,0.5)'; ctx.lineWidth = 1 * s; ctx.stroke();
     ctx.fillStyle = '#1b2228'; ctx.beginPath(); ctx.arc(10 * s, -2 * s, 1.8 * s, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  // ---------------------------------------------------------------- hands and petting
+  // A stand-in open hand for mouse and keyboard, in the same 21-point layout as HandPose,
+  // so petting looks the same whichever input is used. Fingers wiggle while stroking.
+  templateHand(at, snap, t) {
+    const u = this.u, s = 52 * u, moving = (snap.input.speedSPerSecond ?? 0) > 0.05 || snap.creature.acceptedContact;
+    const base = [[0, 0.62], [-0.32, 0.45], [-0.5, 0.25], [-0.62, 0.08], [-0.72, -0.06],
+      [-0.26, -0.02], [-0.32, -0.32], [-0.35, -0.5], [-0.37, -0.66],
+      [-0.06, -0.06], [-0.08, -0.4], [-0.09, -0.6], [-0.1, -0.78],
+      [0.14, -0.02], [0.16, -0.34], [0.17, -0.52], [0.18, -0.68],
+      [0.32, 0.06], [0.38, -0.18], [0.41, -0.32], [0.43, -0.45]];
+    return base.map(([x, y], i) => {
+      const finger = i >= 5 ? Math.floor((i - 5) / 4) : -1, joint = i >= 5 ? (i - 5) % 4 : 0;
+      const w = moving && finger >= 0 ? Math.sin(t * 9 + finger * 1.3) * 0.05 * joint : 0;
+      return { x: at.x + (x + w) * s, y: at.y + y * s };
+    });
+  }
+
+  handCursor(ctx, snap, kp, t) {
+    const u = this.u, q = snap.input.quality;
+    const uncertain = q !== 'valid' || (snap.activeTool === 'PET' && snap.intent.label === 'unknown');
+    const bones = [[0, 1, 2, 3, 4], [0, 5, 6, 7, 8], [5, 9, 10, 11, 12], [9, 13, 14, 15, 16], [13, 17, 18, 19, 20], [0, 17]];
+    const palmW = Math.hypot(kp[5].x - kp[17].x, kp[5].y - kp[17].y);
+    const w = Math.max(6 * u, palmW * 0.24);
+    ctx.save();
+    ctx.globalAlpha = q === 'lost' ? 0.35 : snap.creature.acceptedContact ? 0.78 : 0.93;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const trace = () => { for (const b of bones) { ctx.beginPath(); b.forEach((i, k) => (k ? ctx.lineTo(kp[i].x, kp[i].y) : ctx.moveTo(kp[i].x, kp[i].y))); ctx.stroke(); } };
+    const palm = () => { ctx.beginPath(); [0, 1, 5, 9, 13, 17].forEach((i, k) => (k ? ctx.lineTo(kp[i].x, kp[i].y) : ctx.moveTo(kp[i].x, kp[i].y))); ctx.closePath(); };
+    // soft shadow, ink outline, then the cream hand
+    ctx.translate(4 * u, 7 * u); ctx.strokeStyle = 'rgba(20,40,20,0.18)'; ctx.fillStyle = 'rgba(20,40,20,0.18)'; ctx.lineWidth = w + 4 * u; trace(); palm(); ctx.fill(); ctx.translate(-4 * u, -7 * u);
+    ctx.strokeStyle = uncertain ? `rgb(${COLD})` : `rgb(${INK})`; ctx.lineWidth = w + 5 * u;
+    if (uncertain) { ctx.setLineDash([6 * u, 6 * u]); ctx.lineDashOffset = -t * 20; }
+    trace(); palm(); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = ctx.strokeStyle = uncertain ? 'rgb(214,233,244)' : 'rgb(253,246,232)';
+    ctx.lineWidth = w; trace(); palm(); ctx.fill();
+    ctx.fillStyle = 'rgba(240,170,160,0.85)'; // finger pads
+    for (const i of [4, 8, 12, 16, 20]) { ctx.beginPath(); ctx.arc(kp[i].x, kp[i].y, w * 0.32, 0, TAU); ctx.fill(); }
+    // the active tool as a small badge on the palm
+    const c = { x: (kp[0].x + kp[9].x) / 2, y: (kp[0].y + kp[9].y) / 2 };
+    ctx.fillStyle = `rgba(${CREAM},0.95)`; ctx.strokeStyle = `rgb(${INK})`; ctx.lineWidth = 2 * u;
+    ctx.beginPath(); ctx.arc(c.x, c.y, 13 * u, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.save(); ctx.translate(c.x, c.y); ctx.scale(0.9 * u, 0.9 * u); ctx.translate(-12, -12); ctx.lineWidth = 1.8; ctx.stroke(path2d(snap.activeTool)); ctx.restore();
+    // a held hand shape (Siblings tool): ring fills while it is held over a sibling
+    const pose = snap.pose;
+    if (snap.activeTool === 'LITTER' && pose && pose.label !== 'unknown') {
+      const words = { open_palm: 'Make friends', peace: 'Cuddle up', fist: 'Play-fight', claw: 'Hiss' }[pose.label];
+      const tip = kp[12], r = 22 * u;
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 5 * u; ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, TAU); ctx.stroke();
+      if (pose.progress > 0) { ctx.strokeStyle = '#ffd36a'; ctx.beginPath(); ctx.arc(c.x, c.y, r, -Math.PI / 2, -Math.PI / 2 + TAU * pose.progress); ctx.stroke(); }
+      const label = pose.target ? `${words} · hold` : `${words} · point at a sibling`;
+      ctx.font = `700 ${15 * u}px Fredoka, Nunito, sans-serif`;
+      const tw = ctx.measureText(label).width + 22 * u, ty = Math.min(tip.y, kp[8].y) - 26 * u;
+      ctx.fillStyle = '#fff7d6'; ctx.beginPath(); ctx.roundRect(c.x - tw / 2, ty - 15 * u, tw, 28 * u, 14 * u); ctx.fill();
+      ctx.fillStyle = `rgb(${INK})`; ctx.textAlign = 'center'; ctx.fillText(label, c.x, ty + 5 * u);
+    }
+    ctx.restore();
+  }
+
+  // Strokes along the fur where the hand passes during accepted contact.
+  strokeTrail(ctx, snap, hand, main, dt) {
+    const u = this.u;
+    this.trail ??= [];
+    for (const q of this.trail) q.t += dt;
+    if (snap.creature.acceptedContact && hand) {
+      const last = this.trail[this.trail.length - 1];
+      if (!last || Math.hypot(hand.x - last.x, hand.y - last.y) > 4 * u) this.trail.push({ x: hand.x, y: hand.y, t: 0 });
+    }
+    this.trail = this.trail.filter((q) => q.t < 1.4).slice(-40);
+    if (this.trail.length < 2) return;
+    const k = KIT[snap.creature.kitten];
+    ctx.save(); ctx.lineCap = 'round';
+    for (let i = 1; i < this.trail.length; i++) {
+      const a = this.trail[i - 1], b = this.trail[i], ang = Math.atan2(b.y - a.y, b.x - a.x), alpha = 1 - b.t / 1.4;
+      for (const off of [-9, 0, 9]) {
+        const ox = Math.cos(ang + Math.PI / 2) * off * u, oy = Math.sin(ang + Math.PI / 2) * off * u;
+        ctx.strokeStyle = k?.coat.light ?? '#fff'; ctx.globalAlpha = 0.75 * alpha; ctx.lineWidth = 2.4 * u;
+        ctx.beginPath(); ctx.moveTo(a.x + ox, a.y + oy); ctx.quadraticCurveTo((a.x + b.x) / 2 + ox + Math.sin(i) * 3 * u, (a.y + b.y) / 2 + oy, b.x + ox, b.y + oy); ctx.stroke();
+      }
+      if (i % 6 === 0) { ctx.globalAlpha = alpha; star(ctx, b.x, b.y - 10 * u, 4 * u, '#fff3b0', u, b.t * 4); }
+    }
+    ctx.restore();
+  }
+
+  purr(ctx, { x, y }, t) {
+    const u = this.u;
+    ctx.save();
+    for (let k = 0; k < 3; k++) {
+      const ph = (t * 0.8 + k / 3) % 1;
+      ctx.strokeStyle = `rgba(255,236,190,${0.5 * (1 - ph)})`; ctx.lineWidth = 3 * u;
+      ctx.beginPath(); ctx.ellipse(x, y, (40 + ph * 70) * u, (30 + ph * 52) * u, 0, 0, TAU); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ---------------------------------------------------------------- the litter together
+  dustBehind(ctx, a, b, t) {
+    const u = this.u, cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+    const dust = this.shownPhase === 'juvenile' ? '255,255,255' : this.shownPhase === 'adult' ? '246,214,160' : '226,214,170';
+    for (let i = 0; i < 9; i++) {
+      const ang = (i / 9) * TAU + t * 0.9, r = (70 + 18 * Math.sin(t * 5 + i)) * u;
+      const px = cx + Math.cos(ang) * r * 0.9, py = cy + Math.sin(ang) * r * 0.65 + 10 * u, s = (34 + 10 * Math.sin(t * 7 + i * 2)) * u;
+      const g = ctx.createRadialGradient(px, py, 0, px, py, s);
+      g.addColorStop(0, `rgba(${dust},0.75)`); g.addColorStop(1, `rgba(${dust},0)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, s, 0, TAU); ctx.fill();
+    }
+  }
+
+  // Play-fight: impact bursts, tufts of fur and stars fly from where the two meet.
+  scuffle(ctx, a, b, t, dt) {
+    const u = this.u, cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+    this.tufts ??= [];
+    if (Math.random() < dt * 9) {
+      const ang = Math.random() * TAU, sp = (80 + Math.random() * 140) * u;
+      this.tufts.push({ x: cx, y: cy, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 60 * u, t: 0, rot: Math.random() * TAU, kind: Math.random() < 0.6 ? 'fur' : 'star' });
+    }
+    ctx.save();
+    for (const q of this.tufts) {
+      q.t += dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 240 * u * dt; q.rot += dt * 6;
+      ctx.globalAlpha = Math.max(0, 1 - q.t / 0.9);
+      if (q.kind === 'star') star(ctx, q.x, q.y, 7 * u, '#ffd36a', u, q.rot);
+      else { ctx.strokeStyle = 'rgba(250,240,225,0.95)'; ctx.lineWidth = 2.2 * u; ctx.lineCap = 'round'; for (let k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(q.x + Math.cos(q.rot + k * 0.5) * 9 * u, q.y + Math.sin(q.rot + k * 0.5) * 9 * u); ctx.stroke(); } }
+    }
+    this.tufts = this.tufts.filter((q) => q.t < 0.9);
+    // a periodic comic impact burst
+    const beat = (t * 2.6) % 1;
+    if (beat < 0.35) {
+      const ang = Math.floor(t * 2.6) * 2.1, bx = cx + Math.cos(ang) * 28 * u, by = cy + Math.sin(ang) * 20 * u, s = (1 - beat / 0.35);
+      ctx.globalAlpha = s;
+      ctx.fillStyle = '#fff7d6'; ctx.strokeStyle = `rgb(${INK})`; ctx.lineWidth = 2.5 * u;
+      ctx.beginPath();
+      for (let i = 0; i < 16; i++) { const aa = (i / 16) * TAU, r = (i % 2 ? 14 : 30) * u * (0.7 + 0.5 * (1 - s)); ctx.lineTo(bx + Math.cos(aa) * r, by + Math.sin(aa) * r); }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = `rgba(${INK},0.5)`; ctx.lineWidth = 2.4 * u; ctx.lineCap = 'round';
+    for (let i = 0; i < 6; i++) {
+      const ang = i * 1.05 + Math.floor(t * 6) * 0.7, r0 = 80 * u, r1 = 110 * u;
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0 * 0.75); ctx.lineTo(cx + Math.cos(ang) * r1, cy + Math.sin(ang) * r1 * 0.75); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Making friends: noses touch, little hearts pop up between them.
+  noseHearts(ctx, a, b, t) {
+    const u = this.u, cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+    for (let k = 0; k < 3; k++) {
+      const ph = (t * 0.7 + k / 3) % 1;
+      ctx.globalAlpha = Math.sin(ph * Math.PI);
+      heart(ctx, cx + Math.sin(t * 2 + k * 2) * 10 * u, cy - 30 * u - ph * 50 * u, (6 + 3 * k) * u, '#f29ab0', u);
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = `rgba(${INK},0.5)`; // sniffing dots
+    for (let k = 0; k < 3; k++) { const ph = (t * 2 + k / 3) % 1; ctx.beginPath(); ctx.arc(cx + (k - 1) * 8 * u, cy - 14 * u - ph * 8 * u, 1.8 * u, 0, TAU); ctx.fill(); }
+  }
+
+  warmGlow(ctx, a, b, t) {
+    const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2, r = this.S * 0.16 * (1 + 0.04 * Math.sin(t * 1.6));
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, 'rgba(255,226,170,0.45)'); g.addColorStop(1, 'rgba(255,226,170,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill();
+  }
+
+  cuddleHeart(ctx, a, b, t) {
+    const u = this.u, cx = (a.x + b.x) / 2, cy = Math.min(a.y, b.y) - 70 * u + Math.sin(t * 2) * 4 * u;
+    heart(ctx, cx, cy, 16 * u * (1 + 0.08 * Math.sin(t * 4)), '#e57f73', u);
+    this.sleepZ(ctx, { x: cx - 40 * u, y: cy + 40 * u }, t);
+  }
+
+  // A standoff: both puffed up, circling; jagged lines of tension and a big hiss between them.
+  standoff(ctx, a, b, t) {
+    const u = this.u, cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2, ang = Math.atan2(b.y - a.y, b.x - a.x);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(214,82,70,0.85)'; ctx.lineWidth = 3 * u; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    for (let k = -2; k <= 2; k++) { // zigzag sparks between them
+      const off = k * 12 * u, jx = Math.cos(ang + Math.PI / 2) * off, jy = Math.sin(ang + Math.PI / 2) * off;
+      ctx.beginPath();
+      for (let s = 0; s <= 6; s++) {
+        const f = -0.5 + s / 6, z = (s % 2 ? 6 : -6) * u * Math.sin(t * 40 + k);
+        const px = cx + Math.cos(ang) * f * 60 * u + jx + Math.cos(ang + Math.PI / 2) * z, py = cy + Math.sin(ang) * f * 60 * u + jy + Math.sin(ang + Math.PI / 2) * z;
+        if (s) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+      }
+      ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(t * 12 + k)); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    // the hiss itself, lettered, shaking
+    const jx = Math.sin(t * 50) * 2.5 * u, jy = Math.cos(t * 43) * 2.5 * u;
+    ctx.font = `700 ${38 * u}px Fredoka, Nunito, sans-serif`; ctx.textAlign = 'center';
+    ctx.lineWidth = 7 * u; ctx.strokeStyle = '#fff'; ctx.strokeText('HSSS!', cx + jx, cy + 70 * u + jy);
+    ctx.fillStyle = '#d4523f'; ctx.fillText('HSSS!', cx + jx, cy + 70 * u + jy);
     ctx.restore();
   }
 
