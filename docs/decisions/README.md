@@ -16,6 +16,9 @@ Status: **Proposed** (in the PRD, awaiting review) · **Adopted** (confirmed or 
 | [ADR-009](#adr-009-no-trust-bar-on-the-public-screen) | No trust bar on the public screen | PRD V2 | Adopted · implemented |
 | [ADR-010](#adr-010-a-litter-of-three-one-relationship) | A litter of three, one relationship | V2 build | Proposed · implemented for review |
 | [ADR-011](#adr-011-a-warm-storybook-visual-language) | A warm storybook visual language | V2 build | Proposed · implemented for review |
+| [ADR-012](#adr-012-the-litter-is-part-of-the-kittens-life) | The litter is part of the kitten's life | V2 build | Proposed · implemented for review · amends ADR-010 |
+| [ADR-013](#adr-013-growth-the-visitor-can-see-and-work-towards) | Growth the visitor can see and work towards | V2 build | Proposed · implemented for review · amends F2-13 |
+| [ADR-014](#adr-014-peek-inside-the-decision-trace-as-a-visitor-feature) | Peek inside: the decision trace as a visitor feature | V2 build | Proposed · implemented for review |
 
 ---
 
@@ -79,3 +82,30 @@ Status: **Proposed** (in the PRD, awaiting review) · **Adopted** (confirmed or 
 - **Context:** the exhibition audience is the general public, and the theme is gentle. A dark, technical look made refusals feel colder.
 - **Decision:** cream paper cards with stitched borders, sage highlights, rounded type (Fredoka, Nunito), a sunlit painted world and storybook ink outlines on the procedural body ported from Prototype A. Colour is never the only signal: system notes are dashed and sky-blue, the character speaks in white speech bubbles. Fonts and p5 ship locally for offline use.
 - **Overturned if:** the venue lighting or projection makes the palette unreadable at viewing distance.
+
+## ADR-012 The litter is part of the kitten's life
+- **Context:** in early play the siblings were scenery. Once Feed, Play and Pet had each been tried, there was little left to discover, and an exhibition piece needs moments that draw a crowd.
+- **Options:** ① keep siblings ambient; ② let the visitor care for all three; ③ keep one relationship, but let the chosen kitten have its own relationships with its litter.
+- **Decision:** ③. Siblings visit now and then; the chosen kitten decides, through the same utility selection, whether to wrestle (`SOCIAL`) or ignore them. A sibling that comes close while it eats, sleeps or is tense gets hissed at (`SIB_FOOD`, `SIB_REST`, `SIB_TENSE`), and rough play can end in a hiss. With the Play tool the visitor can **invite** a sibling over; like every tool it is a request, and a tired or tense kitten declines with a reason. Hunting a passing critter unlocks in Chapter II and bringing the visitor a gift in Chapter III.
+- **Kept from ADR-010:** siblings still never react to the hand, never enter memory and never affect trust. Hissing is the kitten's boundary toward its litter, not a penalty for the visitor.
+- **Evidence:** `test/life.test.mjs` (wrestle, hiss on food, invite refused when tired, hunting locked before Chapter II, gift in Chapter III, all cleared at turnover).
+- **Overturned if:** testing shows visitors read a hiss as being told off, or the litter distracts from the visitor's own relationship.
+
+## ADR-013 Growth the visitor can see and work towards
+- **Context:** growth was a slow, invisible drift (about four minutes of qualifying time) shown as three thin bars. Visitors could not tell what made the kitten grow or what was holding it back, and the change between chapters was too subtle to feel like an achievement.
+- **Decision:**
+  - Keep the PRD gate unchanged (each need ≥ 0.20, mean ≥ 0.55, stress ≤ 0.40, active session).
+  - Behind the gate, growth has two sources: a slower passive drift (1/150 per second, raised by trust) and a **burst for each completed act of care** (a meal, a catch, a quiet contact, space given when asked, a wrestle, a hunt, a gift).
+  - Bursts are capped per cause at 0.24 of a chapter per minute, so varied care grows fastest and repeating one action cannot rush the kitten.
+  - A growth meter shows the percentage to the next chapter, the four needs that gate it, the reason when it pauses, and what the next chapter unlocks.
+  - Each chapter changes the body clearly (kitten: big head and eyes, fuzz; juvenile: long legs, big ears, pattern; adult: full size, ruff, ear tufts, adult eye colour). A title card and a camera push-in celebrate it; becoming fully grown is celebrated before the visit ends.
+- **Relation to ADR-009:** trust still has no bar. Growth is the kitten's progress, not a score of the visitor, and its gate is the kitten's wellbeing.
+- **Cost:** a visible meter invites goal-directed play; the gate and the per-cause cap keep that play balanced and kind.
+- **Evidence:** `test/life.test.mjs` (burst on a meal, cap per cause, gate blocks bursts, celebration before reflection); AT10 still passes.
+- **Overturned if:** visitors rush tools to fill the meter, or ignore refusals to chase progress.
+
+## ADR-014 Peek inside: the decision trace as a visitor feature
+- **Context:** the explainable decision trace lived only in the staff panel. Visitors could not see the AI that makes the kitten feel alive, which undersold the work and the brief's goal of understandable AI.
+- **Decision:** a **Peek inside** toggle (`T`) shows, beside the scene, what the kitten is weighing: the top candidates with their relative scores, the winner, why each blocked option is blocked in plain words ("too tired", "too young yet"), and any reaction ("Hissed at Juniper: it was eating"). A footer states what it is: safety rules first, then hand-written scores, not a learned model.
+- **Kept:** exact numbers stay in the staff panel; the public view shows bars and words only.
+- **Overturned if:** visitors find it distracting or read the bars as a score to beat.
