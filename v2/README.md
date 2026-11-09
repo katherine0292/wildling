@@ -22,6 +22,8 @@ Open <http://localhost:8790/v2/> in Chrome. The camera needs `localhost` or `htt
 | `Q` `E` · `1` `2` `3` · `Enter` | Field guide: switch tabs · choose a kitten · say hello |
 | `1` `2` `3` `4` | Feed · Play · Pet · Give space |
 | Arrows + `Space` | Keyboard hand: move · offer, or hold to pet |
+| Click a sibling with Play | Invite it over (a request; your kitten may decline) |
+| `T` | Peek inside: what the kitten is weighing, and why |
 | `Esc` | Pause or continue |
 | `D` | Staff diagnostics: observed input, needs, decision trace, adaptation |
 | `M` | Sound on or off |
@@ -39,13 +41,13 @@ v2/core/        pure JavaScript, no DOM, no p5: runs in the page and under `node
   session.js      ATTRACT → CONSENT → CALIBRATING → ACTIVE ⇄ PAUSED → REFLECTION → RESETTING
   creature.js     hard constraints → utility selection, with a recorded reason for every choice
   care.js         feed · play · contact · startle · wait, and their fairness rules
-  growth.js       balanced-needs growth gate
+  growth.js       balanced-needs gate, passive drift and capped care bursts
   memory.js       20 semantic events + 3 bounded preferences
   recap.js        evidence-cited journal lines
   sim.js          the single authority: commands (de-duplicated), fixed 60 Hz step, snapshot
 v2/browser/     everything that touches the page
   catbody.js      procedural kitten body (spine, IK legs, tail, coats), display only
-  render.js       storybook world, feedback layers and cursor (reads the snapshot only)
+  render.js       painted habitats, follow camera, light, feedback layers and cursor (reads the snapshot only)
   ui.js           field guide, approach choice, HUD and journal
   staff.js        diagnostics panel
   camera.js       getUserMedia + ml5 HandPose, error kinds, single-hand lock, clean release

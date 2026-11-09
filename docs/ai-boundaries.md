@@ -13,6 +13,10 @@ Brief V2 §6.3 asks the delivery to **state clearly what is a trained model, wha
 | `unknown` rejection (top ≥ 0.80, margin ≥ 0.20, 2 cycles) | **Rule**; thresholds to be frozen on validation data | `v2/core/intent.js` | Implemented; applied to rule-baseline scores |
 | Character decisions | **Rules** (hard constraints) + **hand-written utility functions** | `v2/core/creature.js` | Implemented; tested |
 | Rhythm adaptation (contactDwell / playTempoScale / approachRadius) | **Statistical estimate** (median + smoothing + hard range) | `v2/core/memory.js` | Implemented; on/off comparison tested |
+| Life with the litter (visit, wrestle, hiss, invite) | **Rules** (hiss triggers) + **hand-written utility** (`SOCIAL`) | `v2/core/creature.js`, `v2/core/sim.js` | Implemented; tested |
+| Hunting and gifts | **Hand-written utility** with chapter and trust gates | `v2/core/creature.js` | Implemented; tested |
+| Growth meter | **Rule gate** + **capped bursts** per completed act of care | `v2/core/growth.js` | Implemented; tested |
+| Peek inside | **Display of the recorded decision trace**; no model | `v2/browser/ui.js` | Implemented |
 | Kitten temperament | **Fixed starting values** per kitten, chosen by the visitor | `v2/core/config.js` `KITTENS` | Implemented; not learned, never changes rules |
 | Relationship recap | **Templates** citing event IDs | `v2/core/recap.js` | Implemented |
 | Prototype A utility AI | **Hand-written utility functions** | `prototypes/a-autonomous-life/cat.js` `Brain` | Prototype |
@@ -32,6 +36,7 @@ Brief V2 §6.3 asks the delivery to **state clearly what is a trained model, wha
 - ✗ "The gesture model is xx % accurate." No ML accuracy figure is quoted until the trained model has been evaluated on held-out participants.
 - ✗ "Runs locally, so no camera permission is needed." Local inference still needs browser permission.
 - ✗ "Each kitten has a learned personality." Temperament is a fixed set of starting values.
+- ✗ "The kittens have real social intelligence." Sibling visits are scripted; the chosen kitten's response is the same utility selection and hiss rules as everything else.
 
 ## Where the trained model plugs in
 

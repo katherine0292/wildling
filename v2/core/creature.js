@@ -208,7 +208,7 @@ export class CreatureCore {
     }
   }
 
-  // Siblings are puppeteered by the simulation while they visit, wrestle or flee.
+  // Siblings are directed by the core while they visit, wrestle or flee.
   actHeld(dt, ctx) {
     const h = this.held;
     let dvx = 0, dvy = 0;

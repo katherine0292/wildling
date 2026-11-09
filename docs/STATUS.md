@@ -32,7 +32,12 @@ This board records the repository's state as of 2026-11-09.
 | Command de-duplication | F2-16 | ✅ Verified | AT04 (one `commandId`, one fish) |
 | Data clearing at turnover | F2-17 | ✅ Verified (in memory) | AT12; camera track release checked on device in the venue phase |
 | Staff diagnostics panel | §20.2 | 🛠 Implemented | Press `D`; see the README screenshot |
-| Procedural kitten body (spine, IK legs, tail, coats) | ADR-011 | 🛠 Implemented | `v2/browser/catbody.js`, a display-only port of Prototype A's body |
+| Procedural kitten body (spine, IK legs, tail, coats) | ADR-011 | 🛠 Implemented | `v2/browser/catbody.js`, a display-only port of Prototype A's body; three distinct life-stage forms (ADR-013) |
+| Visible growth: capped care bursts, growth meter, chapter celebrations | ADR-013 | ✅ Verified (replays) | `test/life.test.mjs`; meter readability in the usability study |
+| Life with the litter: visits, wrestling, hissing, invitations | ADR-012 | ✅ Verified (replays) | `test/life.test.mjs`; whether visitors read hissing as a scolding is a study question |
+| Hunting (Chapter II) and gifts (Chapter III) | ADR-012 | ✅ Verified (replays) | `test/life.test.mjs` |
+| Peek inside: visitor view of the decision trace | ADR-014 | 🛠 Implemented | Press `T` during a visit |
+| Painted habitats, foreground depth, follow camera, light and grain | ADR-011 | 🛠 Implemented | Frame rate on the target device is checked in WP06 |
 | Offline assets | AT16 | 🛠 Partly implemented | p5.js and fonts ship in `v2/vendor` and `v2/assets`; bundling ml5 and model weights is part of the offline-package milestone |
 | Node.js authority + WebSocket protocol | §18–19 | 📝 Planned (WP02) | The core is already pure modules with protocol field names; the move is a transport change |
 | Processing Java exhibition display | §18.3 | 📝 Planned (WP05) | — |
@@ -49,6 +54,8 @@ Every 🤝 column entry is pending the project lead's review of PRD V2.
 | Idle behaviour switching | +0.10 inertia; new behaviour needs +0.15 | Idle behaviours (explore, observe, groom) re-choose freely when a bout ends | Otherwise grooming almost never appears and the character feels mechanical |
 | Lead-in to contact | Same switching margin | APPROACH → CONTACT is not held back by the margin | Contact is the natural continuation of approaching; hard constraints still apply |
 | Scare response | Utility candidate | A confirmed close fast approach triggers a short hard retreat, shortened by trust | Matches §13.2 "close-range stress protection" in the constraint layer |
+| Growth rate | (1/80) × (1 + 0.25 × trust) per second | Drift 1/150 per second plus capped bursts per act of care | Makes progress visible and tied to care; see ADR-013, to confirm in review |
+| Chapter transition | 1.5 s | 4 s with a title card | Gives the change of form time to land; to confirm in review |
 | Second language | Switchable at the venue | English ships; copy tables ready for a second language | Public copy and language set to be signed off by the project lead |
 
 ## Run the tests
