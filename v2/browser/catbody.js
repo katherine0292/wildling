@@ -14,11 +14,15 @@ const NJ = 8;
 const WIDTH_PROFILE = [0.44, 0.86, 0.94, 0.9, 0.86, 0.9, 0.84, 0.52];
 const TAIL_N = 13;
 const TAU = Math.PI * 2;
+// Three life stages that read at a glance (ADR-013):
+//   kitten   — small, big round head, huge blue eyes, stubby tail, fuzzy outline, faint coat
+//   juvenile — lanky legs, oversized ears, coat pattern coming in, eyes changing colour
+//   adult    — full size, sharp pattern, adult eye colour, chest ruff, ear tufts, long whiskers
 const MORPH = [
-  { size: 0.62, head: 1.38, body: 0.78, leg: 0.82, tail: 0.72, eye: 1.42, chub: 1.2, fluff: 1.0, pattern: 0.5, ear: 1.04 },
-  { size: 0.82, head: 1.12, body: 0.94, leg: 0.98, tail: 0.92, eye: 1.16, chub: 1.04, fluff: 0.6, pattern: 0.78, ear: 1.04 },
-  { size: 1.0, head: 1.0, body: 1.04, leg: 1.04, tail: 1.04, eye: 1.0, chub: 0.96, fluff: 0.3, pattern: 1.0, ear: 1.0 },
-  { size: 1.0, head: 1.0, body: 1.04, leg: 1.04, tail: 1.04, eye: 1.0, chub: 0.96, fluff: 0.3, pattern: 1.0, ear: 1.0 },
+  { size: 0.56, head: 1.5, body: 0.72, leg: 0.76, tail: 0.6, eye: 1.55, chub: 1.28, fluff: 1.0, pattern: 0.3, ear: 0.96, ruff: 0, tuft: 0, whisker: 0.7 },
+  { size: 0.8, head: 1.1, body: 0.98, leg: 1.12, tail: 0.96, eye: 1.15, chub: 0.9, fluff: 0.45, pattern: 0.72, ear: 1.22, ruff: 0.45, tuft: 0.3, whisker: 0.9 },
+  { size: 1.0, head: 1.0, body: 1.06, leg: 1.04, tail: 1.1, eye: 1.0, chub: 1.0, fluff: 0.2, pattern: 1.0, ear: 1.04, ruff: 1, tuft: 1, whisker: 1.2 },
+  { size: 1.0, head: 1.0, body: 1.06, leg: 1.04, tail: 1.1, eye: 1.0, chub: 1.0, fluff: 0.2, pattern: 1.0, ear: 1.04, ruff: 1, tuft: 1, whisker: 1.2 },
 ];
 const KITTEN_EYE = [134, 185, 230];
 
@@ -101,9 +105,13 @@ const POSES = {
   APPROACH:  { ear: 0.55, pupil: 0.55, tailAmp: 0.35, tailFreq: 0.8, tailCurl: 1 },
   CONTACT:   { sit: 0.85, eye: 0.3, ear: 0.3, pupil: 0.25, purr: 1, tailAmp: 0.25, tailFreq: 0.55, tailCurl: 1 },
   PLAY:      { crouch: 0.7, pupil: 1, ear: 0.6, tailAmp: 0.9, tailFreq: 3.2, tailCurl: 0.15 },
+  SOCIAL:    { ear: 0.5, pupil: 0.8, tailAmp: 0.6, tailFreq: 1.6, tailCurl: 0.9 },
+  WRESTLE:   { crouch: 0.6, puff: 0.35, ear: -0.25, pupil: 1, tailAmp: 1.2, tailFreq: 4.2, tailCurl: 0.2 },
+  HUNT:      { crouch: 0.85, ear: 0.75, pupil: 1, eye: 1.1, tailAmp: 0.25, tailFreq: 3.6, tailCurl: 0 },
+  GIFT:      { ear: 0.35, pupil: 0.5, tailAmp: 0.3, tailFreq: 0.9, tailCurl: 1 },
   RETREAT:   { crouch: 0.35, ear: -0.5, eye: 1.15, pupil: 1, puff: 1, tailAmp: 0.12, tailFreq: 3, tailCurl: 0 },
 };
-const DEFAULT_POSE = { sit: 0, curl: 0, crouch: 0, eye: 1, ear: 0, pupil: 0.45, puff: 0, purr: 0, tailAmp: 0.45, tailFreq: 1, tailCurl: 0.35, dip: 0 };
+const DEFAULT_POSE = { sit: 0, curl: 0, crouch: 0, eye: 1, ear: 0, pupil: 0.45, puff: 0, purr: 0, tailAmp: 0.45, tailFreq: 1, tailCurl: 0.35, dip: 0, mouth: 0 };
 
 export class CatBody {
   constructor(kitten, unit, x, y, heading) {
@@ -127,7 +135,7 @@ export class CatBody {
     const A = MORPH[i], B = MORPH[i + 1], m = {};
     for (const k in A) m[k] = A[k] + (B[k] - A[k]) * f;
     this.m = m;
-    const s = m.size * this.U * (1.5 - 0.12 * clamp(this.age, 0, 3)), g = this.g;
+    const s = m.size * this.U * 1.32, g = this.g;
     this.size = m.size;
     this.bodyLen = 126 * s * m.body * g.bodyLen;
     this.segLen = this.bodyLen / (NJ - 1);
@@ -147,14 +155,18 @@ export class CatBody {
     const end = this.spine[NJ - 1];
     this.tail = Array.from({ length: TAIL_N }, (_, i) => add(end, polar(heading + Math.PI, i * this.tailSeg)));
     this.cacheFrame();
+    this.planted = []; // paw plants since the last frame, read by the renderer for footprints
     this.legs = [[0, -1], [0, 1], [1, -1], [1, 1]].map(([g, side]) => ({ g, side, foot: null, stepping: false, t: 0, from: null, dur: 8, lift: 0 }));
     for (const L of this.legs) L.foot = this.footTarget(L);
   }
 
   setUnit(u) { this.U = u; this.updateDims(); this.resetBody(this.pos.x, this.pos.y, this.heading); }
 
-  // s: { x, y (px), heading, speed (px/s), behaviour, age, look (px point | null) }
+  // s: { x, y (px), heading, speed (px/s), behaviour, age, look (px point | null),
+  //      wrestling, reaction ('hiss' | null), carrying (gift id | null) }
   update(dt, s) {
+    this.reaction = s.reaction ?? null;
+    this.carrying = s.carrying ?? null;
     const f = Math.min(dt * 60, 3); // frames at 60 fps, as in Prototype A
     this.time += dt;
     if (Math.abs(s.age - this.age) > 0.002) { this.age = s.age; this.updateDims(); }
@@ -163,7 +175,11 @@ export class CatBody {
       if (s.behaviour === 'REST') this.beginCurl();
       this.behaviour = s.behaviour;
     }
-    const target = { ...DEFAULT_POSE, ...(POSES[s.behaviour] || {}) };
+    const target = { ...DEFAULT_POSE, ...(POSES[s.wrestling ? 'WRESTLE' : s.behaviour] || {}) };
+    // a hiss overrides the face and fur: puffed up, ears flat, slit pupils, mouth open
+    if (this.reaction === 'hiss') Object.assign(target, { puff: 1, ear: -0.5, eye: 1.15, pupil: 0.12, crouch: 0.25, mouth: 1, tailAmp: 0.1, tailCurl: 0 });
+    else target.mouth = 0;
+    if (this.pose.mouth === undefined) this.pose.mouth = 0;
     if (s.behaviour === 'EAT' || s.behaviour === 'GROOM') target.dip = 0.5 + 0.5 * Math.sin(this.time * 14);
     for (const k in target) this.pose[k] = approach(this.pose[k], target[k], (k === 'curl' ? 0.035 : 0.09) * f);
 
@@ -277,7 +293,7 @@ export class CatBody {
         L.t += f / L.dur;
         L.foot = lerpP(L.from, to, ease(Math.min(1, L.t)));
         L.lift = Math.sin(Math.PI * Math.min(1, L.t));
-        if (L.t >= 1) { L.stepping = false; L.lift = 0; }
+        if (L.t >= 1) { L.stepping = false; L.lift = 0; this.planted.push({ x: L.foot.x, y: L.foot.y, a: this.heading, front: L.g === 0 }); }
       }
     }
   }
@@ -454,6 +470,40 @@ export class CatBody {
     }
     ctx.restore();
     this.strokeEdge(ctx, path, c);
+    if (this.m.fluff > 0.5) this.drawFuzz(ctx, c);
+    if (this.m.ruff > 0.05) this.drawRuff(ctx, c);
+  }
+
+  // Kitten fuzz: soft tufts all around the outline, fading out as it grows.
+  drawFuzz(ctx, c) {
+    const k = (this.m.fluff - 0.5) * 2;
+    const out = this.bodyOutline();
+    ctx.strokeStyle = rgba(mix(c.base, c.light, 0.4), 0.85 * k);
+    ctx.lineWidth = Math.max(1, 1.6 * this.U);
+    ctx.lineCap = 'round';
+    for (let i = 0; i < out.length; i++) {
+      const a = out[i], b = out[(i + 1) % out.length], m = lerpP(a, b, 0.5);
+      const n = angTo(a, b) - Math.PI / 2, len = this.hw * 0.16 * k;
+      for (const q of [a, m]) {
+        const e = add(q, polar(n + Math.sin(i * 3.1 + this.time * 2) * 0.3, len));
+        ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(e.x, e.y); ctx.stroke();
+      }
+    }
+  }
+
+  // Chest ruff: a pale fluffy crescent behind the head, fuller on adults.
+  drawRuff(ctx, c) {
+    const r = this.m.ruff, sp = this.spine, a = this._fwd[1];
+    const centre = lerpP(sp[0], sp[1], 0.6), w = this._w[1] * (1.02 + 0.12 * r);
+    ctx.fillStyle = rgba(mix(c.base, c.light, 0.45 + 0.2 * r), 0.55);
+    ctx.beginPath();
+    for (let i = 0; i <= 14; i++) {
+      const t = -Math.PI / 2 + (i / 14) * Math.PI;
+      const rr = w * (1 + 0.12 * Math.sin(i * 2.7) * r);
+      const q = add(centre, polar(a + Math.PI + t * 0.95, rr * (0.55 + 0.45 * Math.abs(Math.sin(t)))));
+      if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+    }
+    ctx.closePath(); ctx.fill();
   }
 
   // Storybook ink outline, so every coat reads clearly against bright ground.
@@ -530,6 +580,11 @@ export class CatBody {
       ctx.beginPath(); ctx.arc(tip.x, tip.y, earLen * 0.22, 0, TAU); ctx.fill();
       ctx.restore();
       ctx.strokeStyle = 'rgba(34,64,90,0.62)'; ctx.lineWidth = Math.max(1.2, 2 * this.U * this.size); ctx.stroke(ear);
+      if (this.m.tuft > 0.05) { // lynx-like ear tufts on older cats
+        ctx.strokeStyle = rgba(c.markFull, 0.9 * this.m.tuft); ctx.lineWidth = Math.max(1, 1.8 * this.U); ctx.lineCap = 'round';
+        const e = add(tip, polar(dir, earLen * 0.32 * this.m.tuft));
+        ctx.beginPath(); ctx.moveTo(tip.x, tip.y); ctx.lineTo(e.x, e.y); ctx.stroke();
+      }
     }
   }
 
@@ -568,8 +623,19 @@ export class CatBody {
       ctx.fillStyle = 'rgba(226,120,130,0.95)';
       ctx.beginPath(); ctx.ellipse(0.5 * L, 0, 0.07 * L, 0.09 * W, 0, 0, TAU); ctx.fill();
     }
+    if (p.mouth > 0.05) { // hissing: open mouth with two small fangs
+      ctx.fillStyle = 'rgba(120,40,50,0.95)';
+      ctx.beginPath(); ctx.ellipse(0.5 * L, 0, 0.09 * L * p.mouth, 0.17 * W * p.mouth, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#fff';
+      for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(0.46 * L, sd * 0.1 * W * p.mouth); ctx.lineTo(0.55 * L, sd * 0.07 * W * p.mouth); ctx.lineTo(0.47 * L, sd * 0.03 * W * p.mouth); ctx.closePath(); ctx.fill(); }
+    }
     ctx.fillStyle = rgba(c.nose);
     ctx.beginPath(); ctx.moveTo(0.49 * L, 0); ctx.lineTo(0.42 * L, 0.09 * W); ctx.lineTo(0.42 * L, -0.09 * W); ctx.closePath(); ctx.fill();
+    if (this.carrying) drawGift(ctx, this.carrying, 0.66 * L, 0, W * 0.55, this.U);
+    if (this.m.fluff > 0.7) { // a little tuft on a kitten's crown
+      ctx.strokeStyle = rgba(c.base); ctx.lineWidth = Math.max(1.2, 2.2 * this.U); ctx.lineCap = 'round';
+      for (const k of [-1, 0, 1]) { ctx.beginPath(); ctx.moveTo(-0.3 * L, k * 0.08 * W); ctx.quadraticCurveTo(-0.5 * L, k * 0.12 * W, -0.56 * L, k * 0.2 * W + 0.05 * W); ctx.stroke(); }
+    }
 
     const open = Math.min(p.eye, 1 - this.blink);
     const er = W * 0.2 * this.m.eye;
@@ -610,11 +676,38 @@ export class CatBody {
     const tw = Math.sin(this.time * 7) * 0.04 - 0.2 * clamp(-p.ear, 0, 1) + 0.25 * clamp(p.ear, 0, 1);
     for (const s of [-1, 1]) {
       for (let k = 0; k < 3; k++) {
-        const a = s * (0.75 + k * 0.32 + tw), o = pt(0.38 * L, s * 0.22 * W), len = W * (1.15 + 0.12 * k);
+        const a = s * (0.75 + k * 0.32 + tw), o = pt(0.38 * L, s * 0.22 * W), len = W * (1.15 + 0.12 * k) * this.m.whisker;
         const e = add(o, polar(a, len)), m = add(o, polar(a - s * 0.12, len * 0.55));
         ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.quadraticCurveTo(m.x, m.y, e.x, e.y); ctx.stroke();
       }
     }
     ctx.restore();
   }
+}
+
+// Small found objects, drawn the same in the kitten's mouth and on the ground.
+export function drawGift(ctx, item, x, y, size, U) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.lineWidth = Math.max(1, 1.6 * U);
+  ctx.strokeStyle = 'rgba(34,64,90,0.75)';
+  if (item === 'pebble') {
+    const g = ctx.createRadialGradient(-size * 0.2, -size * 0.2, 0, 0, 0, size * 0.6);
+    g.addColorStop(0, '#e8eef2'); g.addColorStop(1, '#7d8c99');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, size * 0.55, size * 0.4, 0.4, 0, TAU); ctx.fill(); ctx.stroke();
+  } else if (item === 'feather') {
+    ctx.rotate(0.5);
+    ctx.fillStyle = '#f4ecdf'; ctx.beginPath(); ctx.ellipse(0, 0, size * 0.85, size * 0.25, 0, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#a47c55'; ctx.beginPath(); ctx.moveTo(-size * 0.95, 0); ctx.lineTo(size * 0.8, 0); ctx.stroke();
+    ctx.fillStyle = '#7a4f2e'; ctx.beginPath(); ctx.ellipse(size * 0.45, 0, size * 0.2, size * 0.2, 0, 0, TAU); ctx.fill();
+  } else if (item === 'flower') {
+    for (let k = 0; k < 5; k++) { const a = (k / 5) * TAU; ctx.fillStyle = '#f2a9b8'; ctx.beginPath(); ctx.ellipse(Math.cos(a) * size * 0.3, Math.sin(a) * size * 0.3, size * 0.26, size * 0.16, a, 0, TAU); ctx.fill(); ctx.stroke(); }
+    ctx.fillStyle = '#ffd36a'; ctx.beginPath(); ctx.arc(0, 0, size * 0.16, 0, TAU); ctx.fill();
+  } else {
+    const g = ctx.createLinearGradient(-size * 0.4, -size * 0.4, size * 0.4, size * 0.4);
+    g.addColorStop(0, '#5fd1b8'); g.addColorStop(0.5, '#3a6fd1'); g.addColorStop(1, '#7a3ac2');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, size * 0.42, size * 0.55, 0, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.moveTo(0, -size * 0.5); ctx.lineTo(0, size * 0.5); ctx.stroke();
+  }
+  ctx.restore();
 }
