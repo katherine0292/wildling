@@ -154,9 +154,17 @@ export function updatePlay(c, ctx, dt) {
   const h = ctx.hand;
   if (c.play.since === null) c.play.since = ctx.time;
   c.needs.energy = clamp(c.needs.energy - c.p.needs.playEnergyDrain * dt);
-  if (!h.valid) return;
+  // the target is the toy: the hand itself (yarn), a trailing feather, or a rolling ball
+  const toy = ctx.toy ?? (h.valid ? { kind: 'yarn', x: h.x, y: h.y, valid: true, speed: h.speed } : null);
+  if (!toy?.valid) return;
   const reach = c.p.creature.bodyRadius + pp.pounceS;
-  if (dist(h.x, h.y, c.x, c.y) < reach && ctx.time - c.play.lastPounce >= pp.minIntervalSec) {
+  if (dist(toy.x, toy.y, c.x, c.y) < reach && ctx.time - c.play.lastPounce >= pp.minIntervalSec
+      && toy.kind === 'feather' && toy.speed > c.p.toys.feather.catchBelow) {
+    // a feather flicked too fast is a leap and a miss: a little fun, no reward
+    c.play.lastPounce = ctx.time;
+    c.needs.fun = clamp(c.needs.fun + c.p.toys.feather.missFun);
+    c.emit('pounce_missed', ctx, { measurement: { toy: toy.kind } });
+  } else if (dist(toy.x, toy.y, c.x, c.y) < reach && ctx.time - c.play.lastPounce >= pp.minIntervalSec) {
     const interval = Number.isFinite(c.play.lastPounce) ? ctx.time - c.play.lastPounce : null;
     const before = c.needSnapshot();
     c.needs.fun = clamp(c.needs.fun + pp.fun);
@@ -164,7 +172,7 @@ export function updatePlay(c, ctx, dt) {
     c.needs.trust = clamp(c.needs.trust + c.ledger.grant('PLAY', pp.trust, ctx.time));
     c.play.lastPounce = ctx.time;
     c.stats.pounces++;
-    c.emit('pounce_success', ctx, { before, measurement: { interval } });
+    c.emit('pounce_success', ctx, { before, measurement: { interval, toy: toy.kind ?? 'yarn' } });
   }
   // a natural pause after 20 s of continuous play
   if (ctx.time - c.play.since >= c.p.limits.playPauseAfter) {

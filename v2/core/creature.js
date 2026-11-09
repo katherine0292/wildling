@@ -253,7 +253,8 @@ export class CreatureCore {
     const n = this.needs, L = this.p.limits, h = ctx.hand;
     const handNear = h.valid && dist(h.x, h.y, this.x, this.y) < 0.6;
     const petRequest = ctx.tool === 'PET' && h.valid && ['stable_contact', 'gentle_approach'].includes(ctx.intent.label);
-    const playRequest = ctx.tool === 'PLAY' && h.valid;
+    const toy = ctx.toy ?? (h.valid ? { x: h.x, y: h.y, valid: true } : { valid: false });
+    const playRequest = ctx.tool === 'PLAY' && toy.valid;
     const resting = this.behaviour === 'REST' && n.energy < L.restExit;
     const c = [];
     const add = (name, score, blocked = null, request = false) => {
@@ -277,7 +278,7 @@ export class CreatureCore {
         : !(petRequest || ctx.intent.label === 'gentle_approach') ? 'no_invitation' : null,
       petRequest);
     add('PLAY', 0.15 + 0.5 * (1 - n.fun) + 0.2 * n.trust,
-      ctx.tool !== 'PLAY' ? 'tool' : !h.valid ? 'input'
+      ctx.tool !== 'PLAY' ? 'tool' : !toy.valid ? 'input'
         : n.energy <= L.playEnergy || resting ? 'NEED_REST'
         : n.stress >= L.playStress ? 'PRESSURE_HIGH'
         : ctx.time < this.play.pauseUntil ? 'PLAY_PAUSE' : null,
@@ -540,7 +541,8 @@ export class CreatureCore {
         if (h.valid) { tx = h.x; ty = h.y; speed = sp.approach; stopAt = ctx.prefs.approachRadius; }
         break;
       case 'PLAY':
-        if (h.valid) { tx = h.x; ty = h.y; speed = sp.play * ctx.prefs.playTempoScale; stopAt = 0.02; }
+        { const toy = ctx.toy ?? (h.valid ? { x: h.x, y: h.y, valid: true } : null);
+          if (toy?.valid) { tx = toy.x; ty = toy.y; speed = sp.play * ctx.prefs.playTempoScale; stopAt = 0.02; } }
         break;
       case 'RETREAT':
         if (h.valid || h.present) {
