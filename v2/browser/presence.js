@@ -3,7 +3,7 @@
 // position and apparent size (shoulder width) are passed on. No frames, faces or poses
 // are kept, and the camera is released the moment a visitor starts.
 //
-// `demo` mode simulates someone walking past, for testing without a camera.
+// `demo` mode plays a passer-by crossing the screen, for testing without a camera.
 
 const ML5_URL = 'https://unpkg.com/ml5@1.4.0/dist/ml5.min.js';
 

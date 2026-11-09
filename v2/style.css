@@ -255,7 +255,7 @@ body.staff #recap li .ev { display: block; }
 #growthPanel.growing .gp-track i::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 0 35%, rgba(255, 255, 255, .55) 50%, transparent 65%); background-size: 220% 100%; animation: shine 1.8s linear infinite; }
 @keyframes shine { from { background-position: 120% 0; } to { background-position: -120% 0; } }
 #growthPanel.paused .gp-track i { background: repeating-linear-gradient(45deg, #c9c1b0 0 8px, #d9d2c2 8px 16px); }
-.gp-pop { position: absolute; right: -6px; top: -26px; font: 700 18px var(--display); color: #e0a52a; -webkit-text-stroke: 1px #fff; paint-order: stroke fill; opacity: 0; pointer-events: none; }
+.gp-pop { position: absolute; right: 70px; top: -30px; font: 700 18px var(--display); color: #e0a52a; -webkit-text-stroke: 1px #fff; paint-order: stroke fill; opacity: 0; pointer-events: none; }
 .gp-pop.show { animation: pop-up 1.2s var(--ease) both; }
 @keyframes pop-up { 0% { opacity: 0; transform: translateY(8px) scale(.8); } 20% { opacity: 1; transform: translateY(0) scale(1.15); } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
 .gp-steps, .steps-row { display: flex; align-items: center; gap: 6px; margin: 2px 0 10px; }

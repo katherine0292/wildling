@@ -91,7 +91,7 @@ const sketch = (p) => {
     keepsakes = new Keepsakes({ kiosk: params.get('kiosk') === '1' });
     const adopted = keepsakes.importFrom(params.get('adopt'));
     if (adopted && history.replaceState) { const q = new URLSearchParams(location.search); q.delete('adopt'); q.set('kitten', adopted); history.replaceState(null, '', `${location.pathname}?${q}`); }
-    // Exhibition only: notice people walking past (ADR-020). ?watch=1 uses the camera, ?watch=demo simulates.
+    // Exhibition only: notice people walking past (ADR-020). ?watch=1 uses the camera, ?watch=demo plays a demo passer-by.
     const watch = params.get('watch');
     if (watch === 'demo' || (watch === '1' && params.get('kiosk') === '1')) presence = new PassersBy({ demo: watch === 'demo', send: (people) => sim.command({ id: `pres_${++cmdSeq}`, type: 'presence', people }) });
     renderer = new Renderer(p);
