@@ -26,6 +26,9 @@ Brief V2 §6.3 asks the delivery to **state clearly what is a trained model, wha
 | Relationship recap | **Templates** citing event IDs | `v2/core/recap.js` | Implemented |
 | Prototype A utility AI | **Hand-written utility functions** | `prototypes/a-autonomous-life/cat.js` `Brain` | Prototype |
 | Prototype A genetics and mutation | **Random generation** of appearance, **not learning** | `prototypes/a-autonomous-life/cat.js` `Genome` | Prototype |
+| Teach a trick | **Learned on the device**: 1-nearest-neighbour over the visitor's own three examples, with a distance threshold for `unknown` | `v2/core/tricks.js` | Implemented; tested on synthetic moves; forgotten at turnover |
+| Passers-by | **Pre-trained model** (ml5.js BodyPose) → horizontal position and size only | `v2/browser/presence.js` | Implemented for exhibition mode; on-device check in WP06 |
+| Dreams | **Replay** of the visit's own album photos; no generation | `v2/browser/ui.js` | Implemented |
 | Generative recap | Language model (P2) | — | Out of P0 scope |
 
 ## How we describe it
@@ -41,6 +44,7 @@ Brief V2 §6.3 asks the delivery to **state clearly what is a trained model, wha
 - ✗ "The gesture model is xx % accurate." No ML accuracy figure is quoted until the trained model has been evaluated on held-out participants.
 - ✗ "Runs locally, so no camera permission is needed." Local inference still needs browser permission.
 - ✗ "Each kitten has a learned personality." Temperament is a fixed set of starting values.
+- ✗ "The kitten learns like a brain." Teaching stores your examples and compares new moves with them (nearest neighbour). It is real learning from data, but small, local and forgotten when you leave.
 - ✗ "The hand-shape recogniser is a trained model." It is geometric rules on the keypoints; no accuracy figure is claimed until it is measured on real hands.
 - ✗ "The kitten recognises you." A returning greeting comes from a count kept in your own browser, never from your face or hand.
 - ✗ "The kittens have real social intelligence." Sibling visits are scripted; the chosen kitten's response is the same utility selection and hiss rules as everything else.

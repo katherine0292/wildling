@@ -40,6 +40,9 @@ This board records the repository's state as of 2026-11-09.
 | Toys: yarn, feather, ball | ADR-015 | ✅ Verified (replays) | `test/toys.test.mjs` |
 | Siblings tool: four requests, hand shapes, bonds | ADR-017 | ✅ Verified (replays, synthetic keypoints) | `test/litter-commands.test.mjs`; recognition on real hands at venue distance is checked in WP06 |
 | Tracked hand cursor, petting strokes, social animations | ADR-018 | 🛠 Implemented | Browser check with injected keypoints; real camera check on device |
+| Teach a trick (few-shot, nearest neighbour) | ADR-019 | ✅ Verified (replays) | `test/tricks.test.mjs`; the number of examples needed with real camera jitter is a study question |
+| Passers-by on the attract screen | ADR-020 | ✅ Verified (core) · 🛠 camera | `test/tricks.test.mjs`; `?watch=demo` in the browser; BodyPose in the venue (WP06) |
+| Dreams from the album | ADR-021 | 🛠 Implemented | Browser check |
 | Keepsakes, album and postcard | ADR-016 | ✅ Verified (core replays) · 🛠 page | `test/toys.test.mjs` for the core rule; album, postcard and storage checked in a browser smoke test; `?kiosk=1` for the venue |
 | Painted habitats, foreground depth, follow camera, light and grain | ADR-011 | 🛠 Implemented | Frame rate on the target device is checked in WP06 |
 | Offline assets | AT16 | 🛠 Partly implemented | p5.js and fonts ship in `v2/vendor` and `v2/assets`; bundling ml5 and model weights is part of the offline-package milestone |

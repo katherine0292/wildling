@@ -330,6 +330,8 @@ Initial utilities on normalised state, clamped to 0–1. **These are design form
 - Each round keeps only **the last 20 semantic events** and three preference summaries: successful contact dwell, successful play tempo and accepted approach distance. Events carry `id, type, simulationTime, source, validity`, before and after state, `reasonCode` and the measurement. Unconfirmed input, incomplete actions, pauses and lost tracking are **never success or failure samples**.
 - Role memory is live in ACTIVE, read-only in REFLECTION and destroyed in RESETTING. Trust, stress, preferences and raw action data never carry to the next visitor.
 
+- **Revision after the build review [Proposal], see ADR-019:** in addition to the three bounded preferences, a visitor may **teach a trick** with three examples of their own move. This is the one place the kitten learns from data within a visit: a nearest-neighbour model with a rejection threshold, local to the device and cleared at turnover.
+
 ### 15.2 Update rules
 Each preference computes a target median only after **at least 3 independent valid events**; new = old × 0.8 + target × 0.2, at most once per 10 s. Without enough evidence the default stays; random numbers never fill history.
 

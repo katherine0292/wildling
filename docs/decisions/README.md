@@ -23,6 +23,9 @@ Status: **Proposed** (in the PRD, awaiting review) · **Adopted** (confirmed or 
 | [ADR-016](#adr-016-keepsakes-stay-with-the-visitor-not-the-venue) | Keepsakes stay with the visitor, not the venue | V2 build | Proposed · implemented for review · extends F2-17 |
 | [ADR-017](#adr-017-hand-shapes-ask-the-kitten-about-its-siblings) | Hand shapes ask the kitten about its siblings | V2 build | Proposed · implemented for review · amends ADR-012 |
 | [ADR-018](#adr-018-show-the-hand-the-system-sees) | Show the hand the system sees | V2 build | Proposed · implemented for review |
+| [ADR-019](#adr-019-teach-a-trick-few-shot-learning-on-the-device) | Teach a trick: few-shot learning on the device | V2 build | Proposed · implemented for review |
+| [ADR-020](#adr-020-the-litter-notices-passers-by) | The litter notices passers-by | V2 build | Proposed · implemented for review · exhibition only |
+| [ADR-021](#adr-021-dreams-replay-real-moments) | Dreams replay real moments | V2 build | Proposed · implemented for review |
 
 ---
 
@@ -153,3 +156,27 @@ Status: **Proposed** (in the PRD, awaiting review) · **Adopted** (confirmed or 
   - With Pet or Siblings, mouse and keyboard users get the same hand from a template, fingers wiggling as they stroke.
   - Accepted contact now shows fur brushed along the path of the hand, purr rings and hearts, while the kitten's eyes half-close.
 - **Kept:** the feedback rule. System uncertainty shows on the hand (cursor); the kitten's own choice shows on its body.
+
+## ADR-019 Teach a trick: few-shot learning on the device
+- **Context:** every AI capability so far was a pre-trained model, rules or statistics. Visitors could not *teach* the kitten anything, which is the most intuitive way to experience learning, and the strongest moment for an exhibition about AI.
+- **Options:** ① no learning in the visit (the PRD's position); ② online training of a network in the browser; ③ instance-based learning from a few examples.
+- **Decision:** ③. A sixth tool, **Tricks**:
+  - The visitor picks a trick (spin, roll over, wave) and shows a move of their own three times: a circle, a zigzag, anything.
+  - A move is segmented the same way for camera, mouse and keyboard: it starts when the hand speeds up and ends when it settles.
+  - Each move becomes 16 resampled points, centred and scaled (32 numbers), so size and position do not matter. A **1-nearest-neighbour** model stores the examples.
+  - A later move is matched to the nearest example. If it is further than 0.32 from every example, or too close to two tricks to choose, it is `unknown` and the visitor is told so.
+  - The panel shows how alike the examples were, the last move as the model saw it, and its distance.
+- **Kept:** a recognised move is a request; a tired or tense kitten declines with a reason. Learned tricks are forgotten at turnover.
+- **Honest wording:** "learned on this device from your three examples (nearest neighbour)", never "trained a neural network" or "understands your gestures".
+- **Evidence:** `test/tricks.test.mjs` (circles and zigzags separated at any size and place; an unrelated move rejected; three moves learned in the page, then the move asks for the trick; a tired kitten declines; forgotten at turnover).
+- **Overturned if:** testing shows the hand camera's jitter makes three examples too few, or visitors expect the kitten to keep the trick for next time.
+
+## ADR-020 The litter notices passers-by
+- **Context:** an exhibition screen has to draw people in before anyone touches it. A kitten that turns to look at you as you walk past is the strongest invitation we have.
+- **Decision:** in exhibition mode only (`?kiosk=1&watch=1`), ml5 BodyPose watches the room while nobody is playing. Only each person's horizontal position and apparent size (shoulder width) reach the core. Every kitten turns to look, and the closest trots to the near edge if someone is close enough. The camera is released the moment a visitor starts. `?watch=demo` simulates a passer-by for testing.
+- **Privacy:** no frames, faces or poses are kept or sent; positions are forgotten after 4 s.
+- **Evidence:** `test/tricks.test.mjs` (they look, one approaches, and they let go when nobody is there). On-device detection in the venue is part of WP06.
+
+## ADR-021 Dreams replay real moments
+- **Context:** memory was only visible at the end, in the journal.
+- **Decision:** while the kitten sleeps, a dream bubble cycles through the visit's own album photos ("Dreaming of: first fish"). Only real, photographed moments appear.

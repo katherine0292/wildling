@@ -20,7 +20,8 @@ Open <http://localhost:8790/v2/> in Chrome. The camera needs `localhost` or `htt
 | Key | Action |
 |---|---|
 | `Q` `E` · `1` `2` `3` · `Enter` | Field guide: switch tabs · choose a kitten · say hello |
-| `1` `2` `3` `4` `5` | Feed · Play · Pet · Give space · Siblings |
+| `1` … `6` | Feed · Play · Pet · Give space · Siblings · Tricks |
+| Tricks | Pick a trick and press Teach, then make your own move three times (move, then pause). Make it again later to ask for the trick |
 | Siblings: click a sibling (or `Space` on it) | Ask: `1` make friends · `2` cuddle up · `3` play-fight · `4` hiss. With the camera: hold an open hand, two fingers, a fist or a claw over the sibling |
 | Arrows + `Space` | Keyboard hand: move · offer, or hold to pet |
 | Click a sibling with Play | Invite it over (a request; your kitten may decline) |
@@ -30,7 +31,7 @@ Open <http://localhost:8790/v2/> in Chrome. The camera needs `localhost` or `htt
 | `D` | Staff diagnostics: observed input, needs, decision trace, adaptation |
 | `M` | Sound on or off |
 
-URL options: `?input=mouse|keyboard` (skip the approach screen), `?kitten=ember|juniper|saffron`, `?staff=1`, `?adapt=0`, `?seed=42`, `?kiosk=1` (exhibition: no keepsakes), `?adopt=…` (a postcard's code).
+URL options: `?input=mouse|keyboard` (skip the approach screen), `?kitten=ember|juniper|saffron`, `?staff=1`, `?adapt=0`, `?seed=42`, `?kiosk=1` (exhibition: no keepsakes), `?adopt=…` (a postcard's code), `?watch=1` with `?kiosk=1` (notice passers-by with the camera) or `?watch=demo` (simulated passer-by).
 
 ## Structure
 
@@ -38,6 +39,7 @@ URL options: `?input=mouse|keyboard` (skip the approach screen), `?kitten=ember|
 v2/core/        pure JavaScript, no DOM, no p5: runs in the page and under `node --test`
   config.js       every parameter, all visitor copy, the litter
   input.js        InputTrack (coordinates, speed in S/s, quality gate) · PinchDetector
+  tricks.js       teach a trick: move segmentation, 32-number move shapes, 1-nearest-neighbour with rejection
   pose.js         hand shapes (open hand, two fingers, fist, claw) as a rule baseline with rejection
   intent.js       600 ms window → gentle_approach / stable_contact / fast_approach / neutral_motion,
                   with unknown / lost (rule baseline with the model's output contract)
@@ -55,6 +57,7 @@ v2/browser/     everything that touches the page
   staff.js        diagnostics panel
   camera.js       getUserMedia + ml5 HandPose, error kinds, single-hand lock, clean release
   keyboard.js     keyboard virtual hand
+  presence.js     exhibition only: people walking past, as positions (ml5 BodyPose)
   keepsake.js     keepsakes in the visitor's own browser, and the take-home postcard
   audio.js        Web Audio, the only sound source
   icons.js        one icon set for the interface and the canvas
