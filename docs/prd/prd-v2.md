@@ -244,6 +244,8 @@ stateDiagram-v2
 
 The first four are trained classes. `unknown` is a rejection result and `lost` is a tracking state; neither is a trained class. `withdraw` is a **geometric rule** (a high-quality trajectory to a far zone held for 1 s) and is labelled as rule-sourced. The model never outputs "kind, angry, likes me" or any mental judgement; tool and character context are fused after the model, so a label is never directly a character action.
 
+- **Revision after the build review [Proposal], see ADR-017:** besides the motion classes above, four **static hand shapes** (open hand, two fingers, fist, claw) let the visitor ask about a sibling with the Siblings tool. They use a rule baseline with the same `unknown` rejection and a 600 ms hold, and are candidates for the trained model in WP03.
+
 ### 12.2 Features and proposed model
 - A 600 ms window resampled at 20 Hz to 12 time points, classified every 100 ms. Each point carries palm centre, speed and acceleration, speed toward the character, distance to the body outline, openness, pinch ratio, trajectory stability and a keypoint validity mask.
 - Proposed: a small TensorFlow.js temporal network (1D convolution + global pooling + 4-way softmax), with **normalised statistical features + a small dense network** as the complexity baseline. Architecture is chosen on a held-out validation set, not on depth. Training and inference both run in JavaScript.

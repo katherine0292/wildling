@@ -20,7 +20,8 @@ Open <http://localhost:8790/v2/> in Chrome. The camera needs `localhost` or `htt
 | Key | Action |
 |---|---|
 | `Q` `E` · `1` `2` `3` · `Enter` | Field guide: switch tabs · choose a kitten · say hello |
-| `1` `2` `3` `4` | Feed · Play · Pet · Give space |
+| `1` `2` `3` `4` `5` | Feed · Play · Pet · Give space · Siblings |
+| Siblings: click a sibling (or `Space` on it) | Ask: `1` make friends · `2` cuddle up · `3` play-fight · `4` hiss. With the camera: hold an open hand, two fingers, a fist or a claw over the sibling |
 | Arrows + `Space` | Keyboard hand: move · offer, or hold to pet |
 | Click a sibling with Play | Invite it over (a request; your kitten may decline) |
 | `T` | Peek inside: what the kitten is weighing, and why |
@@ -37,6 +38,7 @@ URL options: `?input=mouse|keyboard` (skip the approach screen), `?kitten=ember|
 v2/core/        pure JavaScript, no DOM, no p5: runs in the page and under `node --test`
   config.js       every parameter, all visitor copy, the litter
   input.js        InputTrack (coordinates, speed in S/s, quality gate) · PinchDetector
+  pose.js         hand shapes (open hand, two fingers, fist, claw) as a rule baseline with rejection
   intent.js       600 ms window → gentle_approach / stable_contact / fast_approach / neutral_motion,
                   with unknown / lost (rule baseline with the model's output contract)
   session.js      ATTRACT → CONSENT → CALIBRATING → ACTIVE ⇄ PAUSED → REFLECTION → RESETTING

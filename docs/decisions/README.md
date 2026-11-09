@@ -21,6 +21,8 @@ Status: **Proposed** (in the PRD, awaiting review) · **Adopted** (confirmed or 
 | [ADR-014](#adr-014-peek-inside-the-decision-trace-as-a-visitor-feature) | Peek inside: the decision trace as a visitor feature | V2 build | Proposed · implemented for review |
 | [ADR-015](#adr-015-three-toys-one-set-of-play-rules) | Three toys, one set of play rules | V2 build | Proposed · implemented for review |
 | [ADR-016](#adr-016-keepsakes-stay-with-the-visitor-not-the-venue) | Keepsakes stay with the visitor, not the venue | V2 build | Proposed · implemented for review · extends F2-17 |
+| [ADR-017](#adr-017-hand-shapes-ask-the-kitten-about-its-siblings) | Hand shapes ask the kitten about its siblings | V2 build | Proposed · implemented for review · amends ADR-012 |
+| [ADR-018](#adr-018-show-the-hand-the-system-sees) | Show the hand the system sees | V2 build | Proposed · implemented for review |
 
 ---
 
@@ -131,3 +133,23 @@ Status: **Proposed** (in the PRD, awaiting review) · **Adopted** (confirmed or 
 - **Never kept:** video, hand data, timings of the visitor's behaviour, or anything about the siblings.
 - **Evidence:** `test/toys.test.mjs` (no keepsake means a fresh kitten; the head start is capped; it applies only to the remembered kitten; it is cleared for the next visitor).
 - **Overturned if:** visitors find the head start unfair to first-timers, or the project lead prefers no persistence at all.
+
+## ADR-017 Hand shapes ask the kitten about its siblings
+- **Context:** in the build review, visitors wanted to direct how the kitten treats its litter (make friends, cuddle, play-fight, hiss), and to do it with their hands. Until then, sibling moments were spontaneous or a single "invite".
+- **Decision:**
+  - A fifth tool, **Siblings** (`5`), turns the hand into a way of asking. Four static hand shapes map to four requests: open hand → make friends, two fingers → cuddle up, fist → play-fight, claw → hiss. Shapes are read from the 21 HandPose keypoints by a **rule baseline** (`v2/core/pose.js`: finger reach and knuckle bend, independent of hand size and rotation).
+  - Ambiguous shapes are `unknown`. A shape only counts when it is held over a sibling for 600 ms, with a 1.5 s cooldown. The cursor shows the recognised shape and a filling ring, so the visitor sees what was understood before anything happens.
+  - Mouse and keyboard reach the same four requests through a small menu over the sibling, with keys `1` to `4`.
+  - **Requests, not commands (ADR-005):** the kitten keeps a bond with each sibling (this visit only). Cuddling needs a bond of at least 0.35 ("We're not close enough for that yet"), and it will not hiss at a close friend ("But we're friends!"). Tiredness, tension and hunger block play-fights as before.
+  - Each act changes the bond: friends +0.15, cuddle +0.10, a play-fight +0.05 (−0.10 if it got too rough), a hiss −0.15. A standoff makes the sibling back away. None of it touches the visitor's trust.
+- **Kept:** siblings still never read the hand themselves; the visitor's request goes to the chosen kitten only.
+- **Evidence:** `test/litter-commands.test.mjs` (four shapes and a rejected mix; befriend raises the bond; cuddle declined for a stranger and accepted later; no hissing at a friend; a standoff sends the sibling off; a held fist over a sibling asks for a play-fight; an unclear shape asks for nothing).
+- **Overturned if:** visitors cannot form the shapes reliably at viewing distance, or hissing on request reads as cruelty rather than play.
+
+## ADR-018 Show the hand the system sees
+- **Context:** with the camera, the cursor was a circle. Visitors could not tell whether the system saw their fingers, and petting had no visible stroke, so contact felt abstract.
+- **Decision:**
+  - With the camera, the cursor is the tracked hand itself: five fingers from the 21 keypoints, drawn slightly smaller around the palm so it never hides the kitten. It turns dashed blue when tracking is uncertain, as before.
+  - With Pet or Siblings, mouse and keyboard users get the same hand from a template, fingers wiggling as they stroke.
+  - Accepted contact now shows fur brushed along the path of the hand, purr rings and hearts, while the kitten's eyes half-close.
+- **Kept:** the feedback rule. System uncertainty shows on the hand (cursor); the kitten's own choice shows on its body.

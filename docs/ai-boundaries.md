@@ -16,6 +16,8 @@ Brief V2 §6.3 asks the delivery to **state clearly what is a trained model, wha
 | Life with the litter (visit, wrestle, hiss, invite) | **Rules** (hiss triggers) + **hand-written utility** (`SOCIAL`) | `v2/core/creature.js`, `v2/core/sim.js` | Implemented; tested |
 | Hunting and gifts | **Hand-written utility** with chapter and trust gates | `v2/core/creature.js` | Implemented; tested |
 | Growth meter | **Rule gate** + **capped bursts** per completed act of care | `v2/core/growth.js` | Implemented; tested |
+| Hand shapes (open hand, two fingers, fist, claw) | **Rule baseline** on HandPose keypoints, with `unknown` rejection and a 600 ms hold | `v2/core/pose.js` | Implemented; tested on synthetic keypoints; on-device accuracy not yet measured |
+| Bonds with siblings | **Bounded counters** changed by completed acts; gate requests | `v2/core/creature.js` | Implemented; tested |
 | Toys (yarn, feather, ball) | **Physics** (spring, friction) feeding the same **play rules** | `v2/core/sim.js`, `v2/core/care.js` | Implemented; tested |
 | Returning-visitor greeting | **Stored count** in the visitor's own browser + a **bounded rule** | `v2/browser/keepsake.js`, `v2/core/sim.js` | Implemented; tested |
 | Album photos | **Fixed triggers** on semantic events; no image analysis | `v2/browser/main.js` | Implemented |
@@ -39,6 +41,7 @@ Brief V2 §6.3 asks the delivery to **state clearly what is a trained model, wha
 - ✗ "The gesture model is xx % accurate." No ML accuracy figure is quoted until the trained model has been evaluated on held-out participants.
 - ✗ "Runs locally, so no camera permission is needed." Local inference still needs browser permission.
 - ✗ "Each kitten has a learned personality." Temperament is a fixed set of starting values.
+- ✗ "The hand-shape recogniser is a trained model." It is geometric rules on the keypoints; no accuracy figure is claimed until it is measured on real hands.
 - ✗ "The kitten recognises you." A returning greeting comes from a count kept in your own browser, never from your face or hand.
 - ✗ "The kittens have real social intelligence." Sibling visits are scripted; the chosen kitten's response is the same utility selection and hiss rules as everything else.
 
