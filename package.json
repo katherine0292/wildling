@@ -5,7 +5,7 @@
   "description": "An explainable AI creature you build a relationship with through hand gestures.",
   "type": "module",
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test \"test/*.test.mjs\"",
     "serve": "python3 -m http.server 8790",
     "evaluate": "node tools/evaluate.mjs"
   },
