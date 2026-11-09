@@ -60,7 +60,10 @@ const soft = (x, lo, hi) => clamp((x - lo) / (hi - lo));
 // Rule baseline scores. Output shape is the model contract: { scores, label, score, margin }.
 export function scoreWindow(f, p = PARAMS) {
   const ip = p.intent;
-  const inZone = 1 - soft(f.dist, ip.nearS * 0.45, ip.nearS * 0.75);
+  // The contact zone must match the creature's own contact radius, otherwise a hand the
+  // cat treats as "on its back" scores below the camera rejection threshold.
+  const zone = p.creature.contactRadius;
+  const inZone = 1 - soft(f.dist, zone, zone * 1.4);
   const slow = 1 - soft(f.meanSpeed, ip.gentleSpeed * 0.6, ip.gentleSpeed * 1.2);
   const settled = soft(f.dwell, ip.contactDwell * 0.5, ip.contactDwell * 0.9);
   const near = 1 - soft(f.edgeDist, ip.nearS, ip.nearS * 1.6);
