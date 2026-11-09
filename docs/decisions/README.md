@@ -190,7 +190,7 @@ Status: **Proposed** (in the PRD, awaiting review) · **Adopted** (confirmed or 
   - Give every finger **soft scores** (straight, folded, claw-bent) instead of booleans, and average them per shape.
   - **Smooth** the shape scores over recent frames (α = 0.35) before naming a shape, then require top ≥ 0.55 and margin ≥ 0.15, else `unknown`.
   - Allow a 200 ms gap in the hold, shorten the hold to 500 ms, widen the target to 0.22 S, and keep the same sibling while a shape is held (up to 0.32 S).
-  - The visible cursor became a see-through hand, so it no longer hides the kitten.
+  - The visible cursor is Prototype A's **ghost hand**: thick rounded fingers drawn opaque into their own layer and composited once at about 30 % opacity (so overlapping fingers never double up), a faint offset shadow and glowing fingertips. It turns warm while petting, reddens when it moves fast, and is cool blue and dashed when tracking is uncertain. It no longer hides the kitten.
 - **Evidence:** `test/litter-commands.test.mjs` (shapes at ±40° rotation, 0.6–1.4× scale and offset; 22 of 22 settled frames correct under heavy jitter; a claw curled toward the camera recognised from 3D). Accuracy on real hands at venue distance is still to be measured (WP06).
 
 ## ADR-023 A tutorial that teaches by doing

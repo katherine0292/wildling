@@ -20,6 +20,25 @@ const SAGE = [169, 201, 155];
 const CREAM = [251, 243, 227];
 const COLD = [43, 102, 136];
 const KIT = Object.fromEntries(KITTENS.map((k) => [k.id, k]));
+// Prototype A's hand: bone chains, palm outline, and an open right hand as the mirrored
+// webcam sees it (world units around the palm).
+const HAND_FINGERS = [[0, 1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16], [0, 17, 18, 19, 20]];
+const HAND_PALM = [0, 1, 5, 9, 13, 17];
+const HAND_TEMPLATE = [
+  [4, 62], [-22, 50], [-42, 32], [-56, 14], [-68, -2],
+  [-22, -8], [-27, -38], [-29, -56], [-31, -72],
+  [-2, -12], [-2, -46], [-2, -66], [-2, -84],
+  [17, -8], [20, -40], [22, -58], [24, -73],
+  [32, 2], [39, -22], [43, -36], [46, -50],
+];
+function smoothClosed(pts) {
+  const p = new Path2D(), n = pts.length, mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  const m0 = mid(pts[n - 1], pts[0]);
+  p.moveTo(m0.x, m0.y);
+  for (let i = 0; i < n; i++) { const a = pts[i], m = mid(a, pts[(i + 1) % n]); p.quadraticCurveTo(a.x, a.y, m.x, m.y); }
+  p.closePath();
+  return p;
+}
 const TAU = Math.PI * 2;
 const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -177,9 +196,8 @@ export class Renderer {
     this.atmosphere(ctx, dt, t);
     if (interactive && snap.activeTool === 'PLAY' && snap.toy?.kind === 'feather' && snap.toy.position && hand) this.feather(ctx, hand, this.px(snap.toy.position), t);
     if (interactive || st === 'CALIBRATING') {
-      // the real tracked hand, drawn a little smaller around its palm so it never hides the kitten
-      let kp = snap.input.source === 'camera' && ui?.keypoints && snap.input.quality !== 'lost' ? ui.keypoints.map((q) => this.px(this.screenToWorldN(q.x, q.y))) : null;
-      if (kp) { const c = { x: (kp[0].x + kp[9].x) / 2, y: (kp[0].y + kp[9].y) / 2 }; kp = kp.map((q) => ({ x: c.x + (q.x - c.x) * 0.7, y: c.y + (q.y - c.y) * 0.7 })); }
+      // the real tracked hand, as a see-through ghost hand (Prototype A)
+      const kp = snap.input.source === 'camera' && ui?.keypoints && snap.input.quality !== 'lost' ? ui.keypoints.map((q) => this.px(this.screenToWorldN(q.x, q.y))) : null;
       const handTool = snap.activeTool === 'PET' || snap.activeTool === 'LITTER';
       if (kp) this.handCursor(ctx, snap, kp, t);
       else if (handTool && hand) this.handCursor(ctx, snap, this.templateHand(hand, snap, t), t);
@@ -401,52 +419,75 @@ export class Renderer {
   }
 
   // ---------------------------------------------------------------- hands and petting
-  // A stand-in open hand for mouse and keyboard, in the same 21-point layout as HandPose,
-  // so petting looks the same whichever input is used. Fingers wiggle while stroking.
+  // A stand-in open hand for mouse and keyboard: Prototype A's hand template, in the same
+  // 21-point layout as HandPose, tilting with movement and wiggling while it strokes.
   templateHand(at, snap, t) {
-    const u = this.u, s = 52 * u, moving = (snap.input.speedSPerSecond ?? 0) > 0.05 || snap.creature.acceptedContact;
-    const base = [[0, 0.62], [-0.32, 0.45], [-0.5, 0.25], [-0.62, 0.08], [-0.72, -0.06],
-      [-0.26, -0.02], [-0.32, -0.32], [-0.35, -0.5], [-0.37, -0.66],
-      [-0.06, -0.06], [-0.08, -0.4], [-0.09, -0.6], [-0.1, -0.78],
-      [0.14, -0.02], [0.16, -0.34], [0.17, -0.52], [0.18, -0.68],
-      [0.32, 0.06], [0.38, -0.18], [0.41, -0.32], [0.43, -0.45]];
-    return base.map(([x, y], i) => {
+    const u = this.u, s = u * 1.05, moving = (snap.input.speedSPerSecond ?? 0) > 0.05 || snap.creature.acceptedContact;
+    const vx = this.lastHandAt ? at.x - this.lastHandAt.x : 0;
+    this.lastHandAt = { ...at };
+    this.handTilt = (this.handTilt ?? 0) + (Math.max(-0.35, Math.min(0.35, vx / (u * 40))) - (this.handTilt ?? 0)) * 0.2;
+    const c = Math.cos(this.handTilt), sn = Math.sin(this.handTilt);
+    return HAND_TEMPLATE.map(([x, y], i) => {
       const finger = i >= 5 ? Math.floor((i - 5) / 4) : -1, joint = i >= 5 ? (i - 5) % 4 : 0;
-      const w = moving && finger >= 0 ? Math.sin(t * 9 + finger * 1.3) * 0.05 * joint : 0;
-      return { x: at.x + (x + w) * s, y: at.y + y * s };
+      const w = moving && finger >= 0 ? Math.sin(t * 9 + finger * 1.3) * 2.5 * joint : 0;
+      const px = x + w, py = y;
+      return { x: at.x + (px * c - py * sn) * s, y: at.y + (px * sn + py * c) * s };
     });
+  }
+
+  // Prototype A's ghost hand: thick rounded fingers and a smooth palm, drawn opaque into
+  // a layer of its own and composited once with transparency, so overlapping fingers
+  // never double up. A faint offset shadow, glowing fingertips, warm while petting,
+  // reddening when it moves fast, cool blue and dashed when tracking is uncertain.
+  traceHand(ctx, pts) {
+    const palmW = Math.hypot(pts[5].x - pts[17].x, pts[5].y - pts[17].y);
+    const fw = Math.max(10 * this.u, palmW * 0.32);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.fill(smoothClosed(HAND_PALM.map((i) => pts[i])));
+    ctx.lineWidth = fw * 1.1;
+    ctx.beginPath(); HAND_PALM.forEach((i, k) => (k ? ctx.lineTo(pts[i].x, pts[i].y) : ctx.moveTo(pts[i].x, pts[i].y))); ctx.closePath(); ctx.stroke();
+    ctx.lineWidth = fw;
+    for (const f of HAND_FINGERS) { ctx.beginPath(); f.forEach((i, k) => (k ? ctx.lineTo(pts[i].x, pts[i].y) : ctx.moveTo(pts[i].x, pts[i].y))); ctx.stroke(); }
   }
 
   handCursor(ctx, snap, kp, t) {
     const u = this.u, q = snap.input.quality;
     const uncertain = q !== 'valid' || (snap.activeTool === 'PET' && snap.intent.label === 'unknown');
-    const bones = [[0, 1, 2, 3, 4], [0, 5, 6, 7, 8], [5, 9, 10, 11, 12], [9, 13, 14, 15, 16], [13, 17, 18, 19, 20], [0, 17]];
-    const palmW = Math.hypot(kp[5].x - kp[17].x, kp[5].y - kp[17].y);
-    const w = Math.max(6 * u, palmW * 0.24);
+    const pet = snap.creature.acceptedContact;
+    const fast = Math.max(0, Math.min(1, ((snap.input.speedSPerSecond ?? 0) - 0.4) / 0.7));
+    const col = uncertain ? [205, 228, 245] : pet ? [255, 226, 190] : [240 + (255 - 240) * fast, 248 + (120 - 248) * fast, 255 + (100 - 255) * fast];
+    const L = this.handLayer ??= document.createElement('canvas');
+    if (L.width !== this.W * this.dpr || L.height !== this.H * this.dpr) { L.width = this.W * this.dpr; L.height = this.H * this.dpr; }
+    const lc = L.getContext('2d'), m = ctx.getTransform();
+    const composite = (alpha) => { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = alpha; ctx.drawImage(L, 0, 0); ctx.restore(); };
+    const clear = () => { lc.setTransform(1, 0, 0, 1, 0, 0); lc.clearRect(0, 0, L.width, L.height); lc.setTransform(m); };
+    const fade = q === 'lost' ? 0.4 : 1;
+    // shadow
+    clear(); lc.fillStyle = lc.strokeStyle = '#000';
+    lc.save(); lc.translate(16 * u, 24 * u); this.traceHand(lc, kp); lc.restore();
+    composite(0.16 * fade);
+    // the hand
+    clear(); lc.fillStyle = lc.strokeStyle = `rgb(${col.map((v) => v | 0)})`;
+    this.traceHand(lc, kp);
+    composite((pet ? 0.2 : 0.32) * fade);
     ctx.save();
-    // a glassy, see-through hand: the kitten stays visible underneath
-    ctx.globalAlpha = q === 'lost' ? 0.3 : 1;
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    const trace = () => { for (const b of bones) { ctx.beginPath(); b.forEach((i, k) => (k ? ctx.lineTo(kp[i].x, kp[i].y) : ctx.moveTo(kp[i].x, kp[i].y))); ctx.stroke(); } };
-    const palm = () => { ctx.beginPath(); [0, 1, 5, 9, 13, 17].forEach((i, k) => (k ? ctx.lineTo(kp[i].x, kp[i].y) : ctx.moveTo(kp[i].x, kp[i].y))); ctx.closePath(); };
-    // a frosted, see-through hand: soft fill, bright bone lines and joints on top
-    const rim = uncertain ? `rgba(${COLD},0.9)` : 'rgba(255,255,255,0.95)';
-    ctx.globalAlpha = q === 'lost' ? 0.08 : 0.2;
-    ctx.fillStyle = ctx.strokeStyle = uncertain ? `rgb(${COLD})` : `rgb(${INK})`; // faint shadow so it reads on snow
-    ctx.translate(2 * u, 3 * u); ctx.lineWidth = w; trace(); palm(); ctx.fill(); ctx.translate(-2 * u, -3 * u);
-    ctx.globalAlpha = q === 'lost' ? 0.1 : 0.26;
-    ctx.fillStyle = ctx.strokeStyle = uncertain ? 'rgb(214,233,244)' : '#ffffff';
-    ctx.lineWidth = w; trace(); palm(); ctx.fill();
-    ctx.globalAlpha = q === 'lost' ? 0.3 : 1;
-    if (uncertain) { ctx.setLineDash([5 * u, 5 * u]); ctx.lineDashOffset = -t * 20; }
-    ctx.strokeStyle = rim; ctx.lineWidth = Math.max(1.5, 2 * u);
-    trace(); ctx.setLineDash([]);
-    ctx.fillStyle = rim;
-    for (let i = 1; i < 21; i++) { ctx.beginPath(); ctx.arc(kp[i].x, kp[i].y, (i % 4 === 0 ? 0.24 : 0.13) * w, 0, TAU); ctx.fill(); }
+    ctx.globalAlpha = 0.8 * fade;
+    for (const i of [4, 8, 12, 16, 20]) {
+      const g = ctx.createRadialGradient(kp[i].x, kp[i].y, 0, kp[i].x, kp[i].y, 12 * u);
+      g.addColorStop(0, `rgba(${col.map((v) => v | 0)},0.7)`); g.addColorStop(1, `rgba(${col.map((v) => v | 0)},0)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(kp[i].x, kp[i].y, 12 * u, 0, TAU); ctx.fill();
+    }
+    if (uncertain) { // system uncertainty is shown on the hand, never on the kitten
+      ctx.globalAlpha = 0.7 * fade; ctx.strokeStyle = `rgb(${COLD})`; ctx.lineWidth = 2 * u; ctx.lineCap = 'round';
+      ctx.setLineDash([5 * u, 6 * u]); ctx.lineDashOffset = -t * 20;
+      for (const f of HAND_FINGERS) { ctx.beginPath(); f.forEach((i, k) => (k ? ctx.lineTo(kp[i].x, kp[i].y) : ctx.moveTo(kp[i].x, kp[i].y))); ctx.stroke(); }
+      ctx.setLineDash([]);
+    }
+    ctx.globalAlpha = fade;
     // the active tool as a small badge on the palm
     const c = { x: (kp[0].x + kp[9].x) / 2, y: (kp[0].y + kp[9].y) / 2 };
-    ctx.fillStyle = `rgba(${CREAM},0.95)`; ctx.strokeStyle = `rgb(${INK})`; ctx.lineWidth = 2 * u;
-    ctx.beginPath(); ctx.arc(c.x, c.y, 13 * u, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = `rgba(${CREAM},0.75)`; ctx.strokeStyle = `rgba(${INK},0.6)`; ctx.lineWidth = 1.6 * u;
+    ctx.beginPath(); ctx.arc(c.x, c.y, 12 * u, 0, TAU); ctx.fill(); ctx.stroke();
     ctx.save(); ctx.translate(c.x, c.y); ctx.scale(0.9 * u, 0.9 * u); ctx.translate(-12, -12); ctx.lineWidth = 1.8; ctx.stroke(path2d(snap.activeTool)); ctx.restore();
     // a held hand shape (Siblings tool): ring fills while it is held over a sibling
     const pose = snap.pose;
