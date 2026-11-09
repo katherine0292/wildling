@@ -14,6 +14,7 @@ import { CreatureCore, BEHAVIOURS } from './creature.js';
 import { RelationshipMemory } from './memory.js';
 import { buildRecap } from './recap.js';
 import { growthCheck, PHASES, UNLOCKS } from './growth.js';
+import { classifyPose, PoseGate, POSE_ACTS } from './pose.js';
 
 export const PROTOCOL_VERSION = '1.0';
 
@@ -87,6 +88,8 @@ export class Simulation {
     this.lostSince = null;
     this.uncertainSince = null;
     this.errors = { duplicates: 0, rejected: 0 };
+    this.poseGate = new PoseGate(params.social.pose);
+    this.pose = { label: 'unknown', progress: 0, target: null, source: 'rule_baseline' };
     this.resetLife();
   }
 
@@ -111,6 +114,7 @@ export class Simulation {
     if (!sample || typeof sample.t !== 'number') { this.errors.rejected++; return; }
     if (sample.source === 'keyboard') this.keyboardHold = !!sample.hold;
     this.track.ingest(sample);
+    if (sample.source === 'camera') this.readPose(sample);
     if (sample.source === 'camera' && Number.isFinite(sample.pinchRatio)) {
       const fired = this.pinch.update(sample.pinchRatio, this.track.valid, sample.t);
       if (fired && this.track.x !== null) {
@@ -141,15 +145,13 @@ export class Simulation {
         break;
       case 'calibration_failed': s.backToConsent(cmd.reason ?? 'camera_failed'); break;
       case 'select_tool':
-        if (['FEED', 'PLAY', 'PET', 'WAIT'].includes(cmd.tool)) { this.tool = cmd.tool; s.noteActivity(); }
+        if (['FEED', 'PLAY', 'PET', 'WAIT', 'LITTER'].includes(cmd.tool)) { this.tool = cmd.tool; s.noteActivity(); }
         break;
       case 'confirm': {
         s.noteActivity();
         if (s.state !== 'ACTIVE') break;
-        // with the Play tool, confirming on a sibling invites it over (a request, like every tool)
-        const sib = this.tool === 'PLAY' && this.siblingAt(cmd.x, cmd.y);
-        if (sib) this.invite(sib.kitten.id);
-        else if (this.tool === 'FEED') this.dropFood(cmd.x, cmd.y);
+        // siblings are asked with the Siblings tool (social_request), never by a stray click
+        if (this.tool === 'FEED') this.dropFood(cmd.x, cmd.y);
         else if (this.tool === 'PLAY' && this.toy.kind === 'ball') this.throwBall(cmd.x, cmd.y);
         break;
       }
@@ -158,6 +160,7 @@ export class Simulation {
       case 'end': s.end(cmd.reason ?? 'user'); break;
       case 'next': s.next(); break;
       case 'invite_sibling': this.invite(cmd.kitten); break;
+      case 'social_request': if (['befriend', 'cuddle', 'fight', 'hiss'].includes(cmd.act)) this.invite(cmd.kitten, cmd.act); break;
       // a returning visitor's own browser tells the core how many times they have met
       case 'set_returning':
         if (s.state === 'ATTRACT' || s.state === 'CONSENT') this.returning = cmd.visits > 0 ? { kitten: cmd.kitten, visits: Math.min(50, cmd.visits | 0) } : null;
@@ -203,24 +206,35 @@ export class Simulation {
     }
   }
 
-  siblingAt(nx, ny) {
+  siblingAt(nx, ny, r = 0.1) {
     if (!this.cat || !Number.isFinite(nx)) return null;
     const x = nx * this.world.w, y = ny * this.world.h;
-    return this.siblings.find((o) => Math.hypot(o.x - x, o.y - y) < 0.1) ?? null;
+    return this.siblings.find((o) => Math.hypot(o.x - x, o.y - y) < r) ?? null;
   }
 
   // A visitor can invite a sibling over. Like every tool, it is a request: the kitten
   // still decides, and a refusal comes with its reason.
-  invite(kitten) {
+  invite(kitten, act = 'fight') {
     if (this.session.state !== 'ACTIVE' || !this.cat) return;
     const sib = this.siblings.find((o) => o.kitten.id === kitten);
-    if (!sib || this.cat.wrestling) return;
+    if (!sib || this.cat.socialActive) return;
     this.endVisit();
-    this.life.invite = { sibId: sib.id, inviteId: ++this.life.inviteSeq, since: this.simTime };
+    this.life.invite = { sibId: sib.id, act, inviteId: ++this.life.inviteSeq, since: this.simTime };
     sib.goal = { id: this.cat.id, x: this.cat.x, y: this.cat.y, stop: 0.2 };
     sib.held = null;
     this.session.noteActivity();
-    this.out.push({ type: 'invite', sibling: kitten });
+    this.out.push({ type: 'invite', sibling: kitten, act });
+  }
+
+  // Hand shapes as requests about the litter (ADR-017): hold a shape over a sibling with
+  // the Siblings tool. A rule baseline with rejection; the kitten still decides.
+  readPose(sample) {
+    const kp = sample.present && Array.isArray(sample.keypoints) ? sample.keypoints : null;
+    const raw = kp ? classifyPose(kp) : { label: 'unknown', score: 0 };
+    const target = this.tool === 'LITTER' && this.track.valid ? this.siblingAt(this.track.x / this.world.w, this.track.y / this.world.h, this.p.social.pose.overS) : null;
+    const g = this.poseGate.update(raw.label, sample.t, this.track.valid && this.session.state === 'ACTIVE' && this.tool === 'LITTER');
+    this.pose = { label: g.label, progress: target ? g.progress : 0, target: target?.kitten.id ?? null, score: raw.score, source: 'rule_baseline' };
+    if (g.fire && target) this.command({ id: `pose_${sample.t}`, type: 'social_request', kitten: target.kitten.id, act: POSE_ACTS[g.fire], via: 'pose' });
   }
 
   endVisit(sibId = null) {
@@ -257,11 +271,25 @@ export class Simulation {
       if (sib.goal) { sib.goal.x = cat.x; sib.goal.y = cat.y; }
     }
     for (const sib of this.siblings) {
-      if (cat.wrestling && cat.social.partner === sib.id) {
+      const mode = cat.social.partner === sib.id ? cat.socialMode : null;
+      const toCat = Math.atan2(cat.y - sib.y, cat.x - sib.x);
+      const until = this.demoTime + 0.25;
+      if (mode === 'wrestle') {
         const a = t * 7;
         sib.goal = null;
-        sib.held = { behaviour: 'SOCIAL', until: this.demoTime + 0.25, partner: cat.id, wrestle: true,
-          at: { x: cat.x + Math.cos(a) * 0.07, y: cat.y + Math.sin(a * 1.2) * 0.05 }, face: Math.atan2(cat.y - sib.y, cat.x - sib.x) };
+        sib.held = { behaviour: 'SOCIAL', until, partner: cat.id, wrestle: true,
+          at: { x: cat.x + Math.cos(a) * 0.07, y: cat.y + Math.sin(a * 1.2) * 0.05 }, face: toCat };
+      } else if (mode === 'greet') { // nose to nose
+        sib.goal = null;
+        sib.held = { behaviour: 'OBSERVE', until, partner: cat.id, mode, at: { x: cat.x + Math.cos(cat.heading) * 0.13, y: cat.y + Math.sin(cat.heading) * 0.13 }, face: cat.heading + Math.PI };
+      } else if (mode === 'cuddle') { // curled up side by side
+        const side = cat.heading + Math.PI / 2;
+        sib.goal = null;
+        sib.held = { behaviour: 'REST', until, partner: cat.id, mode, at: { x: cat.x + Math.cos(side) * 0.1, y: cat.y + Math.sin(side) * 0.1 }, face: cat.heading };
+      } else if (mode === 'standoff') { // circling, puffed up, face to face
+        const a = Math.atan2(sib.y - cat.y, sib.x - cat.x) + 0.35 * (1 / 60) * 6;
+        sib.goal = null;
+        sib.held = { behaviour: 'SOCIAL', until, partner: cat.id, mode, standoff: true, at: { x: cat.x + Math.cos(a) * 0.27, y: cat.y + Math.sin(a) * 0.27 }, face: toCat };
       } else if (cat.behaviour === 'SOCIAL' && cat.social.target === sib.id && !sib.held?.flee) {
         sib.goal = null;
         sib.held = { behaviour: 'OBSERVE', until: this.demoTime + 0.25, partner: cat.id, face: Math.atan2(cat.y - sib.y, cat.x - sib.x) };
@@ -393,6 +421,7 @@ export class Simulation {
       ctx.siblings = this.siblings.map((o) => ({
         id: o.id, kitten: o.kitten.id, x: o.x, y: o.y,
         visiting: this.life.visit?.sibId === o.id, invited: this.life.invite?.sibId === o.id, inviteId: this.life.invite?.sibId === o.id ? this.life.invite.inviteId : null,
+        act: this.life.invite?.sibId === o.id ? this.life.invite.act : null,
       }));
       ctx.critter = this.critter && !this.critter.fleeing ? { id: this.critter.id, kind: this.critter.kind, x: this.critter.x, y: this.critter.y } : null;
       if (s.state === 'ACTIVE') { this.directLitter(); this.stepCritter(dt); }
@@ -452,6 +481,11 @@ export class Simulation {
         sib.goal = null;
         sib.held = { behaviour: 'RETREAT', until: this.demoTime + 1.6, flee: { x: this.cat.x, y: this.cat.y } };
       }
+    }
+    if (e.type === 'hiss' && e.reasonCode === 'SIB_STANDOFF') this.out.push({ type: 'standoff_end', sibling: m.sibling });
+    if (e.type === 'sibling_befriend' || e.type === 'sibling_cuddle') {
+      const sib = this.litter.find((o) => o.kitten.id === m.sibling);
+      if (sib) { sib.held = null; this.endVisit(sib.id); sib.forceRedecide = true; }
     }
     if (e.type === 'sibling_play') {
       const sib = this.litter.find((o) => o.kitten.id === m.sibling);
@@ -612,10 +646,13 @@ export class Simulation {
         // litter-mates grow up alongside the visitor's kitten (display only; they have no growth of their own)
         speed: Math.hypot(x.vx, x.vy), behaviour: x.behaviour, ageProgress: this.cat && s.state !== 'ATTRACT' ? this.cat.ageProgress : x.ageProgress,
         wrestling: !!x.held?.wrestle, visiting: this.life.visit?.sibId === x.id, invited: this.life.invite?.sibId === x.id,
+        mode: x.held?.wrestle ? 'wrestle' : x.held?.mode ?? null, standoff: !!x.held?.standoff,
+        bond: this.cat && s.state !== 'ATTRACT' ? this.cat.bond(x.kitten.id) : null,
         fleeing: !!x.held?.flee,
       })),
       growth: this.growthSnapshot(c),
       critter: this.critter ? { id: this.critter.id, kind: this.critter.kind, position: { x: this.critter.x / W, y: this.critter.y / H }, fleeing: this.critter.fleeing, caught: this.critter.caught, heading: Math.atan2(this.critter.vy, this.critter.vx) } : null,
+      pose: { ...this.pose },
       toy: this.toy.live || this.toy.kind === 'yarn' ? { kind: this.toy.kind, position: this.toy.live && this.toy.x !== null ? { x: this.toy.x / W, y: this.toy.y / H } : null } : { kind: this.toy.kind, position: null },
       gifts: this.gifts.map((g) => ({ id: g.id, item: g.item, position: { x: g.x / W, y: g.y / H }, age: this.simTime - g.born })),
       creature: {
@@ -637,6 +674,8 @@ export class Simulation {
         transition: this.simTime < c.transitionUntil,
         stats: { ...c.stats },
         wrestling: c.wrestling,
+        socialMode: c.socialMode,
+        socialAct: c.social.act,
         socialTarget: c.social.target ? this.litter.find((o) => o.id === c.social.target)?.kitten.id ?? null : null,
         reaction: c.reaction ? { type: c.reaction.type, reasonCode: c.reaction.reasonCode, sibling: c.reaction.sibling } : null,
         carrying: c.giftState.stage === 'bring' ? c.giftState.item : null,

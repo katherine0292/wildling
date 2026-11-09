@@ -14,6 +14,8 @@ const T = {
     recovered: () => 'We had a startled moment, and found our way back.',
     grew: (p) => `I grew into ${p === 'adult' ? 'an adult' : `a ${p}`} while you were here.`,
     quiet: () => 'We spent a quiet moment together.',
+    befriend: (name) => `${name} and I became friends.`,
+    cuddle: (name) => `I curled up with ${name}.`,
     returned: (n) => `You came back. This was visit ${n}.`,
     gift: (item) => `I brought you ${{ pebble: 'a smooth pebble', feather: 'a feather', flower: 'a dry flower', shell: 'a beetle shell' }[item] ?? 'a little gift'}.`,
     wrestle: (name) => `I wrestled with ${name} while you watched.`,
@@ -40,6 +42,8 @@ export function buildRecap(log, lang = 'en') {
   const gifts = of('gift_given');
   const wrestles = of('sibling_play', (e) => e.measurement?.endedBy === 'done');
   const hunts = of('hunt_pounce');
+  const friends = of('sibling_befriend');
+  const cuddles = of('sibling_cuddle');
   const NAMES = { ember: 'Ember', juniper: 'Juniper', saffron: 'Saffron' };
 
   const back = of('returned');
@@ -50,6 +54,8 @@ export function buildRecap(log, lang = 'en') {
   else if (contacts.length === 1) push(t.contactOne(), ids(contacts));
   push(t.adapted(), ids(adapted));
   if (pounces.length >= 2) push(t.play(pounces.length), ids(pounces));
+  if (cuddles.length) push(t.cuddle(NAMES[cuddles[0].measurement.sibling] ?? 'a sibling'), ids(cuddles, 1));
+  else if (friends.length) push(t.befriend(NAMES[friends[0].measurement.sibling] ?? 'a sibling'), ids(friends, 1));
   if (wrestles.length) push(t.wrestle(NAMES[wrestles[0].measurement.sibling] ?? 'a sibling'), ids(wrestles, 1));
   if (hunts.length) push(t.hunt(hunts.length), ids(hunts));
   if (fed.length) push(t.fed(fed.length), ids(fed));
