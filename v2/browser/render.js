@@ -146,6 +146,7 @@ export class Renderer {
     if (interactive && snap.activeTool === 'PET' && c.inviting && !c.acceptedContact) this.inviteZone(ctx, main, t);
     if (interactive && snap.activeTool === 'PLAY') for (const s of snap.litter) if (!s.wrestling && !s.fleeing) this.inviteRing(ctx, this.px(s.position), t, s.invited);
 
+    if (snap.toy?.kind === 'ball' && snap.toy.position && interactive) { const b = this.px(snap.toy.position); this.drawBall(ctx, b.x, b.y, t); }
     const seen = new Set();
     for (const s of snap.litter) { seen.add(s.kitten); this.body(ctx, s.kitten, s, null, dt, 1, { wrestling: s.wrestling }); }
     const look = ['OBSERVE', 'APPROACH', 'CONTACT', 'PLAY', 'GIFT'].includes(c.behaviour) ? hand : null;
@@ -160,6 +161,7 @@ export class Renderer {
     if (c.wrestling) { const o = snap.litter.find((s) => s.wrestling); if (o) this.scuffle(ctx, main, this.px(o.position), t); }
     if (c.reaction?.type === 'hiss') this.hissMarks(ctx, main, c.heading, t);
     this.atmosphere(ctx, dt, t);
+    if (interactive && snap.activeTool === 'PLAY' && snap.toy?.kind === 'feather' && snap.toy.position && hand) this.feather(ctx, hand, this.px(snap.toy.position), t);
     if (interactive || st === 'CALIBRATING') this.cursor(ctx, snap, ui, t);
     this.burstFx(ctx, dt);
     ctx.restore();
@@ -374,6 +376,50 @@ export class Renderer {
     ctx.strokeStyle = 'rgba(30,50,60,0.5)'; ctx.lineWidth = 1 * s; ctx.stroke();
     ctx.fillStyle = '#1b2228'; ctx.beginPath(); ctx.arc(10 * s, -2 * s, 1.8 * s, 0, TAU); ctx.fill();
     ctx.restore();
+  }
+
+  // ---------------------------------------------------------------- toys
+  feather(ctx, hand, f, t) {
+    const u = this.u;
+    ctx.save();
+    // the string sags between wand and feather
+    ctx.strokeStyle = 'rgba(34,64,90,0.55)'; ctx.lineWidth = 1.6 * u;
+    const mx = (hand.x + f.x) / 2, my = Math.max(hand.y, f.y) + 30 * u;
+    ctx.beginPath(); ctx.moveTo(hand.x, hand.y); ctx.quadraticCurveTo(mx, my, f.x, f.y); ctx.stroke();
+    ctx.fillStyle = 'rgba(20,40,20,0.15)'; ctx.beginPath(); ctx.ellipse(f.x + 10 * u, f.y + 16 * u, 16 * u, 5 * u, 0, 0, TAU); ctx.fill();
+    ctx.translate(f.x, f.y); ctx.rotate(Math.atan2(f.y - hand.y, f.x - hand.x) - Math.PI / 2 + Math.sin(t * 6) * 0.2);
+    for (const [col, w, l] of [['#e57f73', 9, 30], ['#ffd98a', 6, 24], ['#a9c99b', 4, 18]]) {
+      ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(0, l * 0.5 * u, w * u, l * 0.6 * u, 0, 0, TAU); ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(34,64,90,0.6)'; ctx.lineWidth = 1.2 * u; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 34 * u); ctx.stroke();
+    ctx.restore();
+  }
+
+  drawBall(ctx, x, y, t) {
+    const u = this.u, r = 13 * u;
+    ctx.save();
+    ctx.fillStyle = 'rgba(20,40,20,0.2)'; ctx.beginPath(); ctx.ellipse(x + 5 * u, y + 8 * u, r, r * 0.6, 0, 0, TAU); ctx.fill();
+    const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.35, 0, x, y, r);
+    g.addColorStop(0, '#ffe7b8'); g.addColorStop(1, '#f2a65a');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(200,90,70,0.85)'; ctx.lineWidth = 2.4 * u;
+    const a = (x + y) * 0.06;
+    ctx.beginPath(); ctx.arc(x, y, r * 0.75, a, a + Math.PI * 0.9); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, r * 0.75, a + Math.PI, a + Math.PI * 1.9); ctx.stroke();
+    ctx.strokeStyle = 'rgba(34,64,90,0.6)'; ctx.lineWidth = 1.6 * u; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+    ctx.restore();
+  }
+
+  // A square photo around the kitten, taken from the finished frame (the canvas holds no
+  // interface, so photos are clean).
+  capture(snap, size = 360) {
+    const src = this.p.drawingContext.canvas, d = this.dpr;
+    const c = this.toScreen(snap.creature.position.x * this.W, snap.creature.position.y * this.H);
+    const half = this.S * 0.2 * this.cam.z;
+    const sx = Math.max(0, Math.min(this.W - 2 * half, c.x - half)), sy = Math.max(0, Math.min(this.H - 2 * half, c.y - half));
+    const out = document.createElement('canvas'); out.width = out.height = size;
+    out.getContext('2d').drawImage(src, sx * d, sy * d, 2 * half * d, 2 * half * d, 0, 0, size, size);
+    return out;
   }
 
   // Growth sparkles fly from the kitten up to the growth meter in the HUD.
