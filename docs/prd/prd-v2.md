@@ -263,3 +263,120 @@ The first four are trained classes. `unknown` is a rejection result and `lost` i
 ### 12.5 Model acceptance and fallback
 - Deliver per-class precision, recall and F1, macro F1, per-person confusion matrices, unknown rate, coverage, false triggers per minute, end-to-end latency on a real camera and low-light results. The stress set includes occlusion, single-frame jumps, hands leaving and re-entering, multi-hand switches and ordinary body movement.
 - If the learned model does not beat the threshold baseline, it is not made the default. The failure cause, re-collection or narrower conditions are documented. The rule mode can serve as venue backup, but the model milestone is only closed when its targets are met.
+
+## 13 Behaviour and character state [Proposal]
+
+### 13.1 F2-06 State
+
+| Field | Start and range | Meaning |
+|---|---|---|
+| fullness | 0.55, 0–1 | How fed |
+| energy | 0.80, 0–1 | Current energy |
+| fun | 0.50, 0–1 | Play satisfaction |
+| trust | 0.25, 0–1 | This session's character relationship, **not a rating of the visitor** |
+| stress | 0.15, 0–1 | Current stress; recovers with time and space |
+| ageProgress | 0, 0–3 | Continuous growth across three chapters |
+| phase | kitten / juvenile / adult | From the progress interval; 3 starts the recap |
+| behaviour | OBSERVE | Current behaviour |
+| acceptedContact | false | Whether the character has accepted current contact |
+
+### 13.2 Hard-constraint order
+1. Session freeze and system errors → 2. input validity → 3. close-range stress protection and very low energy → 4. uninterruptible short actions → 5. utility selection among legal candidates. Every constraint emits a `reasonCode` and records the candidate scores it overrode.
+
+- Below 0.15 energy it must rest, and play reopens only at 0.65. Above 0.65 stress it refuses new contact and leaves recovery below 0.40. **High trust never bypasses these.** Invalid tracking never counts as a threat and never lowers trust.
+- Eating locks for 1.2 s; it can be interrupted by session end or system pause, not reset by tool switching. Rest holds at least 3 s so visitors never see state flicker.
+
+### 13.3 F2-07 Utility selection
+Initial utilities on normalised state, clamped to 0–1. **These are design formulas to tune, not copies of either prototype.**
+
+| Behaviour | Initial utility | Available when |
+|---|---|---|
+| EXPLORE | 0.25 + 0.10 × fun | Not frozen and able to move |
+| SEEK_FOOD | 0.10 + 0.90 × (1 − fullness) | Valid food present and fullness < 0.85 |
+| REST | 0.10 + 0.90 × (1 − energy) | Always; forced at very low energy |
+| GROOM | 0.15 + 0.15 × fullness − 0.10 × stress | Cooldown finished |
+| APPROACH | 0.20 + 0.40 × trust − 0.50 × stress | A valid gentle invitation |
+| PLAY | 0.15 + 0.50 × (1 − fun) + 0.20 × trust | Play tool, energy > 0.35 and stress < 0.40 |
+| CONTACT | 0.35 + 0.30 × trust − 0.40 × stress | Pet tool, stable intent, character has invited |
+| RETREAT | 0.20 + 0.70 × stress − 0.20 × trust | High-quality close stimulus or contact timeout |
+
+- Decide every 250 ms. The current behaviour gets +0.10 inertia; a new behaviour must beat the current score by 0.15 and the current one must have held for 600 ms.
+- An explicitly confirmed care request adds a **+0.25 request boost** to its legal candidate, so valid invitations are not buried under exploring inertia. The boost never re-enables a behaviour a hard constraint has blocked.
+- Ties keep the current behaviour, otherwise a fixed order. **Randomness only changes exploration paths and visual detail; it never removes trust or skips needed rest.**
+- If no active candidate is legal, OBSERVE or REST is chosen; there is never an empty state. Staff see the top two candidates, blocked reasons, inertia and the winning reason; visitors see no numbers.
+
+### 13.4 Threat versus play
+- `fast_approach` can raise stress only when a high-quality trajectory really moves toward the body, enters the radius and is confirmed. Fast movement far away, leaving the frame and jumps are not threats. Start radius 0.18 S, speed reference 1.1 S/s, checked against calibration and validation data.
+- In Play mode, with low stress and the character showing a play invitation, fast movement is chasing the toy. If the toy keeps crossing the body and stress rises, the character can still end play. **A tool is never a blanket exemption from stress handling, unlike `tool !== 'PLAY'` in Prototype B.**
+
+## 14 Care and boundaries [Proposal]
+
+| ID | Feature | Rule | Refusals and boundaries |
+|---|---|---|---|
+| F2-08 | Feed | Drops a fish after an explicit confirm; at most 3 at once; 600 ms confirm cooldown. On a completed meal: fullness +0.25, trust +0.025, each from a single `eat_completed` event | At fullness ≥ 0.85 it refuses with "I'm full. Let's slow down." and no relationship change. Food cannot land on the toolbar or unreachable edges. Dropped, accepted and eaten are different events; the recap counts eaten. Below fullness 0.20 new contact pauses with a food hint |
+| F2-09 | Play | The character accepts the invitation before chasing; each pounce on the toy is one `pounce_success`: fun +0.12, energy −0.04, trust +0.01, at least 1.5 s apart | Refuses when tired or stressed and turns to rest or observing with a reason; moving the toy away is not failure; **at least one natural pause after 20 s of continuous play** |
+| F2-10 | Pet | Pet + `stable_contact` is only a **request**. The character first shows where contact is welcome; after the current dwell (start 0.8 s) it enters CONTACT. Accepted contact: trust +0.02/s, stress −0.08/s | At most 6 s per segment, then a reposition or pause. **At most 12 s of trust-earning contact per rolling 60 s.** A fast entry, sleep or high stress means no contact; refusals cost nothing; the first refusal also tells the visitor what to try |
+| F2-11 | Wait and step back | A hand beyond 0.25 S, steady for 1 s, ends contact and lets the character recover. Waiting: stress −0.05/s (ordinary calm −0.02/s; not cumulative) | Stepping back and recovering to low stress records one `space_respected`, never per frame. Waiting costs neither trust nor growth; there is no death penalty |
+
+### 14.5 Base decay and trust
+- In ACTIVE: fullness −0.004/s, fun −0.003/s, energy −0.003/s; resting +0.035/s. Extra play cost comes from pounce events and active play drain; no two modules subtract the same cost.
+- A valid close scare adds stress +0.15 with a 2 s cooldown. A high-quality scare still continuing after 2 s lowers trust by 0.01/s, **at most 0.05 per episode**, and stops the moment tracking becomes uncertain. All fields clamp to 0–1 and the log records each source. Parameters are checked by full-round replay so no loop of hunger, exhaustion and refusal can become unrecoverable.
+
+## 15 Bounded memory and adaptation [Proposal]
+
+### 15.1 F2-12 What is remembered and for how long
+- Each round keeps only **the last 20 semantic events** and three preference summaries: successful contact dwell, successful play tempo and accepted approach distance. Events carry `id, type, simulationTime, source, validity`, before and after state, `reasonCode` and the measurement. Unconfirmed input, incomplete actions, pauses and lost tracking are **never success or failure samples**.
+- Role memory is live in ACTIVE, read-only in REFLECTION and destroyed in RESETTING. Trust, stress, preferences and raw action data never carry to the next visitor.
+
+### 15.2 Update rules
+Each preference computes a target median only after **at least 3 independent valid events**; new = old × 0.8 + target × 0.2, at most once per 10 s. Without enough evidence the default stays; random numbers never fill history.
+
+| Preference | Start / range | Target source | Product meaning |
+|---|---|---|---|
+| contactDwell | 0.8 s / 0.5–1.2 s | For a contact held 2 s without stress interruption, palm RMS jitter j → clamp(0.5 + 20j, 0.5, 1.2) | How long the system waits to confirm steadiness, **not a trait of the person** |
+| playTempoScale | 1.0 / 0.85–1.15 | Interval t between successful pounces → clamp(2/t, 0.85, 1.15) | Multiplies the character's chase speed |
+| approachRadius | 0.10 S / 0.08–0.12 S | Accepted gentle-approach distance, clamped to range | Size of the character's invitation zone |
+
+A session's preferences **cannot change** the trajectory-quality gate, hard energy limits, rejection thresholds or accessibility entry points. The interface says "getting used to this rhythm", **never "I know your personality"**.
+
+### 15.3 Verifying adaptation
+- One fixed event replay runs with `adaptation_on` and `adaptation_off`, same initial state and seed. At minimum: no update after events 1–2; a bounded change after the 3rd; no update during pauses or `unknown`; defaults restored at the end. Visual changes must come from the summary parameters, not different random animation.
+- The study uses a **counterbalanced** pair of short sessions: one with fixed parameters, one with bounded adaptation. Of 10 participants, 5 start with each. The two use separate sessions and the briefing never hints which is "smarter". Preference votes never replace performance metrics.
+
+## 16 Growth and world [Proposal]
+
+### 16.1 F2-13 Growth conditions
+- W = mean(fullness, energy, fun). **Growth accumulates only while W ≥ 0.55, all three ≥ 0.20, stress ≤ 0.40 and the session is ACTIVE.** This fixes the Prototype B weakness where long neglect of one need was hidden by the average.
+- Rate: (1/80) × (1 + 0.25 × trust) per second, so 0 → 3 needs about 192–240 s of qualifying time; poor care and pauses make it longer. At the 300 s limit the round still ends normally without padding progress.
+- Repeated rewards from one tool cap within a minute; growth never forces all three kinds of care. Waiting, rest and different inputs all complete the experience; visitors with limited mobility are never stuck in a chapter.
+
+### 16.2 Three chapters
+0–1 kitten in the jungle; 1–2 juvenile in the snowfields; 2–3 adult in the desert. A 1.5 s transition pauses new actions, keeps state and shows a chapter cue; changing scene never clears trust or preferences. P0 does not inherit Prototype A's 1.35× snow energy cost or full hunting, to keep the learning load low.
+
+## 17 Explanation and feedback [Proposal]
+
+### 17.1 F2-14 Reason codes
+
+| reasonCode | Visitor copy | Meaning | Owner |
+|---|---|---|---|
+| `TRACKING_LOST` | I lost your hand. Hold it in the guide. | The system can't see; no relationship penalty | System |
+| `INTENT_UNCERTAIN` | Hold still for a moment. | Action not confirmed yet | System |
+| `NEED_REST` | I'm tired. Give me a little space. | Energy boundary refuses play | Character |
+| `TOO_FULL` | I'm full. Let's slow down. | Full; refuses food | Character |
+| `NOT_READY` | Let me come closer first. | The character hasn't invited contact yet | Character |
+| `CONTACT_ACCEPTED` | This feels gentle. | Valid contact confirmed | Result |
+| `PRESSURE_HIGH` | A little more distance, please. | High stress; retreats | Character |
+| `RHYTHM_ADAPTED` | I'm getting used to this rhythm. | A preference summary updated | Result |
+| `SPACE_RESPECTED` | Thanks for giving me time to rest. | One verifiable step back and recovery | Result |
+
+- **"System uncertain" and "character refusing" must look different.** The first uses the cursor and tracking cue; the second uses body movement and a reason. Neither looks like an angry cat.
+- Priority: system recovery > character boundary > care result > general guidance. A hint repeats at most every 4 s; one area shows one main hint; resolved errors fade so an old lost-hand hint never covers a current acceptance. Mute keeps all key visual feedback.
+
+### 17.2 F2-15 Recap
+- Lines come from event templates, at most three, **each citing a verifiable event type**. Without successful play it cannot say "we played for ages"; one contact cannot become "you were always patient". With little data: "We spent a quiet moment together." It never invents the visitor's motives.
+- Show effective feeds, successful play, accepted contact time and one relationship change. No care ranking, empathy score or moral comment. "Next visitor" and restart make clear the new round starts with an empty relationship.
+
+### 17.3 P2 generative recap (not in P0)
+If a language model is added later, it receives only an anonymous structured summary and candidate fact IDs, and returns one or two short lines with `evidenceIds`. The server checks length, citations, forbidden inferences and language; a 2 s timeout, an invalid citation or any error falls back to the fixed template. **Generated text never enters the Brain, calls action tools, changes values or decides trust.** API keys stay server-side with a per-round call limit and budget; raw action data never leaves by default. This needs its own scope and data notes.
+
+---
