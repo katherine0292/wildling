@@ -155,11 +155,13 @@ export class Renderer {
     for (const s of snap.litter) {
       seen.add(s.kitten);
       const reaction = s.standoff ? (s.kitten === 'saffron' ? 'hiss' : 'cower') : s.fleeing ? 'cower' : null;
-      this.body(ctx, s.kitten, s, null, dt, 1, { wrestling: s.wrestling, socialMode: s.mode === 'wrestle' ? null : s.mode, reaction });
+      this.body(ctx, s.kitten, s, s.lookAt ? this.px(s.lookAt) : null, dt, 1, { wrestling: s.wrestling, socialMode: s.mode === 'wrestle' ? null : s.mode, reaction });
     }
     const look = ['OBSERVE', 'APPROACH', 'CONTACT', 'PLAY', 'GIFT'].includes(c.behaviour) ? hand : null;
     seen.add(c.kitten);
-    this.body(ctx, c.kitten, c, look, dt, 1, { wrestling: c.wrestling, socialMode: c.socialMode, reaction: c.reaction?.type, carrying: c.carrying });
+    this.body(ctx, c.kitten, c, look ?? (c.lookAt ? this.px(c.lookAt) : null), dt, 1, { wrestling: c.wrestling, socialMode: c.socialMode, reaction: c.reaction?.type, carrying: c.carrying, trick: c.trick?.name });
+    if (c.trick) this.trickSparkle(ctx, main, t, c.trick);
+    if (interactive && snap.activeTool === 'TRICK') this.moveTrail(ctx, snap, hand, dt);
     for (const k of [...this.bodies.keys()]) if (!seen.has(k)) this.bodies.delete(k);
 
     for (const g of snap.gifts ?? []) this.giftOnGround(ctx, this.px(g.position), g.age, g.item, t);
@@ -488,6 +490,36 @@ export class Renderer {
       const ph = (t * 0.8 + k / 3) % 1;
       ctx.strokeStyle = `rgba(255,236,190,${0.5 * (1 - ph)})`; ctx.lineWidth = 3 * u;
       ctx.beginPath(); ctx.ellipse(x, y, (40 + ph * 70) * u, (30 + ph * 52) * u, 0, 0, TAU); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ---------------------------------------------------------------- tricks
+  trickSparkle(ctx, { x, y }, t, tr) {
+    const u = this.u, k = Math.min(1, tr.t);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * TAU + t * 3, r = (55 + 12 * Math.sin(t * 6 + i)) * u;
+      ctx.globalAlpha = Math.sin(k * Math.PI);
+      star(ctx, x + Math.cos(a) * r, y + Math.sin(a) * r * 0.8, (5 + 2 * Math.sin(i)) * u, i % 2 ? '#ffd98a' : '#fff', u, a);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // While the Tricks tool is on, the move being made is drawn as a golden trail, so the
+  // visitor can see what the kitten will learn from.
+  moveTrail(ctx, snap, hand, dt) {
+    const u = this.u;
+    this.moveTrailPts ??= [];
+    for (const q of this.moveTrailPts) q.t += dt;
+    if (hand && snap.tricks?.moving) this.moveTrailPts.push({ x: hand.x, y: hand.y, t: 0 });
+    this.moveTrailPts = this.moveTrailPts.filter((q) => q.t < 1.6);
+    const pts = this.moveTrailPts;
+    if (pts.length < 2) return;
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let i = 1; i < pts.length; i++) {
+      const a = Math.max(0, 1 - pts[i].t / 1.6);
+      ctx.strokeStyle = `rgba(255,211,106,${a})`; ctx.lineWidth = 7 * u * a + 2;
+      ctx.beginPath(); ctx.moveTo(pts[i - 1].x, pts[i - 1].y); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke();
     }
     ctx.restore();
   }

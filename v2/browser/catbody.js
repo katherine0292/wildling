@@ -109,6 +109,9 @@ const POSES = {
   WRESTLE:   { crouch: 0.6, puff: 0.35, ear: -0.25, pupil: 1, tailAmp: 1.2, tailFreq: 4.2, tailCurl: 0.2 },
   HUNT:      { crouch: 0.85, ear: 0.75, pupil: 1, eye: 1.1, tailAmp: 0.25, tailFreq: 3.6, tailCurl: 0 },
   GIFT:      { ear: 0.35, pupil: 0.5, tailAmp: 0.3, tailFreq: 0.9, tailCurl: 1 },
+  TRICK_SPIN: { ear: 0.5, pupil: 0.8, tailAmp: 0.9, tailFreq: 2, tailCurl: 1 },
+  TRICK_ROLLOVER: { crouch: 0.3, eye: 0.6, ear: 0.2, tailAmp: 0.8, tailFreq: 2.5, tailCurl: 0.6 },
+  TRICK_WAVE: { sit: 1, ear: 0.6, eye: 0.9, pupil: 0.7, tailAmp: 0.4, tailFreq: 1.2, tailCurl: 1 },
   GREET:     { sit: 0.35, ear: 0.65, eye: 0.7, pupil: 0.55, tailAmp: 0.55, tailFreq: 1.3, tailCurl: 1 },
   RETREAT:   { crouch: 0.35, ear: -0.5, eye: 1.15, pupil: 1, puff: 1, tailAmp: 0.12, tailFreq: 3, tailCurl: 0 },
 };
@@ -169,9 +172,10 @@ export class CatBody {
     this.reaction = s.reaction ?? null;
     this.carrying = s.carrying ?? null;
     this.wrestle = !!s.wrestling;
+    this.trickName = s.behaviour === 'TRICK' ? s.trick ?? null : null;
     // a cuddle looks like a shared nap; greeting has its own pose
     if (s.socialMode === 'cuddle') s = { ...s, behaviour: 'REST' };
-    const poseKey = s.wrestling ? 'WRESTLE' : s.socialMode === 'greet' ? 'GREET' : s.behaviour;
+    const poseKey = s.wrestling ? 'WRESTLE' : s.socialMode === 'greet' ? 'GREET' : this.trickName ? `TRICK_${this.trickName.toUpperCase()}` : s.behaviour;
     const f = Math.min(dt * 60, 3); // frames at 60 fps, as in Prototype A
     this.time += dt;
     if (Math.abs(s.age - this.age) > 0.002) { this.age = s.age; this.updateDims(); }
@@ -186,7 +190,7 @@ export class CatBody {
     // cowering: low, ears flat, wide eyes, tail tucked
     else if (this.reaction === 'cower') Object.assign(target, { crouch: 1, ear: -0.5, eye: 1.2, pupil: 1, puff: 0.3, tailAmp: 0.05, tailCurl: 1.4, mouth: 0 });
     else target.mouth = 0;
-    this.roll = this.wrestle ? (this.roll ?? 0) + dt * 8 : 0;
+    this.roll = this.wrestle ? (this.roll ?? 0) + dt * 8 : this.trickName === 'rollover' ? (this.roll ?? 0) + dt * 3.4 : 0;
     if (this.pose.mouth === undefined) this.pose.mouth = 0;
     if (s.behaviour === 'EAT' || s.behaviour === 'GROOM') target.dip = 0.5 + 0.5 * Math.sin(this.time * 14);
     for (const k in target) this.pose[k] = approach(this.pose[k], target[k], (k === 'curl' ? 0.035 : 0.09) * f);
@@ -284,7 +288,16 @@ export class CatBody {
 
   solveLegs(f) {
     const reach = this.legA + this.legB;
-    if (this.wrestle) { // paws batting in every direction
+    if (this.trickName === 'wave') { // sitting up, one front paw waving
+      for (let i = 0; i < 4; i++) {
+        const L = this.legs[i], base = this.footTarget(L);
+        if (i === 0) { const a = this._fwd[2]; L.foot = add(base, polar(a + Math.sin(this.time * 9) * 0.6, reach * 0.55)); L.lift = 1; }
+        else { L.foot = base; L.lift = 0; }
+        L.stepping = false;
+      }
+      return;
+    }
+    if (this.wrestle || this.trickName === 'rollover') { // paws batting in every direction
       for (let i = 0; i < 4; i++) {
         const L = this.legs[i], base = this.footTarget(L), a = this._fwd[L.g === 0 ? 2 : 6] + L.side * Math.PI / 2;
         const swing = Math.sin(this.time * (17 + i * 3) + i * 1.7);
@@ -490,7 +503,7 @@ export class CatBody {
     if (this.m.fluff > 0.5) this.drawFuzz(ctx, c);
     if (this.m.ruff > 0.05) this.drawRuff(ctx, c);
     if (this.pose.puff > 0.35) this.drawBristle(ctx, c);
-    if (this.wrestle && Math.sin(this.roll) > 0) this.drawBelly(ctx, c, Math.sin(this.roll));
+    if ((this.wrestle || this.trickName === 'rollover') && Math.sin(this.roll) > 0) this.drawBelly(ctx, c, Math.sin(this.roll));
   }
 
   // Bristling fur: spikes stand up all along the back and flanks when it puffs up.
