@@ -173,7 +173,7 @@ Status: **Proposed** (in the PRD, awaiting review) · **Adopted** (confirmed or 
 
 ## ADR-020 The litter notices passers-by
 - **Context:** an exhibition screen has to draw people in before anyone touches it. A kitten that turns to look at you as you walk past is the strongest invitation we have.
-- **Decision:** in exhibition mode only (`?kiosk=1&watch=1`), ml5 BodyPose watches the room while nobody is playing. Only each person's horizontal position and apparent size (shoulder width) reach the core. Every kitten turns to look, and the closest trots to the near edge if someone is close enough. The camera is released the moment a visitor starts. `?watch=demo` simulates a passer-by for testing.
+- **Decision:** in exhibition mode only (`?kiosk=1&watch=1`), ml5 BodyPose watches the room while nobody is playing. Only each person's horizontal position and apparent size (shoulder width) reach the core. Every kitten turns to look, and the closest trots to the near edge if someone is close enough. The camera is released the moment a visitor starts. `?watch=demo` plays a demo passer-by for testing.
 - **Privacy:** no frames, faces or poses are kept or sent; positions are forgotten after 4 s.
 - **Evidence:** `test/tricks.test.mjs` (they look, one approaches, and they let go when nobody is there). On-device detection in the venue is part of WP06.
 

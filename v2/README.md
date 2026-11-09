@@ -31,7 +31,7 @@ Open <http://localhost:8790/v2/> in Chrome. The camera needs `localhost` or `htt
 | `D` | Staff diagnostics: observed input, needs, decision trace, adaptation |
 | `M` | Sound on or off |
 
-URL options: `?input=mouse|keyboard` (skip the approach screen), `?kitten=ember|juniper|saffron`, `?staff=1`, `?adapt=0`, `?seed=42`, `?kiosk=1` (exhibition: no keepsakes), `?adopt=…` (a postcard's code), `?watch=1` with `?kiosk=1` (notice passers-by with the camera) or `?watch=demo` (simulated passer-by).
+URL options: `?input=mouse|keyboard` (skip the approach screen), `?kitten=ember|juniper|saffron`, `?staff=1`, `?adapt=0`, `?seed=42`, `?kiosk=1` (exhibition: no keepsakes), `?adopt=…` (a postcard's code), `?watch=1` with `?kiosk=1` (notice passers-by with the camera) or `?watch=demo` (a demo passer-by).
 
 ## Structure
 
