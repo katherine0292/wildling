@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Wildling · Learning each other's distance</title>
+  <meta name="description" content="An explainable AI creature: it tells you when it cannot see your hand, why it says no, and adapts a little to your rhythm.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.1/p5.min.js"></script>
+</head>
+<body>
+  <main id="stage" aria-label="Wildling, a virtual wild cat"></main>
+
+  <!-- in-session interface -->
+  <div id="ui" hidden>
+    <header id="hud" class="glass">
+      <div class="eyebrow" id="chapter"></div>
+      <div class="relation" id="relation"></div>
+      <div class="growth" aria-hidden="true"><i></i><i></i><i></i></div>
+    </header>
+    <div id="topright">
+      <div id="inputStatus" class="pill" role="status"></div>
+      <button id="btnSound" class="pill"></button>
+      <button id="btnLang" class="pill"></button>
+      <button id="btnEnd" class="pill"></button>
+    </div>
+    <div id="bubble" role="status" aria-live="polite"></div>
+    <div id="sysHint" role="status" aria-live="assertive"></div>
+    <div id="toolHint"></div>
+    <nav id="toolbar" aria-label="Care tools"></nav>
+    <div id="still" class="toast" hidden></div>
+    <div id="offerEnd" class="toast" hidden></div>
+  </div>
+
+  <!-- ATTRACT -->
+  <section id="attract" class="screen" hidden>
+    <div class="card glass">
+      <div class="eyebrow" data-t="attractEyebrow"></div>
+      <h1>Wildling</h1>
+      <p class="tag" data-t="attractTag"></p>
+      <button class="primary big" id="btnStart" data-t="attractPrompt"></button>
+      <button class="link" id="btnLangAttract"></button>
+    </div>
+  </section>
+
+  <!-- CONSENT -->
+  <section id="consent" class="screen" hidden>
+    <div class="card glass">
+      <h2 data-t="consentTitle"></h2>
+      <p data-t="consentBody"></p>
+      <ul class="facts">
+        <li data-t="consentFact1"></li>
+        <li data-t="consentFact2"></li>
+        <li data-t="consentFact3"></li>
+      </ul>
+      <div class="btns">
+        <button class="primary" id="btnCamera" data-t="useCamera"></button>
+        <button id="btnMouse" data-t="useMouse"></button>
+        <button id="btnKeyboard" data-t="useKeyboard"></button>
+      </div>
+      <p class="error" id="cameraError" hidden></p>
+      <button class="link" id="btnCancel" data-t="back"></button>
+    </div>
+  </section>
+
+  <!-- CALIBRATING -->
+  <section id="calibrate" class="screen see-through" hidden>
+    <div class="guide"><div class="ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46"/><circle id="calibArc" cx="50" cy="50" r="46"/></svg></div></div>
+    <div class="card glass small">
+      <h2 data-t="calibTitle"></h2>
+      <p id="calibStatus"></p>
+      <button id="btnCalibMouse" data-t="useMouse"></button>
+    </div>
+  </section>
+
+  <!-- PAUSED -->
+  <section id="paused" class="screen" hidden>
+    <div class="card glass small">
+      <h2 data-t="pausedTitle"></h2>
+      <p id="pausedReason"></p>
+      <div class="btns">
+        <button class="primary" id="btnResume" data-t="continue"></button>
+        <button id="btnSwitch" data-t="switchToMouse"></button>
+        <button id="btnPausedEnd" data-t="end"></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- REFLECTION -->
+  <section id="reflection" class="screen" hidden>
+    <div class="card glass">
+      <div class="eyebrow" data-t="reflectEyebrow"></div>
+      <h2 id="reflectTitle"></h2>
+      <ol id="recap"></ol>
+      <p class="counts" id="recapCounts"></p>
+      <p class="note" data-t="reflectNote"></p>
+      <button class="primary" id="btnNext"></button>
+    </div>
+  </section>
+
+  <!-- STAFF DIAGNOSTICS (press D) -->
+  <aside id="staff" class="glass" hidden aria-label="Staff diagnostics"></aside>
+
+  <script type="module" src="browser/main.js"></script>
+</body>
+</html>
