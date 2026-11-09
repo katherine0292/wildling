@@ -66,7 +66,7 @@ export class InputTrack {
 
     // First valid sample after a gap: speed starts at 0, never a spike.
     const resumed = !prev || s.t - prev.t > this.p.lostAfterMs;
-    if (resumed) { this.samples = []; this.speed = 0; }
+    if (resumed) { this.samples = []; this.speed = 0; this.stableSince = s.t; }
     if (this.stableSince === null) this.stableSince = s.t;
 
     if (!resumed && prev) {
