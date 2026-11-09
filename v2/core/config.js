@@ -68,7 +68,27 @@ export const PARAMS = Object.freeze({
   },
 
   // F2-13 growth
-  growth: { minWellbeing: 0.55, minEach: 0.2, maxStress: 0.4, perSec: 1 / 80, trustBoost: 0.25, transitionSec: 1.5 },
+  // Growth has two sources, both behind the same balanced-needs gate:
+  //   a slow passive drift while the kitten is content, and a burst for each completed
+  //   act of care. Bursts are capped per cause per minute, so varied care grows fastest
+  //   and repeating one action cannot rush the kitten. Units: 1.0 = one chapter.
+  growth: {
+    minWellbeing: 0.55, minEach: 0.2, maxStress: 0.4, perSec: 1 / 150, trustBoost: 0.25,
+    transitionSec: 4,
+    burst: { FEED: 0.08, PLAY: 0.04, PET: 0.1, WAIT: 0.06, SOCIAL: 0.09, HUNT: 0.06, GIFT: 0.07 },
+    burstCapPerMin: 0.24,
+  },
+
+  // Life with the litter (ADR-012). Siblings visit now and then; your kitten decides
+  // whether to wrestle, hiss or ignore them. Visitors can invite a sibling over.
+  social: {
+    visitEverySec: [22, 38], visitTimeoutSec: 12, nearS: 0.32, meetS: 0.16,
+    wrestleSec: 3.6, fun: 0.2, energy: 0.06, stressPerSec: 0.02, hissSec: 1.3, hissS: 0.2,
+    inviteTimeoutSec: 10, cooldownSec: 8,
+  },
+  // Critters to chase (juvenile and older) and gifts (adult, once it comes to you).
+  hunt: { everySec: [16, 28], lifeSec: 14, pounceS: 0.07, fun: 0.12, energy: 0.05, catchChance: 0.35, cooldownSec: 6, minPhase: 1 },
+  gift: { minPhase: 2, minTrust: 0.6, cooldownSec: 22, fetchSec: 1.4, dropS: 0.12, maxShown: 6 },
 
   // §10 session
   session: {
@@ -97,6 +117,12 @@ export const REASONS = Object.freeze({
   SPACE_RESPECTED: 'result',
   FOOD_INVALID: 'system',
   FOOD_LIMIT: 'system',
+  SIB_FOOD: 'creature',
+  SIB_REST: 'creature',
+  SIB_TENSE: 'creature',
+  SIB_PLAY: 'result',
+  GIFT_GIVEN: 'result',
+  GROWTH_PAUSED: 'guide',
 });
 
 // Hint priority: system recovery > creature boundary > care result > guidance.
@@ -119,6 +145,11 @@ export const COPY = Object.freeze({
     SPACE_RESPECTED: 'Thanks for giving me time to rest.',
     FOOD_INVALID: 'Drop the fish where I can reach it.',
     FOOD_LIMIT: 'That is plenty of fish for now.',
+    SIB_FOOD: 'Hss! That fish is mine.',
+    SIB_REST: "Hss! I'm napping.",
+    SIB_TENSE: 'Hss! Not now.',
+    SIB_PLAY: 'Rough and tumble!',
+    GIFT_GIVEN: 'I found this for you.',
     attract: 'Move closer, or start with a mouse',
     stillThere: 'Still there?',
     relation: ['Still watching you', 'Warming up to you', 'Comes to you'],
