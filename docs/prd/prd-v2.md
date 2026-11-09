@@ -103,3 +103,107 @@ Processing Java becomes the exhibition display but does not get its own copy of 
 - I build the replayable mouse loop first, then perception and adaptation, then the Processing main display and venue integration. Adding multiple visitors, accounts, long-term memory, full ecology or generative services starts with a statement of extra work and acceptance changes.
 
 ---
+
+## 6 Scope and tiers
+
+**[Proposal]** Positioning: an **explainable AI virtual-life experience in which relationships are built through body movement**. Three core values: reliably perceiving the bounded action a visitor is making; choosing a fitting response from the character's needs; and turning this session's history into small, observable, resettable preferences. Open dialogue and general intelligence are not part of the core value.
+
+| Tier | Scope |
+|---|---|
+| **P0** | Single-visitor session; attract and start; input choice and camera notice; light calibration; Feed, Play, Pet and wait; autonomous exploring, rest and grooming; three-chapter growth; gesture classification with `unknown`; character state, utility selection, stress and trust; bounded in-session adaptation; reason feedback; early exit; relationship recap; auto-turnover; staff diagnostics; offline package; Processing exhibition display; browser backup display; operating and test docs |
+| **P1** | Full IK body, hunting subsystem, genetic coats, elders and next generation, long observation mode, opt-in anonymous profile |
+| **P2** | Constrained generative text, multi-visitor play, more complex online learning. Off by default; P0 must never depend on the network or an account through a hidden dependency |
+| **Out** | Real emotion or personality judgement; face recognition, age estimation or identity tracking; medical or animal-care advice; accounts, social and payments; cloud raw-video analysis |
+
+## 7 Success metrics and how they are measured
+
+**[Client]** thresholds come from Brief V2 §9; **[Proposal]** the measurement details, including coverage, are mine.
+
+| Metric | Target | Measurement |
+|---|---|---|
+| First effective action | At least 8 of 10 first-time participants within 30 s | Timed from input choice to being able to act; excludes first-time system setup; no verbal teaching |
+| Reason understood | At least 8 correctly explain one acceptance or refusal | After the session ask "why didn't it keep playing just now?" and compare with the reasonCode |
+| Adaptation noticed | At least 7 name a specific adaptation and its event | "It likes me more" does not count; must mention dwell, tempo or distance |
+| Gesture classification | Macro F1 ≥ 0.85 on held-out participants | Four known classes; `unknown` counts as a miss for the true class; confusion matrix reported |
+| Classification coverage | ≥ 80 % of known-action windows get a confident class under standard conditions | Prevents "refuse everything" from looking accurate |
+| False contact | ≤ 1 false contact per minute in no-contact tasks | At least 20 minutes of neutral movement and posture adjustment |
+| Unfair penalty | Zero trust loss from invalid tracking | 30 replayed occlusion, lost-hand and jump cases, state and reason compared one by one |
+| Pointer response | Sample to on-screen feedback p95 ≤ 150 ms | On target device, high-frame-rate video or timestamp loop-back |
+| Intent response | Action start to confirmation feedback p95 ≤ 900 ms | Includes the 600 ms observation window, not only model inference time |
+| Run and turnover | 4 hours without a crash; 30 rounds without leakage | Logs build, model, device, temperature and mode |
+
+These sample sizes are prototype-evaluation scale. Low light, backlight, skin tones, hand shapes, left and right hands and sitting are recorded separately; under-sampled conditions are listed as limits. Launch readiness is judged in the target venue, not by one high accuracy figure.
+
+## 8 Users and key situations [Proposal]
+
+| User | Need | Design answer |
+|---|---|---|
+| U01 First-time visitor | Know immediately how to start | One clear main action, alternative inputs and an instant cursor |
+| U02 Cautious or small movements | Not be wrongly penalised | Scale normalisation, calibration, a wider valid range and `unknown` |
+| U03 No camera or cannot pinch | Complete the full experience | Mouse and keyboard enter the same decision logic without a worse ending |
+| U04 Bystander | Understand what happened | The main screen shows choices through posture and one line |
+| U05 Staff | Start, diagnose and recover | Diagnostics show input, model, connection and session; switch modes and reset |
+
+**Key stories:**
+- **US01** When I approach slowly, it sees me, but when it's tense it watches first.
+- **US02** It's tired and turns down play; I step back, it rests and relaxes.
+- **US03** After my hand is occluded I can carry on without losing relationship progress to a system error.
+- **US04** After a few encounters it responds faster to my steady rhythm.
+- **US05** When I leave, the next person sees a separate new round.
+
+## 9 Journey and interface structure [Proposal]
+
+| Stage | Visitor | Main screen | System |
+|---|---|---|---|
+| Attract | Watches or passes | The litter living on its own, with an entry point | Demo world with no relationship memory and no formal growth |
+| Choose | Picks hand or alternative input | Camera purpose, input options, mute | New session, initial configuration |
+| Calibrate | Puts a hand in the guide and moves | Tracking outline, reach, skip | Checks quality and hand mapping |
+| Explore | Chooses a tool and tries | Character, tools, short hints, need cues | Classifies actions and chooses behaviour |
+| Adjust | Accepts a refusal, slows down or steps back | Posture and a specific reason | Stress recovers; memory updates from valid events |
+| Grow | Keeps caring and watching | Chapter transitions and changing appearance | Checks growth conditions and switches environment |
+| End | Ends or accepts the close | Event-based relationship recap | Closes input, prepares to destroy session data |
+| Turnover | Next visitor gets ready | Back to start | Clears state, cache, audio and session ID |
+
+### 9.1 Visitor screen
+- The character and world in the centre; Feed, Play, Pet and "Give space" at the bottom; current input and readable tracking state in a corner; key reasons shown near the character.
+- Reachable, safe-distance or contact areas use **shape and words**, never colour alone.
+- **Trust is not a percentage reward.** P0 uses character phrases such as "Still watching you", "Warming up to you" and "Comes to you"; exact values are staff-only, which also discourages grinding.
+
+### 9.2 Alternative input and keyboard
+- Mouse to move and click to confirm; `1` `2` `3` `4` to choose a tool; arrow keys move a virtual hand; Space confirms or drops; holding Space with Pet means steady contact; `Esc` pauses with continue, switch input and end.
+- Alternative inputs produce explicit intent with `source` = `mouse` or `keyboard`, and **never fake camera model scores**.
+- Focus order and button states are visible. Pinch is never the only way to start or leave. The camera preview stays in the control view and can be turned off; the public screen shows an abstract hand rather than the visitor's image.
+
+## 10 Session state machine [Proposal]
+
+```mermaid
+stateDiagram-v2
+    [*] --> ATTRACT
+    ATTRACT --> CONSENT: visitor starts
+    CONSENT --> CALIBRATING: chooses hand
+    CONSENT --> ACTIVE: chooses mouse / keyboard
+    CALIBRATING --> ACTIVE: tracking stable (≤ 20 s)
+    CALIBRATING --> CONSENT: fails → retry or switch
+    ACTIVE --> PAUSED: Esc / hidden page / idle 30 s / system fault
+    PAUSED --> ACTIVE: explicit resume with stable input
+    PAUSED --> REFLECTION: paused > 60 s or ended
+    ACTIVE --> REFLECTION: ended / 300 s limit / growth complete / idle 45 s
+    REFLECTION --> RESETTING: 15 s or "Next visitor"
+    RESETTING --> ATTRACT: camera stopped, cache and state cleared
+```
+
+| State | Enters when | Allows | Leaves when |
+|---|---|---|---|
+| ATTRACT | Start-up or turnover complete | Independent demo loop, waiting | Explicit start → CONSENT |
+| CONSENT | Visitor starts | Choose camera or alternative input | Hand → CALIBRATING; alternative → ACTIVE |
+| CALIBRATING | Hand chosen | Quality check, position demo, ≤ 20 s | Stable → ACTIVE; failure → retry or switch |
+| ACTIVE | Input usable and round started | Formal behaviour, memory, growth | Pause, end, idle or time limit |
+| PAUSED | User pause, hidden page or fault | Show the reason; formal state frozen | Explicit resume with re-stabilised input, or end |
+| REFLECTION | User ends, 300 s limit or growth complete | Show recap; contact and growth stop | 15 s or "Next visitor" → RESETTING |
+| RESETTING | Close finished | Stop camera, clear cache and state | Clearing confirmed → ATTRACT |
+
+- The clock starts in ACTIVE. A pause longer than 60 s goes to REFLECTION. At 180 s an ending option appears; at 300 s the recap starts automatically. **Not every round needs to reach adulthood.**
+- Idle = no valid input and no clicks: "Still there?" at 15 s, a pause prompt at 30 s, the recap at 45 s. A lost camera hand does not end the round at once; a mouse resting on screen is not activity.
+- **ATTRACT never shares the ACTIVE character instance or memory.** A pause freezes needs, trust, stress, growth and active time; rendering can keep a breathing animation. While disconnected, no actions, feeding or adaptation events accumulate.
+
+---
