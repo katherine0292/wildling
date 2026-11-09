@@ -1,1 +1,16 @@
+# OS
 .DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Node (tests and tools only; the sketches have no build step)
+node_modules/
+npm-debug.log*
+
+# Local data — raw keypoint captures must never be committed (see docs/research/data-plan.md)
+tools/captures/
+*.capture.json
