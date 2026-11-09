@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wildling · Training capture (research mode)</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; font: 15px/1.5 system-ui, sans-serif; background: #1a0f0f; color: #f6eee6; }
+    header { background: #b3261e; color: #fff; padding: 10px 18px; font-weight: 700; letter-spacing: .04em; }
+    main { display: grid; grid-template-columns: 1fr 360px; gap: 18px; padding: 18px; }
+    canvas { width: 100%; background: #000; border-radius: 10px; }
+    section { background: #2a1a1a; border-radius: 10px; padding: 14px 16px; }
+    label { display: block; margin: 8px 0 4px; font-size: 13px; opacity: .8; }
+    input, select, button { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid #5a3a3a; background: #1a0f0f; color: inherit; width: 100%; }
+    button { cursor: pointer; margin-top: 8px; }
+    button.rec { background: #b3261e; border-color: #b3261e; font-weight: 700; }
+    .labels { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .labels button[aria-pressed="true"] { background: #f6eee6; color: #1a0f0f; }
+    .small { font-size: 12px; opacity: .75; }
+    #count { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <header>RESEARCH CAPTURE MODE — not the public exhibit. Only use with a signed consent form.</header>
+  <main>
+    <div>
+      <canvas id="view" width="640" height="480"></canvas>
+      <p class="small">Saved per clip: anonymous participant code, condition tags, label, time, and 21 hand keypoints
+        normalised by palm size. <b>No video, image, audio or face data is saved.</b> Files stay on this computer
+        until you export them; store exports in <code>tools/captures/</code> (git-ignored) and delete research copies
+        30 days after hand-over (docs/research/data-plan.md).</p>
+    </div>
+    <div>
+      <section>
+        <label for="pid">Participant code (P01–P16, never a name)</label>
+        <input id="pid" placeholder="P01" pattern="P[0-9]{2}">
+        <label>Conditions</label>
+        <select id="hand"><option>right</option><option>left</option></select>
+        <select id="pose"><option>standing</option><option>seated</option></select>
+        <select id="tempo"><option>natural</option><option>small</option><option>large</option></select>
+        <select id="light"><option>venue</option><option>low</option><option>backlit</option></select>
+        <label>Label (read the script line aloud)</label>
+        <div class="labels" id="labels"></div>
+        <p id="script" class="small"></p>
+        <button class="rec" id="rec">Record 1.5 s clip (R)</button>
+        <button id="mark">Mark last clip ambiguous</button>
+        <button id="export">Export JSON</button>
+        <button id="wipe">Delete all clips in this browser</button>
+        <p class="small">Clips: <span id="count">0</span> · <span id="status">camera off</span></p>
+        <button id="startCam">Start camera</button>
+      </section>
+    </div>
+  </main>
+  <script type="module">
+    const SCRIPT = {
+      gentle_approach: 'Open your hand and move it slowly towards the cat outline, then stop beside it.',
+      stable_contact: 'Rest your open hand over the cat outline and keep it still.',
+      fast_approach: 'From the edge of the screen, move your hand quickly towards the cat outline.',
+      neutral_motion: 'Move your hand around freely, adjust your posture, or pass by far from the cat.',
+    };
+    const labels = Object.keys(SCRIPT);
+    let label = labels[0];
+    const clips = [];
+    let latest = null;
+    const $ = (id) => document.getElementById(id);
+    const box = $('labels');
+    for (const l of labels) {
+      const b = document.createElement('button');
+      b.textContent = l; b.onclick = () => select(l); box.appendChild(b);
+    }
+    function select(l) { label = l; for (const b of box.children) b.setAttribute('aria-pressed', String(b.textContent === l)); $('script').textContent = SCRIPT[l]; }
+    select(label);
+
+    $('startCam').onclick = async () => {
+      $('status').textContent = 'loading…';
+      const video = document.createElement('video');
+      video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+      video.playsInline = true; video.muted = true; await video.play();
+      await new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'https://unpkg.com/ml5@1.4.0/dist/ml5.min.js'; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+      const model = await new Promise((ok) => { const m = window.ml5.handPose({ maxHands: 1 }, () => ok(m)); });
+      const ctx = $('view').getContext('2d');
+      model.detectStart(video, (r) => { latest = r[0] ? { t: performance.now(), kp: r[0].keypoints } : { t: performance.now(), kp: null }; });
+      $('status').textContent = 'camera on';
+      (function loop() {
+        // draw only the skeleton and the cat outline — never the camera image
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 640, 480);
+        ctx.strokeStyle = '#888'; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.ellipse(320, 260, 70, 40, 0, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        if (latest?.kp) { ctx.fillStyle = '#f6eee6'; for (const k of latest.kp) { ctx.beginPath(); ctx.arc(640 - k.x, k.y, 3, 0, 7); ctx.fill(); } }
+        requestAnimationFrame(loop);
+      })();
+    };
+
+    function normalise(kp) {
+      const w = kp[0], m = kp[9];
+      const scale = Math.hypot(m.x - w.x, m.y - w.y) || 1;
+      return kp.map((k) => [+((w.x - k.x) / scale).toFixed(4), +((k.y - w.y) / scale).toFixed(4)]); // mirrored once
+    }
+
+    async function record() {
+      const pid = $('pid').value.trim().toUpperCase();
+      if (!/^P\d{2}$/.test(pid)) { alert('Use an anonymous code like P07.'); return; }
+      const frames = [];
+      const start = performance.now();
+      while (performance.now() - start < 1500) {
+        await new Promise((r) => setTimeout(r, 33));
+        if (latest) frames.push(latest.kp ? { dt: Math.round(latest.t - start), palm: [+(latest.kp[9].x / 640).toFixed(4), +(latest.kp[9].y / 480).toFixed(4)], kp: normalise(latest.kp) } : { dt: Math.round(latest.t - start), kp: null });
+      }
+      clips.push({ participant: pid, label, ambiguous: false, conditions: { hand: $('hand').value, pose: $('pose').value, tempo: $('tempo').value, light: $('light').value }, capturedAt: new Date().toISOString(), frames });
+      $('count').textContent = clips.length;
+    }
+    $('rec').onclick = record;
+    window.addEventListener('keydown', (e) => { if (e.key === 'r' || e.key === 'R') record(); });
+    $('mark').onclick = () => { if (clips.length) clips.at(-1).ambiguous = true; };
+    $('export').onclick = () => {
+      const blob = new Blob([JSON.stringify({ schema: 'wildling-capture-1', featureVersion: 'keypoints_palmnorm_1', clips }, null, 1)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `capture-${Date.now()}.capture.json`; a.click();
+    };
+    $('wipe').onclick = () => { if (confirm('Delete every clip held in this page?')) { clips.length = 0; $('count').textContent = 0; } };
+  </script>
+</body>
+</html>
