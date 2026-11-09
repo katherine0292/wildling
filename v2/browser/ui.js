@@ -5,6 +5,7 @@
 import { COPY, KITTENS } from '../core/config.js';
 import { CAMERA_ERRORS } from './camera.js';
 import { svg } from './icons.js';
+import { drawPostcard } from './keepsake.js';
 
 const TOOLS = ['FEED', 'PLAY', 'PET', 'WAIT'];
 const TABS = ['litter', 'care', 'habitats', 'journal'];
@@ -31,6 +32,12 @@ const WHY_NOT = {
   PLAY_PAUSE: 'catching its breath', tool: 'not offered', input: "can't see you", far: 'too far', no_invitation: 'not invited',
   intent: 'waiting for a calm hand', break: 'short break', dwell: 'almost', no_food: 'no food', cooldown: 'just did that',
   alone: 'no sibling nearby', too_young: 'too young yet', none: 'nothing to chase', trust: 'needs more trust', calm: 'feels safe',
+};
+const TOYS = [['yarn', 'PLAY', 'Yarn'], ['feather', 'FEATHER', 'Feather'], ['ball', 'BALL', 'Ball']];
+const TOY_HINTS = {
+  yarn: 'Your hand is a yarn ball. See if it wants to play',
+  feather: 'A feather on a string. Slow swishes are easier to catch',
+  ball: 'Click or pinch to throw the ball. It fetches on its own',
 };
 const HISS_WHY = { SIB_FOOD: 'it was eating', SIB_REST: 'it was napping', SIB_TENSE: 'it felt tense' };
 const NAMES = Object.fromEntries(KITTENS.map((k) => [k.id, k.name]));
@@ -59,8 +66,11 @@ const $ = (id) => document.getElementById(id);
 const swatchCss = (k) => `radial-gradient(circle at 35% 30%, ${k.coat.light}, ${k.coat.base} 55%, ${k.coat.mark})`;
 
 export class UI {
-  constructor({ dispatch, onChooseInput, onToggleSound }) {
+  constructor({ dispatch, onChooseInput, onToggleSound, keepsakes }) {
     this.dispatch = dispatch;
+    this.keep = keepsakes;
+    this.album = [];
+    this.albumSession = null;
     this.copy = COPY.en;
     this.tab = 'litter';
     this.lastState = null;
@@ -71,7 +81,7 @@ export class UI {
     $('kittenCards').innerHTML = KITTENS.map((k, i) => `
       <button class="kitten" data-kitten="${k.id}" aria-pressed="false">
         <span class="swatch" style="background:${swatchCss(k)}"></span>
-        <span><span class="name">${k.name}</span><span class="temper">${k.temperament}</span><span class="blurb" style="display:block">${k.blurb}</span></span>
+        <span><span class="name">${k.name}</span><span class="temper">${k.temperament}</span><span class="blurb" style="display:block">${k.blurb}</span>${keepsakes?.badge(k.id) ? `<span class="memory">${keepsakes.badge(k.id)}</span>` : ''}</span>
         <kbd class="glyph">${i + 1}</kbd>
       </button>`).join('');
     for (const b of document.querySelectorAll('[data-kitten]')) b.onclick = () => dispatch({ type: 'choose_kitten', kitten: b.dataset.kitten });
@@ -81,6 +91,15 @@ export class UI {
       <div class="row"><span class="thumb ${c.thumb}"></span><span><span class="t">${ROMAN[i]} · ${c.name}</span><span class="d" style="display:block">${c.line}</span></span><span class="tile" style="width:34px;height:34px">${svg(c.icon, 18)}</span></div>`).join('');
     this.setTab('litter');
     $('btnStart').onclick = () => dispatch({ type: 'start' });
+    if (keepsakes?.enabled) {
+      $('memoryRule').innerHTML = '<b>Remembered only here.</b> On this website your kitten can remember you in this browser: how often you met, how far it grew, the gifts it found. Nothing is uploaded. In the exhibition, everything is cleared for the next visitor.';
+      $('btnForget').hidden = false;
+      $('btnForget').onclick = () => { keepsakes.forget(); for (const m of document.querySelectorAll('.kitten .memory')) m.remove(); $('btnForget').textContent = 'Forgotten. Every kitten will meet you fresh.'; };
+    }
+    $('btnPostcard').innerHTML = `${svg('CAMERA', 18)}Save a postcard`;
+    $('btnPostcard').onclick = () => this.savePostcard();
+    $('toyTray').innerHTML = TOYS.map(([id, icon, label]) => `<button data-toy="${id}" aria-pressed="false">${svg(icon, 18)}${label}</button>`).join('');
+    for (const b of $('toyTray').children) b.addEventListener('click', (e) => { e.stopPropagation(); dispatch({ type: 'select_toy', toy: b.dataset.toy }); });
 
     // approach
     for (const [id, src] of [['btnCamera', 'camera'], ['btnMouse', 'mouse'], ['btnKeyboard', 'keyboard']]) {
@@ -125,6 +144,34 @@ export class UI {
     this.tab = tab;
     for (const b of document.querySelectorAll('.tabs [data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
     for (const p of document.querySelectorAll('[data-pane]')) p.hidden = p.dataset.pane !== tab;
+  }
+
+  // Photos taken automatically at moments that matter (first meal, a catch, a new chapter…).
+  addPhoto(canvas, caption) {
+    if (this.album.some((p) => p.caption === caption)) return;
+    this.album.push({ canvas, caption, url: canvas.toDataURL('image/jpeg', 0.85) });
+    if (this.album.length > 9) this.album.splice(1, 1); // keep the first photo, drop the oldest after it
+  }
+
+  savePostcard() {
+    const r = this.lastRecap;
+    if (!r) return;
+    const { snap, k } = r, c = snap.creature;
+    const chapter = Math.min(2, Math.floor(c.ageProgress)), grown = c.ageProgress >= 3;
+    const rec = this.keepRecord ?? { visits: 1, best: grown ? 3 : chapter, gifts: (snap.gifts ?? []).map((g) => g.item), last: new Date().toISOString().slice(0, 10) };
+    const card = drawPostcard({
+      kitten: k.id,
+      title: grown ? `${k.name}, all grown up` : `${k.name} and me`,
+      sub: `${k.temperament} · Chapter ${ROMAN[chapter]}, ${CHAPTERS[c.phase].name}`,
+      lines: snap.recap.lines.map((l) => l.text),
+      photos: this.album.length > 3 ? [this.album[0], ...this.album.slice(-2)] : this.album,
+      chapter, grown,
+      link: this.keep ? this.keep.linkFor(k.id, rec) : null,
+    });
+    const a = document.createElement('a');
+    a.download = `wildling-${k.id}-postcard.png`;
+    a.href = card.toDataURL('image/png');
+    a.click();
   }
 
   stepTab(dir) { const i = TABS.indexOf(this.tab); this.setTab(TABS[(i + dir + TABS.length) % TABS.length]); }
@@ -214,6 +261,16 @@ export class UI {
     const n = r.counts;
     const extra = [n.wrestles ? `<span>${svg('LITTER', 16)}${n.wrestles} tumble${n.wrestles > 1 ? 's' : ''}</span>` : '', n.hunts ? `<span>${svg('BUG', 16)}${n.hunts} hunt${n.hunts > 1 ? 's' : ''}</span>` : '', n.gifts ? `<span>${svg('GIFT', 16)}${n.gifts} gift${n.gifts > 1 ? 's' : ''}</span>` : ''].join('');
     $('recapCounts').innerHTML = `<span>${svg('FEED', 16)}${n.fed} fish</span><span>${svg('PLAY', 16)}${n.pounces} catches</span><span>${svg('PET', 16)}${n.contactSec}s of contact</span>${extra}`;
+    const albumHtml = (this.album.length > 5 ? [this.album[0], ...this.album.slice(-4)] : this.album).map((p, i) => `<figure class="polaroid" style="--r:${[-4, 3, -2, 4, -3, 2][i]}deg"><img src="${p.url}" alt="${p.caption}"><span>${p.caption}</span></figure>`).join('');
+    if (this.albumShown !== albumHtml) { this.albumShown = albumHtml; $('album').innerHTML = albumHtml; }
+    this.lastRecap = { snap, k };
+    if (this.keep?.enabled && !this.saved) {
+      this.saved = true;
+      this.keepRecord = this.keep.record(k.id, { chapter: Math.min(2, Math.floor(c.ageProgress)), grown: c.ageProgress >= 3, gifts: (snap.gifts ?? []).map((g) => g.item) });
+    }
+    $('keepNote').textContent = this.keep?.enabled
+      ? `${k.name} will remember you in this browser${this.keepRecord ? ` (visit ${this.keepRecord.visits})` : ''}. The postcard's code lets you visit again from another device.`
+      : 'This relationship lives only in this visit. The next visitor meets a kitten that has never met anyone.';
     const g = snap.growth;
     $('journalSteps').innerHTML = Object.values(CHAPTERS).map((ch, i) => `<span class="step ${i <= g.chapter || g.grown ? 'done' : ''}">${svg(ch.icon, 16)}<b>${ROMAN[i]}</b><em>${ch.short}</em></span>`).join('<i></i>');
     $('btnNext').textContent = T.next(Math.ceil(snap.timers.reflectionLeft ?? 0));
@@ -321,7 +378,11 @@ export class UI {
 
     this.activeTool = snap.activeTool;
     for (const b of this.toolbar.children) b.setAttribute('aria-pressed', String(b.dataset.tool === snap.activeTool));
-    $('toolHint').textContent = this.copy.toolHints[snap.activeTool];
+    const play = snap.activeTool === 'PLAY';
+    this.show('toyTray', play);
+    if (play) for (const b of $('toyTray').children) b.setAttribute('aria-pressed', String(b.dataset.toy === snap.toy?.kind));
+    $('toolHint').textContent = play ? TOY_HINTS[snap.toy?.kind ?? 'yarn'] : this.copy.toolHints[snap.activeTool];
+    if (snap.sessionId !== this.albumSession) { this.albumSession = snap.sessionId; this.album = []; this.saved = false; }
     this.show('still', snap.stillThere);
     this.show('offerEnd', snap.offerEnd && !snap.stillThere);
 

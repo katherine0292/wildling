@@ -8,6 +8,8 @@
 //
 // URL options for demos and screenshots:
 //   ?staff=1  ?seed=42  ?adapt=0  ?kitten=ember|juniper|saffron  ?input=mouse|keyboard (skips the approach screen)
+//   ?kiosk=1  exhibition mode: no keepsakes, every visitor meets a fresh kitten
+//   ?adopt=…  a postcard's code: brings a keepsake into this browser
 
 import { Simulation } from '../core/sim.js';
 import { Renderer } from './render.js';
@@ -17,6 +19,22 @@ import { SoundAdapter } from './audio.js';
 import { CameraInput } from './camera.js';
 import { KeyboardHand } from './keyboard.js';
 import { KITTENS } from '../core/config.js';
+import { Keepsakes } from './keepsake.js';
+
+// Moments worth a photo for the album: [event test, caption, delay in seconds].
+const NAMES = Object.fromEntries(KITTENS.map((k) => [k.id, k.name]));
+const PHOTO_MOMENTS = [
+  [(e) => e.type === 'returned', () => 'Back again', 1.2],
+  [(e) => e.type === 'eat_completed', () => 'First fish', 0.2],
+  [(e) => e.type === 'contact_started', () => 'First touch', 0.8],
+  [(e) => e.type === 'pounce_success', (e) => ({ ball: 'Got the ball!', feather: 'Feather caught' }[e.measurement?.toy] ?? 'Got the yarn!'), 0.1],
+  [(e) => e.type === 'sibling_play' && e.measurement?.endedBy === 'done', (e) => `Tumbling with ${NAMES[e.measurement.sibling] ?? 'family'}`, 0],
+  [(e) => e.type === 'hiss', () => 'Hss!', 0],
+  [(e) => e.type === 'hunt_pounce', (e) => (e.measurement?.caught ? 'Caught one!' : 'The hunt'), 0.1],
+  [(e) => e.type === 'gift_given', () => 'A gift for me', 0.4],
+  [(e) => e.type === 'phase_changed', (e) => ({ juvenile: 'Chapter II', adult: 'Chapter III' }[e.measurement?.phase] ?? 'Growing up'), 2.4],
+  [(e) => e.type === 'fully_grown', () => 'All grown up', 2.4],
+];
 
 const params = new URLSearchParams(location.search);
 let cmdSeq = 0;
@@ -31,9 +49,19 @@ const sketch = (p) => {
     return { w: p.width / S, h: p.height / S };
   };
 
+  let keepsakes;
+  const photoQueue = [];
+  // The core only learns about a returning visitor from this browser's own keepsake.
+  const tellReturning = () => {
+    const r = keepsakes.get(sim.kittenId);
+    sim.command({ id: `ui_${++cmdSeq}`, type: 'set_returning', kitten: sim.kittenId, visits: r ? r.visits : 0 });
+  };
   const dispatch = (cmd) => {
     sound.start();
-    return sim.command({ id: `ui_${++cmdSeq}`, ...cmd });
+    if (cmd.type === 'start') tellReturning();
+    const res = sim.command({ id: `ui_${++cmdSeq}`, ...cmd });
+    if (cmd.type === 'choose_kitten') tellReturning();
+    return res;
   };
 
   const chooseInput = async (source) => {
@@ -57,6 +85,9 @@ const sketch = (p) => {
       seed: Number(params.get('seed')) || Math.floor(Math.random() * 1e9),
       adaptation: params.get('adapt') !== '0',
     });
+    keepsakes = new Keepsakes({ kiosk: params.get('kiosk') === '1' });
+    const adopted = keepsakes.importFrom(params.get('adopt'));
+    if (adopted && history.replaceState) { const q = new URLSearchParams(location.search); q.delete('adopt'); q.set('kitten', adopted); history.replaceState(null, '', `${location.pathname}?${q}`); }
     renderer = new Renderer(p);
     renderer.resize();
     sound = new SoundAdapter();
@@ -64,6 +95,7 @@ const sketch = (p) => {
     keyboard = new KeyboardHand();
     ui = new UI({
       dispatch,
+      keepsakes,
       onChooseInput: chooseInput,
       onToggleSound: () => { soundOn = !soundOn; sound.setOn(soundOn); },
     });
@@ -72,6 +104,7 @@ const sketch = (p) => {
     if (params.get('staff') === '1') staff.toggle();
     const direct = params.get('input');
     if (direct === 'mouse' || direct === 'keyboard') {
+      tellReturning();
       sim.command({ id: 'init_start', type: 'start' });
       keyboard.active = direct === 'keyboard';
       sim.command({ id: 'init_input', type: 'choose_input', source: direct });
@@ -112,6 +145,11 @@ const sketch = (p) => {
     if ((k === 't' || k === 'T') && st === 'ACTIVE') { ui.toggleMind(); return; }
     if (k === 'm' || k === 'M') { soundOn = !soundOn; sound.setOn(soundOn); return; }
     if (k === 'Escape') { if (st === 'ACTIVE') dispatch({ type: 'pause', reason: 'user' }); else if (st === 'PAUSED') dispatch({ type: 'resume' }); return; }
+    if (k === '2' && st === 'ACTIVE' && sim.tool === 'PLAY') { // press Play again to switch toy
+      const toys = ['yarn', 'feather', 'ball'];
+      dispatch({ type: 'select_toy', toy: toys[(toys.indexOf(sim.toy.kind) + 1) % toys.length] });
+      return;
+    }
     if (['1', '2', '3', '4'].includes(k)) { dispatch({ type: 'select_tool', tool: ['FEED', 'PLAY', 'PET', 'WAIT'][Number(k) - 1] }); return; }
     if (keyboard.active) {
       const confirm = keyboard.down(k, e.repeat);
@@ -146,12 +184,18 @@ const sketch = (p) => {
       if (soundOn) sound.play(e);
       staff.log(e);
       renderer.onEvent(e, snap);
+      for (const [test, caption, delay] of PHOTO_MOMENTS) if (test(e)) photoQueue.push({ at: now + delay * 1000, caption: caption(e) });
     }
     sound.update(snap);
 
     const bar = document.getElementById('gpTrack');
     if (bar && bar.offsetParent) { const r = bar.getBoundingClientRect(); renderer.hudTarget = { x: r.left + r.width * 0.9, y: r.top + r.height / 2 }; }
     renderer.draw(snap, { keypoints: camera.keypoints, showSkeleton: staff.open }, dt);
+    while (photoQueue.length && photoQueue[0].at <= now) {
+      const ph = photoQueue.shift();
+      if (snap.sessionState === 'ACTIVE') ui.addPhoto(renderer.capture(snap), ph.caption);
+    }
+    photoQueue.sort((a, b) => a.at - b.at);
     const S = Math.min(p.width, p.height);
     const c = snap.creature;
     const z = renderer.cam.z;

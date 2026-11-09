@@ -328,3 +328,22 @@ body.staff #recap li .ev { display: block; }
   #mind { display: none !important; }
 }
 #hud { width: 330px; }
+
+/* ---------- toys ---------- */
+#toyTray { position: absolute; left: 50%; bottom: 176px; transform: translateX(-50%); display: flex; gap: 6px; padding: 6px; background: var(--cream); border-radius: 999px; box-shadow: 0 4px 0 rgba(34, 64, 90, .15); }
+#toyTray button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font: 700 14px var(--display); color: var(--ink-2); border-radius: 999px; }
+#toyTray button[aria-pressed="true"] { background: var(--sage); color: #fff; box-shadow: 0 3px 0 var(--sage-2); }
+body:has(#toyTray:not([hidden])) #toolHint { bottom: 226px; }
+
+/* ---------- album, postcard and keepsakes ---------- */
+.journal { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 24px); overflow: auto; }
+.album { display: flex; gap: 12px; justify-content: center; margin: 14px 0 2px; }
+.album:empty { display: none; }
+.polaroid { width: 112px; flex: none; margin: 0; padding: 7px 7px 26px; background: #fff; border-radius: 4px; box-shadow: 0 6px 14px rgba(34, 64, 90, .2); transform: rotate(var(--r, 0deg)); position: relative; }
+.polaroid img { display: block; width: 100%; aspect-ratio: 1; border-radius: 2px; }
+.polaroid span { position: absolute; left: 0; right: 0; bottom: 5px; text-align: center; font: 700 11px var(--display); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 6px; }
+.journal-actions { display: flex; gap: 10px; align-items: center; margin-top: 18px; }
+.journal-actions .cta { flex: 1; margin-top: 0; }
+#btnPostcard { display: inline-flex; align-items: center; gap: 8px; background: #fff; box-shadow: 0 3px 0 var(--stitch); }
+.kitten .memory { display: inline-block; margin-top: 4px; padding: 2px 9px; font: 700 11px var(--body); color: var(--ink); background: #fff7d6; border-radius: 999px; }
+.kitten[aria-pressed="true"] .memory { color: var(--ink); }
