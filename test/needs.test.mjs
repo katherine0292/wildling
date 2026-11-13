@@ -54,6 +54,7 @@ test('in a visit, a hungry kitten asks for food and a treat answers it', () => {
   const d = new Driver({ toolless: true, growth: false });
   d.startMouse();
   d.cat.needs.fullness = 0.2;
+  for (const o of d.sim.siblings) o.held = { behaviour: 'REST', until: d.sim.demoTime + 120 }; // the others are asleep
   d.run(0.5, () => mouseAt(0.15, 0.2));
   assert.equal(d.sim.snapshot().need?.kind, 'food');
   d.cmd('hold', { item: 'treat' });
