@@ -1,250 +1,134 @@
 <p align="center">
-  <img src="docs/readme/v3-cover.webp" alt="Wildling: three wild kittens, Ember, Juniper and Saffron, in a jungle clearing, with two big buttons: Use your hand or Use the mouse" width="100%">
+  <img src="docs/readme/v3/cover.webp" alt="Wildling: three wild kittens, Ember, Juniper and Saffron, in a jungle clearing, with two big buttons: Use your hand or Use the mouse" width="100%">
 </p>
 
 <p align="center">
   <a href="https://katherine0292.github.io/wildling/"><b>▶ Play Wildling</b></a> &nbsp;·&nbsp;
-  <a href="docs/prd/prd-v2.md">PRD V2</a> &nbsp;·&nbsp;
+  <a href="docs/design/experience-spec-v3.md">Experience spec V3</a> &nbsp;·&nbsp;
+  <a href="docs/redesign/self-audit.zh.md">Self-audit</a> &nbsp;·&nbsp;
   <a href="docs/decisions/README.md">Decisions</a> &nbsp;·&nbsp;
   <a href="docs/ai-boundaries.md">AI boundaries</a> &nbsp;·&nbsp;
-  <a href="docs/STATUS.md">Status</a>
+  <a href="docs/case-study-v2.md">V2 case study</a>
   <br><br>
   <a href="https://github.com/katherine0292/wildling/actions/workflows/test.yml"><img src="https://github.com/katherine0292/wildling/actions/workflows/test.yml/badge.svg" alt="tests"></a>
   <img src="https://img.shields.io/badge/p5.js-1.11-ed225d" alt="p5.js 1.11">
   <img src="https://img.shields.io/badge/MediaPipe-Hand_Landmarker-7a5cc4" alt="MediaPipe Hand Landmarker">
-  <img src="https://img.shields.io/badge/learning-on--device_kNN-3f7a2c" alt="On-device nearest-neighbour learning">
+  <img src="https://img.shields.io/badge/runs-on_the_device-3f7a2c" alt="Runs on the device">
   <img src="https://img.shields.io/badge/no_build_step-plain_ES_modules-22405a" alt="Plain ES modules">
 </p>
 
-**Wildling** is an explainable AI creature for a public exhibition. Three wild kittens live in a clearing. A visitor walks up and meets them **with their bare hand in front of a camera**, or with a mouse: stroke one until it purrs, drop a fish and watch the litter squabble over it, flick a feather, throw a snowball, set down a bowl of water in the desert. Each kitten has its own needs, its own relationships with its siblings, and the right to say no. An always-on **MIND** panel shows what the nearest kitten is thinking and why. Whatever happens, it is clear **whether the system lost your hand or the kitten made a choice**.
+**Wildling** is an explainable AI creature for a public exhibition. Three wild kittens live in a clearing. You meet them **with your bare hand in front of a camera**, or with a mouse. Rest your palm on a kitten's back and it purrs. Drop a fish and the litter squabbles over it. Throw a ball, set down a bowl of water, or wave your hand and watch them scatter. Each kitten has its own needs, its own relationships with its siblings, and the right to say no. An always-on **MIND** panel shows what the nearest kitten is thinking and why. Whatever happens, it is clear **whether the system lost your hand or the kitten made a choice**.
 
-<p align="center"><img src="docs/readme/v3-jungle.webp" alt="The jungle clearing: Ember approaches the visitor's hand; the MIND panel shows its needs and the desires it is weighing; the pouch holds Fish, Feather and Hand" width="100%"></p>
+<p align="center"><img src="docs/readme/v3/stroke.webp" alt="A hand comes in slowly; Ember walks up, the hand strokes its back, purr rings spread and the MIND panel switches to 'Be stroked'" width="100%"></p>
 
 ## At a glance
 
 | | |
 |---|---|
-| **Project** | An interactive installation for a Sydney game and interaction exhibition. The project lead issued two briefs: [Brief V1](docs/brief/brief-v1.md) (care, trust, a creature with its own rhythm), then [Brief V2](docs/brief/brief-v2.md), an AI-experience upgrade (evaluable gestures, explainable decisions, bounded adaptation). |
-| **My role** | AI product and interaction designer, and developer. I turned each brief into a PRD ([V1](docs/prd/prd-v1.md), [V2](docs/prd/prd-v2.md)), designed the AI behaviour and the visitor experience, built two prototypes and the V2 build, and kept requirements, decisions and evidence aligned in writing. |
-| **How requirements are written** | Every requirement is tagged **[Client]**, **[Proposal]** or **[To confirm]**. A [traceability matrix](docs/traceability.md) links each brief goal to a spec and an acceptance case. [23 decision records](docs/decisions/README.md) give the options, the trade-off and what would overturn each one. |
-| **What's built** | **V3.1** ([experience spec](docs/design/experience-spec-v3.md)): no tools to choose. The hand *is* the interface, and the pouch holds what it carries. Three habitats, a whole litter that reacts to the hand, food standoffs, an always-on MIND panel, a camera preview and full hand/mouse parity. Underneath it is the V2 core: a tracking-quality gate, motion intent and hand shapes with `unknown`, hard constraints + utility, reason codes, bounded adaptation, bonds and few-shot trick learning. |
-| **Evidence** | 116 replay tests across 19 suites, mapped to the PRD's acceptance cases and run in CI. Planned, implemented, verified and confirmed are tracked separately on the [status board](docs/STATUS.md). What is not yet measured is labelled as such. |
+| **Project** | An interactive installation for a Sydney game and interaction exhibition, built across three briefs: care and trust ([Brief V1](docs/brief/brief-v1.md)), an explainable AI upgrade ([Brief V2](docs/brief/brief-v2.md)), and a play-test-driven redesign ([V3 spec](docs/design/experience-spec-v3.md)). |
+| **My role** | AI product and interaction designer, and developer: PRDs, AI behaviour, experience design, the build, and the evidence. |
+| **What it is now** | **V3.1.** No tools to choose: the hand *is* the interface, and a pouch holds what it carries. Three habitats, a whole litter that reacts to the hand, food standoffs, an always-on MIND panel, a camera preview, a per-kitten score at the end, and full parity between hand and mouse. |
+| **What it runs on** | Plain ES modules, p5.js and MediaPipe Hand Landmarker in a worker. Everything runs in the browser; camera frames never leave the device. |
+| **Evidence** | 119 deterministic replay tests across 19 suites, run in CI. What has not been measured on real hands is labelled as such. |
 
-## V3.1: the hand is the interface
-
-The V2 build answered the brief, but play-testing it exposed a different problem: visitors spent their first minute reading. They had to pick a kitten, pick a tool, learn hand shapes and press keys before anything felt alive. V3 removes every step that stood between the visitor's hand and the kittens. The [self-audit](docs/redesign/self-audit.zh.md) records why each change was made.
+## What you can do
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/readme/v3-cover.webp" alt="The cover: the litter in the clearing and two choices, Use your hand or Use the mouse"></td>
-    <td width="50%"><img src="docs/readme/v3-standoff.webp" alt="A fish dropped between two kittens: both bristle and hiss, the MIND panel reads 'mine! hss!'"></td>
+    <td width="50%"><img src="docs/readme/v3/feast.webp" alt="A fish lands between two kittens; both rush in, bristle and hiss, and one backs off"></td>
+    <td width="50%"><img src="docs/readme/v3/ball.webp" alt="A rubber ball thrown in the jungle, a kitten chases it; then the snowfields, where the ball is a snowball"></td>
   </tr>
   <tr>
-    <td><b>One choice, then you are in.</b> Hand or mouse. No kitten to pick, no tool to learn. A short coach teaches by doing (approach, stroke, fish, feather), and every step clears only when it has really happened.</td>
-    <td><b>The whole litter answers.</b> Whichever kitten is nearest your hand becomes the one you are with, and the MIND panel switches to it in its own colour. Drop a fish and every hungry kitten rushes in. Two of them face off and hiss until one backs down. Left alone, siblings groom each other or square up.</td>
+    <td><b>Drop a fish.</b> Every hungry kitten nearby wants it. Two of them face off and hiss until one backs down, and the MIND panel reads <i>“mine! hss!”</i>.</td>
+    <td><b>Throw a ball.</b> Swing and pinch (or click) and the kittens give chase. In the snowfields the ball is a snowball.</td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/readme/v3-snow.webp" alt="The snowfields: a kitten chases a thrown snowball; the pouch holds Fish, Snowball and Hand"></td>
-    <td width="50%"><img src="docs/readme/v3-desert.webp" alt="The desert: a kitten laps at the water bowl the visitor set down; the MIND panel reads Drink, 'lap, lap, lap…'"></td>
+    <td width="50%"><img src="docs/readme/v3/water.webp" alt="In the desert a water bowl is set down; a kitten walks over and laps at it"></td>
+    <td width="50%"><img src="docs/readme/v3/scare.webp" alt="A hand waves fast above the litter; the kittens startle and scatter away from it"></td>
   </tr>
   <tr>
-    <td><b>Three habitats, three sets of things to carry.</b> Rest your hand on an edge arrow (or click it) to walk to the next habitat. The jungle has fish and a feather, the snowfields a snowball, and the desert a water bowl.</td>
-    <td><b>A pouch, not a toolbar.</b> Pinch a slot to pick an item up. It stays in your hand until you take something else, and the <b>Hand</b> slot empties it for stroking. In the desert, set the bowl down and a thirsty kitten comes to drink, tongue lapping.</td>
+    <td><b>Set down water.</b> A thirsty kitten comes to drink, tongue lapping, and a litter-mate passing by may join it.</td>
+    <td><b>Wave, and they scatter.</b> A fast hand near the kittens is a threat whichever way it moves. Stroking never counts as waving, and swinging a toy is play.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/readme/v3/journal.webp" alt="The end of a visit: Ember warmed to you most, with a score card for each kitten and three photos"></td>
+    <td width="50%" align="center"><img src="docs/readme/v3/phone.webp" alt="The visit on a phone: an even row of five pouch slots along the bottom, the MIND panel above it" width="62%"></td>
+  </tr>
+  <tr>
+    <td><b>A score for every kitten.</b> At the end, each kitten gets a card: half the trust it gained this visit, half the kinds of care it actually got, plus the photos taken at moments that mattered.</td>
+    <td><b>Phones too.</b> The pouch becomes one even row and the MIND panel sits above it.</td>
   </tr>
 </table>
+
+Every habitat has the same pouch: **Fish**, **Feather**, **Ball** (a snowball in the snow), **Water** and **Hand**. An item stays in your hand until you take another one, and **Hand** empties it for stroking. Rest your hand on an edge arrow (or click it) to walk to the **Jungle**, **Snowfields** or **Desert**.
+
+## One game, hand or mouse
 
 | You do | With your hand | With the mouse | The kittens |
 |---|---|---|---|
-| **Stroke** | Rest an open hand on a kitten and stroke along its back | Hold the pointer on it | It comes to a calm hand, purrs, and trust grows |
-| **Scare** | Wave or swat near them | A real lunge at them | They startle and scatter away from the hand |
+| **Stroke** | Rest your palm on a kitten's back | Hold the pointer on it | It purrs, trust grows; a tired, tense or hungry kitten can still say no |
 | **Lead** | Point one finger | Press and hold | The kitten follows your fingertip |
-| **Pick up** | Pinch a pouch slot (big targets; a pinch just beside one still counts) | Click a slot, or keys <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> | |
-| **Use it** | Pinch anywhere: drop a fish, throw a snowball, set the bowl down | Click | Food standoffs, chases, drinking |
+| **Pick up** | Pinch a pouch slot. A pinch just beside one still counts | Click a slot, or <kbd>1</kbd>–<kbd>4</kbd>, <kbd>5</kbd> for Hand | |
+| **Use it** | Pinch anywhere: drop a fish, throw the ball, set the water down | Click | Standoffs, chases, drinking |
+| **Scare** | Wave or swat near them | A real lunge at them | They startle and scatter |
 | **Change habitat** | Hold your hand on an edge arrow until its ring fills | Click an arrow, or <kbd>[</kbd> <kbd>]</kbd> | |
-| **Press any button** | Pinch it (pause, journal, help) | Click | |
+| **Any button** | Pinch it (pause, help, the journal) | Click | |
 
-**How the hand is read.** MediaPipe Hand Landmarker runs on the device in a worker (GPU first, CPU fallback). Openness and pinch are measured on the **3D** landmarks, so a palm turned down to stroke still counts as open and a pinch reads the same from any angle. The drawn hand keeps one size on screen however far away you stand. A small mirrored **camera preview** shows what the tracker sees. When tracking drops, the hand turns dashed blue and nothing is held against the visitor.
+## The AI you can see
 
-## The product problem
+**The MIND panel is always on screen.** It follows whichever kitten is nearest your hand and turns that kitten's colour when it switches. It shows what the kitten is doing, a line of what it is thinking, its five needs as numbers, how it reads your move, and the desires it is weighing, with the winner highlighted and a reason next to every blocked option. Hold <kbd>V</kbd> to see the same judgement drawn in the scene.
 
-The first prototypes read hand **speed** as intent: slow meant petting, fast meant threat. In a public room that broke down. Tracking jumps, someone shifting their weight and a passer-by all looked deliberate, so the cat either punished the visitor or obeyed like a button. Trust was a single number, and nobody could say which of their actions had changed it. And after Feed, Play and Pet had each been tried once, there was little left to discover.
+**Two kinds of “no”, never confused.** When the camera loses your hand, the hand turns dashed blue, contact stops, and nothing is held against you. When a kitten refuses, it says why (*“I'm tired”*, *“Food first”*). A refusal never costs trust.
 
-Brief V2 asked for an AI experience people can **understand and trust**. My answer in PRD V2 was to separate **evidence, intent and choice**, so that every response has a checkable cause. The build review then added the other half: **depth worth staying for**. The kitten needed to grow in ways you can see, to have relationships of its own, and to learn something from you.
-
-<p align="center"><img src="docs/readme/causes.webp" alt="Three cause layers: the system lost your hand; the gesture isn't clear yet; the kitten says no. None of them costs trust." width="100%"></p>
-
-## Design principles
-
-1. **Requests, not commands.** Every tool, hand shape and trick cue is an *offer*. The kitten may decline, and it always says why ("I'm tired", "We're not close enough for that yet"). [ADR-005](docs/decisions/README.md#adr-005-tools-are-requests-not-commands)
-2. **System uncertainty is never the creature's fault.** Lost or unclear tracking stops contact and penalties, and shows on the *hand* in dashed blue, never on the kitten. [ADR-004](docs/decisions/README.md#adr-004-separate-system-uncertainty-from-character-refusal)
-3. **Explainable by default, not on request.** Every decision records its candidates, blocked reasons and winner. Visitors can *Peek inside*; staff can read the exact numbers. [ADR-006](docs/decisions/README.md#adr-006-hard-constraints-then-utility) · [ADR-014](docs/decisions/README.md#adr-014-peek-inside-the-decision-trace-as-a-visitor-feature)
-4. **Learning you can see, check and forget.** Adaptation is small and bounded. Tricks are learned from your own three examples, with the distance shown. Everything clears at turnover. [ADR-007](docs/decisions/README.md#adr-007-bounded-statistical-adaptation-not-online-learning) · [ADR-019](docs/decisions/README.md#adr-019-teach-a-trick-few-shot-learning-on-the-device)
-5. **Progress that rewards balance, not grinding.** Growth needs every need met; bursts are capped per kind of care, so varied care grows fastest. [ADR-013](docs/decisions/README.md#adr-013-growth-the-visitor-can-see-and-work-towards)
-6. **Privacy by architecture.** Frames stay in memory. The venue keeps nothing between visitors, and a returning web visitor is remembered only in their own browser. [ADR-016](docs/decisions/README.md#adr-016-keepsakes-stay-with-the-visitor-not-the-venue)
-
-## From brief to product
-
-<p align="center"><img src="docs/readme/journey.webp" alt="Brief V1 to PRD V1 to Prototypes A and B, findings, then Brief V2 to PRD V2 to the V2 build and the next milestones" width="100%"></p>
-
-| Stage | The project lead asked for | I proposed | Agreed in review |
-|---|---|---|---|
-| **V1** | Care builds trust; first-timers understand; the creature has its own rhythm; three habitats | Three explicit tools where **the tool states the request and the cat decides**; a readable state machine; a recap at adulthood | Short session over full life cycle · browser prototype first · duration and language |
-| **V2** | Trained, evaluable gesture classes with `unknown`; hard constraints + utility; bounded adaptation after ≥ 3 events; turnover; Processing + JS | Three-layer cause model; 600 ms windowed classifier with rejection; utility with inertia and request boost; reason-code copy; participant-split data plan; 18 acceptance cases | Devices, venue light, recruitment, anonymous statistics, final copy |
-| **V2 build review** | More to do and to feel; visible growth; interaction between the kittens; a stronger AI hook; exhibition pull | Growth meter with capped bursts; distinct life stages; litter bonds and hand-shape requests; few-shot tricks; keepsakes and postcard; passers-by; Peek inside | Recorded as **[Proposal]** revisions in PRD V2, pending sign-off |
-
-## The V2 build (before the V3 redesign)
-
-The screens below are from the V2 build, where visitors chose a kitten and a tool and raised it through three chapters. They are kept as a record of the iteration; the live site runs V3.1.
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/readme/growth.webp" alt="A chapter card: The Snowfields. Long legs and oversized ears, its coat pattern comes in, its eyes start to change colour. New: hunting critters."></td>
-    <td width="50%"><img src="docs/readme/hand.webp" alt="The tracked hand drawn with five fingers; a fist held over Juniper reads Play-fight, hold, with a filling ring"></td>
-  </tr>
-  <tr>
-    <td><b>Growing up you can see.</b> The meter shows the percentage to the next chapter, the four needs that gate it and what the next chapter unlocks. Each chapter changes the kitten's body and adds an ability.</td>
-    <td><b>The hand the system sees.</b> The cursor is your tracked hand, five fingers and all. Hold a hand shape over a sibling to ask for something; the ring shows it is being read.</td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/readme/fight.webp" alt="Ember and Juniper tumble in a play-fight: dust, an impact burst, flying fur"></td>
-    <td width="50%"><img src="docs/readme/hiss.webp" alt="A standoff: both kittens bristling nose to nose, red jagged lines and a shaking HSSS!"></td>
-  </tr>
-  <tr>
-    <td><b>A litter with relationships.</b> Ask your kitten to make friends, cuddle up, play-fight or hiss. Each act moves its bond with that sibling, and the bond decides what it will agree to.</td>
-    <td><b>Boundaries, between kittens too.</b> It won't hiss at a close friend, and it hisses on its own at a sibling who crowds it while it eats or sleeps. None of it costs the visitor anything.</td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/readme/tricks.webp" alt="Teaching a spin: a golden trail follows the visitor's circle; the Tricks panel shows 1 of 3 examples"></td>
-    <td width="50%"><img src="docs/readme/cuddle.webp" alt="Ember and Juniper curled up together; Peek inside shows Cuddle up with Juniper chosen above Wander, Wash and Nap"></td>
-  </tr>
-  <tr>
-    <td><b>Teach it a trick.</b> Show any move three times. The kitten learns it on the device (nearest neighbour), shows how alike your examples were, and does the trick when you make the move again, if it's up for it.</td>
-    <td><b>Peek inside.</b> Press <kbd>T</kbd> to see what the kitten is weighing, what won, and why the others are blocked, in plain words. The footer says what it is: rules first, then hand-written scores.</td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/readme/contact.webp" alt="A hand rests on the kitten; hearts float up and purr rings spread"></td>
-    <td width="50%"><img src="docs/readme/toys.webp" alt="The Play toy tray with Yarn, Feather and Ball; a ball rolls away from the kitten"></td>
-  </tr>
-  <tr>
-    <td><b>Contact is accepted, not taken.</b> The kitten comes to a calm hand. Strokes brush its fur, it purrs and half-closes its eyes.</td>
-    <td><b>Three toys, one set of rules.</b> Yarn (your hand), a feather on a springy string (flick it too fast and it misses) and a ball that rolls on its own.</td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/readme/journal.webp" alt="The field journal: journal lines, a polaroid, chapter stamps, counts and a Save a postcard button"></td>
-    <td width="50%"><img src="docs/readme/postcard.webp" alt="A take-home postcard with three photos, the journal, chapter stamps and a code to visit again"></td>
-  </tr>
-  <tr>
-    <td><b>An honest goodbye.</b> At most three journal lines, each backed by a real event, and photos taken automatically at moments that mattered.</td>
-    <td><b>Something to take home.</b> A postcard drawn in the browser, never uploaded. On the website its code lets the kitten remember you next time; in the venue nothing is kept.</td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/readme/snow.webp" alt="Chapter 2: the snowfields, with snow-laden firs, long blue shadows and paw prints"></td>
-    <td width="50%"><img src="docs/readme/desert.webp" alt="Chapter 3: the desert, with wind ripples and low-poly red rock"></td>
-  </tr>
-  <tr>
-    <td><b>Chapter II · The Snowfields.</b> Lanky, big-eared, starting to hunt. Paw prints fill slowly with snow.</td>
-    <td><b>Chapter III · The Desert.</b> Grown, bringing gifts to someone it trusts, and still free to say no.</td>
-  </tr>
-</table>
-
-## What staff see
-
-<p align="center"><img src="docs/readme/refusal-staff.webp" alt="The kitten curls up to rest and declines to play; the staff panel shows input quality, exact needs and the decision trace" width="100%"></p>
-
-Press <kbd>D</kbd>. The panel answers the three questions Brief V2 asks staff to be able to answer: **what the system observed**, **what the kitten needs**, and **how the two produced this choice**. Here the visitor offers the yarn and sees one sentence, "I'm tired. Give me a little space." Staff see REST forced by the energy rule, with every other candidate scored or blocked.
-
-## AI system design
-
-<p align="center"><img src="docs/readme/arch.webp" alt="Camera, mouse, keyboard and an exhibition room camera feed one pure-JavaScript core: input track, motion intent and hand shapes, the trick learner, the creature core, and memory, bonds and growth. The world, UI, staff panel and sound only read its snapshot." width="100%"></p>
-
-**What kind of intelligence each part is.** The full statement is in [`docs/ai-boundaries.md`](docs/ai-boundaries.md).
+**Every choice has a recorded cause.** Each kitten runs the same core: hard constraints first (eating, retreating from pressure, energy too low), then hand-written utility over its behaviours, with inertia so it does not flicker. Every decision stores its candidates, blocked reasons and winner. The panel, the staff view (<kbd>D</kbd>) and the tests all read that same record.
 
 | Capability | Kind | Why this kind |
 |---|---|---|
-| Hand keypoints · people in the room | **Pre-trained model** (ml5 HandPose, BodyPose) | Solved problems; run locally; only keypoints or positions leave them |
-| Tracking quality · motion intent · hand shapes | **Rules** with `unknown`, behind the same output contract a trained model will use | Explainable, testable today; the trained gesture model (WP03) drops in behind the contract |
-| Teach a trick | **Learned on the device**: 1-nearest-neighbour over the visitor's own examples, with a distance threshold | Real learning from three examples in under a second, inspectable by the visitor, forgotten at turnover |
-| Choosing what to do | **Hard constraints → hand-written utility** over 13 behaviours | Safety is provable; character comes from scores; every choice is replayable |
-| Adaptation · bonds · growth | **Bounded statistics** (medians, capped counters) | Visible within one visit without pretending to know the visitor |
-| Journal · dreams | **Templates and replays** of real events | Nothing can be claimed that did not happen |
+| Hand keypoints | **Pre-trained model** (MediaPipe Hand Landmarker, on the device) | A solved problem; only 21 keypoints leave it |
+| Openness, pinch, pointing, waving, stroking | **Rules** over the keypoints, with `unknown` | Explainable and testable; a trained model can drop in behind the same contract |
+| What each kitten does | **Hard constraints → utility** with reason codes | Safety is provable, every choice is replayable |
+| Rhythm, bonds, scores | **Bounded statistics** | Visible within one visit without claiming to know the visitor |
+| What it learned about you | **Templates over real events** | Nothing is claimed that did not happen |
 
-**One decision, as the core makes it** (`v2/core/creature.js`, every 250 ms):
+The full statement is in [`docs/ai-boundaries.md`](docs/ai-boundaries.md).
 
-```text
-freeze if the session is not ACTIVE
-forced  ← eating lock | pressure retreat | energy < 0.15 → REST | social moment | trick in progress
-else    candidates ← 13 behaviours, each scored from needs, or blocked with a reason code
-        a request (tool, hand shape, trick cue) adds +0.25 if it is allowed
-        switch only if the best beats the current by 0.15 after a 600 ms hold
-record  { candidates, blocked reasons, winner, why } → staff panel, Peek inside, tests
-```
+## How the hand is read
 
-**Key parameters** (all in [`v2/core/config.js`](v2/core/config.js), each a PRD starting value or a recorded tuning note):
+- **In 3D.** Openness and pinch are measured on the 3D landmarks, so a palm turned down to stroke still reads as open and a pinch reads the same from any angle. A fist never counts as a pinch.
+- **Palm on the back.** When the centre of your palm rests on a kitten, that is stroking. No invitation or long wait is needed, only a moment's dwell so a hand sweeping past does not count.
+- **Strokes move; swats are fast.** A hand on the kitten may sweep along its back and still be contact. A hand moving fast near the kittens, in any direction, startles them.
+- **A reachable screen.** The camera is mapped so the bottom of the screen, where the pouch is, can be reached with the whole hand still in frame. Buttons have a small reach, so a tracked hand does not need pixel precision.
+- **One hand size.** The drawn hand keeps the same size on screen however near or far you stand.
+- **You can see what it sees.** A small mirrored camera preview shows the tracked hand and says *Hand found* or *Show one open hand*.
 
-| Area | Values |
-|---|---|
-| Tracking quality | sample age ≤ 200 ms · jump > 0.35 S rejected · lost after 500 ms |
-| Motion intent | 600 ms window · top ≥ 0.80 and margin ≥ 0.20 for 2 cycles, else `unknown` |
-| Hand shapes | 3D joint bend (2D reach fallback) · soft per-finger scores · smoothed α 0.35 · top ≥ 0.55, margin ≥ 0.15 · 500 ms hold · 1.5 s cooldown |
-| Tricks | 3 examples · 16 points → 32 features · 1-NN · reject beyond 0.32 or margin < 0.05 |
-| Adaptation | after 3 valid events · 0.8 / 0.2 smoothing · hard ranges · cleared at turnover |
-| Growth | gate: each need ≥ 0.20, mean ≥ 0.55, stress ≤ 0.40 · drift 1/150 per s · bursts capped at 0.24 of a chapter per cause per minute |
+## How it changed
 
-## Trust, safety and privacy
-
-- **No unfair penalties.** Invalid tracking never costs trust and never counts as success. A refusal never costs trust. Hissing between kittens never touches the visitor.
-- **Honest copy.** "I'm getting used to this rhythm", never "I know your personality". "Learned from your three examples", never "understands your gestures".
-- **Nothing kept at the venue.** Frames live in memory. At turnover the session, memory, bonds, tricks and keepsake state are destroyed and the camera is released. The next visitor meets a kitten that has never met anyone.
-- **The visitor owns their keepsake.** On the website a small record (visits, furthest chapter, gifts) stays in their own browser, with "Forget me". The postcard is drawn locally.
-- **Accessible paths.** Mouse and keyboard reach every feature: tools, toys, sibling requests, tricks. The ball toy plays on with no hand on screen.
+| Version | What it was | What we learned |
+|---|---|---|
+| **V1** · prototypes | Care tools (feed, play, pet) and a kitten with its own rhythm ([Prototype A](docs/prototype-a.md)) | Hand *speed* alone misread a public room; trust as one number explained nothing |
+| **V2** · [case study](docs/case-study-v2.md) | Evidence, intent and choice separated; reason codes; growth, bonds, few-shot tricks, keepsakes | It answered the brief, but visitors spent their first minute reading: pick a kitten, pick a tool, learn hand shapes |
+| **V3 → V3.1** · [spec](docs/design/experience-spec-v3.md) · [self-audit](docs/redesign/self-audit.zh.md) | No tools and no kitten to choose. The hand is the interface; the whole litter answers; three habitats with one pouch; MIND always on; a score per kitten | Real hands needed 3D features, a palm-on-back rule and bigger targets; those are in V3.1 |
 
 ## Evaluation
 
 | What | How | Where it stands |
 |---|---|---|
-| Product logic | 116 deterministic replay tests in CI (fixed seed, fixed 60 Hz clock) | ✅ AT01–AT17 that need no hardware, plus growth, litter, toys, tricks, keepsakes, multi-cat focus, food standoffs, habitats, stroke, wave and pinch features |
-| No unfair penalty | Replays with occlusion, flicker and pause | ✅ 0 trust lost to invalid tracking (AT02, AT09) |
-| Clean turnover | Replays across sessions | ✅ Logic verified (AT12, AT14); 30 rounds on the target device in WP06 |
-| First meaningful action | 8 / 10 first-time visitors within 30 s | 📝 Study ready ([plan](docs/research/usability-test-plan.md)) |
-| Reason understood | 8 / 10 explain one accept or refuse | 📝 Study ready |
-| Gesture model | Macro F1 ≥ 0.85 on held-out participants, with coverage and false-contact rate | 📝 Capture page and evaluator ready (WP03) |
-| Hand shapes · tricks on real hands | Recognition at venue distance and light | 📝 Not yet measured; no accuracy figure is claimed |
-
-## Key decisions and trade-offs
-
-| Decision | Trade-off accepted |
-|---|---|
-| Separate system uncertainty from character refusal ([ADR-004](docs/decisions/README.md#adr-004-separate-system-uncertainty-from-character-refusal)) | Two kinds of feedback to design and explain |
-| Hard constraints, then utility ([ADR-006](docs/decisions/README.md#adr-006-hard-constraints-then-utility)) | Hand-tuned scores instead of learned behaviour, in exchange for provable safety and replayability |
-| Bounded statistics, not online learning, for adaptation ([ADR-007](docs/decisions/README.md#adr-007-bounded-statistical-adaptation-not-online-learning)) | Smaller visible change, but nothing claimed that the data can't support |
-| No trust bar, but a growth meter ([ADR-009](docs/decisions/README.md#adr-009-no-trust-bar-on-the-public-screen), [ADR-013](docs/decisions/README.md#adr-013-growth-the-visitor-can-see-and-work-towards)) | Progress is the kitten's wellbeing, never a score of the visitor |
-| Hand shapes as requests with bonds ([ADR-017](docs/decisions/README.md#adr-017-hand-shapes-ask-the-kitten-about-its-siblings)) | Visitors sometimes hear "no", which is the point |
-| Few-shot nearest neighbour for tricks ([ADR-019](docs/decisions/README.md#adr-019-teach-a-trick-few-shot-learning-on-the-device)) | Less general than a trained network, but instant, local and inspectable |
-| Keepsakes with the visitor, not the venue ([ADR-016](docs/decisions/README.md#adr-016-keepsakes-stay-with-the-visitor-not-the-venue)) | No cross-visit analytics for the venue |
-
-## Roadmap
-
-| Work package | Next step |
-|---|---|
-| WP03 Perception | Capture with 16 participants; train the temporal gesture model and a hand-shape model; evaluate on held-out participants |
-| WP02 / WP05 Exhibition | Move the core into the local Node.js authority; build the Processing exhibition display |
-| WP06 Venue | 10-person usability and adaptation study; hand shapes and tricks on real hands; 4-hour run, 30 turnovers and latency on the target device |
+| Product logic | 119 deterministic replay tests in CI (fixed seed, fixed 60 Hz clock) | ✅ Acceptance cases AT01–AT17 that need no hardware, plus multi-cat focus, food standoffs, habitats, the pouch, stroke, wave, pinch and palm-on-back, and per-kitten scores |
+| No unfair penalty | Replays with occlusion, flicker and pause | ✅ No trust lost to invalid tracking |
+| Hand features | Synthetic 3D hands at different angles | ✅ Open, fist and pinch read the same when the hand is turned |
+| Real hands at the venue | Recognition rate of stroke and pinch at venue distance and light | 📝 Not yet measured; no accuracy figure is claimed ([study plan](docs/research/usability-test-plan.md)) |
 
 ## Repository map
 
 | Path | What |
 |---|---|
-| [`docs/brief/`](docs/brief) · [`docs/prd/`](docs/prd) | Both briefs and both PRDs, Markdown and PDF |
-| [`docs/traceability.md`](docs/traceability.md) · [`docs/decisions/`](docs/decisions/README.md) | Brief → spec → acceptance · 23 decision records |
-| [`docs/design/experience-spec.md`](docs/design/experience-spec.md) · [`experience-spec-v3.md`](docs/design/experience-spec-v3.md) | Two-layer state model, feedback mapping, recovery · the V3 flow, habitats and litter |
-| [`docs/redesign/`](docs/redesign) | Self-audit of the V2 build and the reasoning behind V3 |
-| [`docs/research/`](docs/research) | Usability and adaptation study · gesture dictionary and data plan |
-| [`docs/ai-boundaries.md`](docs/ai-boundaries.md) · [`docs/STATUS.md`](docs/STATUS.md) | Model, rule, learned or statistics · planned, implemented, verified, confirmed |
-| [`v2/core/`](v2/core) | The authority: pure ES modules, no DOM, run in the page and under `node --test` ([V2 README](v2/README.md)) |
-| [`v2/browser/`](v2/browser) | Camera and hand worker, habitats (`biomes.js`), kitten body, rendering, UI and MIND panel, camera preview, coach, staff panel, sound, keepsakes |
-| [`test/`](test) | Replay tests mapped to acceptance cases |
-| [`tools/`](tools) | Research capture page and gesture evaluator |
-| [`prototypes/`](prototypes) | Prototype A, autonomous life ([page](docs/prototype-a.md)) · Prototype B, care tools |
+| [`v2/core/`](v2/core) | The authority: pure ES modules, no DOM, run in the page and under `node --test` |
+| [`v2/browser/`](v2/browser) | Camera and hand worker, habitats, kitten body, rendering, UI and MIND panel, camera preview, coach, sound ([module guide](v2/README.md)) |
+| [`test/`](test) | Replay tests |
+| [`docs/design/`](docs/design) · [`docs/redesign/`](docs/redesign) | Experience specs and mock-ups · the self-audit behind V3 |
+| [`docs/case-study-v2.md`](docs/case-study-v2.md) | The V2 case study: brief to PRD to build, with its screenshots |
+| [`docs/brief/`](docs/brief) · [`docs/prd/`](docs/prd) · [`docs/decisions/`](docs/decisions/README.md) | Briefs, PRDs and decision records |
+| [`prototypes/`](prototypes) · [`tools/`](tools) | The V1 prototypes · research capture page and gesture evaluator |
 
 ## Run it
 
@@ -252,12 +136,12 @@ record  { candidates, blocked reasons, winner, why } → staff panel, Peek insid
 python3 -m http.server 8790
 ```
 
-Open <http://localhost:8790/> in Chrome. The camera needs `localhost` or `https`. p5.js, the hand model, the fonts and the QR library ship locally, so everything works offline. Add `?kiosk=1` for exhibition mode, `?input=mouse` to skip the cover, or `?watch=demo` to see the litter notice a demo passer-by.
+Open <http://localhost:8790/> in Chrome. The camera needs `localhost` or `https`. p5.js, the hand model and the fonts ship with the app, so it works offline. Add `?input=mouse` to skip the cover, or `?kiosk=1` for exhibition mode.
 
 | Key | Action |
 |---|---|
 | `Enter` on the cover | Start with the mouse |
-| `1` `2` · `3` | Take this habitat's first or second item · empty hand |
+| `1`–`4` · `5` | Take Fish, Feather, Ball or Water · empty hand |
 | `[` `]` | Previous or next habitat |
 | Hold `V` or press `T` | Show what the kitten sees in the scene |
 | `Esc` | Put the item down, or pause and resume |
