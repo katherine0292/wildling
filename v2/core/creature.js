@@ -191,7 +191,7 @@ export class CreatureCore {
     this.checkHiss(ctx);
     this.updateTrick(dt, ctx);
 
-    const canGrow = ctx.active && !this.demo && ctx.time >= this.transitionUntil;
+    const canGrow = ctx.active && !this.demo && ctx.growth !== false && ctx.time >= this.transitionUntil;
     const g = growthStep(this, dt, canGrow, this.p);
     this.afterGrowth(g, ctx);
     // a completed act of care is also a burst of growth

@@ -52,12 +52,18 @@ class HintBoard {
 }
 
 export class Simulation {
-  constructor({ world = { w: 16 / 9, h: 1 }, params = PARAMS, seed = 7, adaptation = true, lang = 'en', timed = true } = {}) {
+  constructor({ world = { w: 16 / 9, h: 1 }, params = PARAMS, seed = 7, adaptation = true, lang = 'en', timed = true, toolless = false, growth = true } = {}) {
     this.p = params;
     this.world = world;
     this.rand = mulberry32(seed);
     this.lang = lang;
     this.session = new SessionController(params, this.rand, { timed });
+    // Toolless mode (experience spec V3): there is no tool to pick. An empty hand is a hand,
+    // and what the visitor holds from the pouch (a treat, the feather wand) decides the rest.
+    this.toolless = toolless;
+    this.held = null;
+    // With growth off the kitten stays a kitten; the bond is the progress instead.
+    this.growthOn = growth;
     this.track = new InputTrack(world, params);
     this.pinch = new PinchDetector(params);
     this.intentClf = new IntentClassifier(params);
@@ -76,7 +82,7 @@ export class Simulation {
     this.acc = 0;
     this.intentAcc = 0;
     this.intent = this.intentClf.current;
-    this.tool = 'FEED';
+    this.tool = toolless ? 'PET' : 'FEED';
     this.keyboardHold = false;
     this.log = [];             // every semantic event of this session (cleared at reset)
     this.out = [];             // events for audio / UI, drained by the page
@@ -109,6 +115,8 @@ export class Simulation {
     this.gifts = [];
     this.toy = { kind: 'yarn', x: null, y: null, vx: 0, vy: 0, live: false, thrownAt: 0 };
     this.handPrev = null;
+    this.held = null;
+    if (this.toolless) this.tool = 'PET';
   }
 
   between([a, b]) { return a + this.rand() * (b - a); }
@@ -151,13 +159,16 @@ export class Simulation {
         s.chooseInput(cmd.source);
         break;
       case 'calibration_failed': s.backToConsent(cmd.reason ?? 'camera_failed'); break;
+      case 'hold': this.hold(cmd.item ?? null); break;
       case 'select_tool':
+        if (this.toolless) break;
         if (['FEED', 'PLAY', 'PET', 'WAIT', 'LITTER', 'TRICK'].includes(cmd.tool)) { this.tool = cmd.tool; s.noteActivity(); if (cmd.tool !== 'TRICK') this.learner.cancel(); }
         break;
       case 'confirm': {
         s.noteActivity();
         if (s.state !== 'ACTIVE') break;
         // siblings are asked with the Siblings tool (social_request), never by a stray click
+        if (this.toolless) { if (this.held === 'treat' && this.dropFood(cmd.x, cmd.y)) this.hold(null); break; }
         if (this.tool === 'FEED') this.dropFood(cmd.x, cmd.y);
         else if (this.tool === 'PLAY' && this.toy.kind === 'ball') this.throwBall(cmd.x, cmd.y);
         break;
@@ -195,6 +206,16 @@ export class Simulation {
     return { ack: cmd.id ?? null };
   }
 
+  // Toolless mode: take something from the pouch, or put it back (item null).
+  hold(item) {
+    if (!this.toolless || !['treat', 'wand', null].includes(item)) return;
+    this.held = item;
+    this.tool = item === 'treat' ? 'FEED' : item === 'wand' ? 'PLAY' : 'PET';
+    if (item === 'wand' && this.toy.kind !== 'feather') Object.assign(this.toy, { kind: 'feather', live: false, vx: 0, vy: 0 });
+    this.session.noteActivity();
+    this.out.push({ type: 'held', item });
+  }
+
   setWorld(world) {
     this.world = world;
     this.track.setWorld(world);
@@ -205,13 +226,13 @@ export class Simulation {
   dropFood(nx, ny) {
     const f = this.p.feed;
     const now = this.clock;
-    if (now - this.lastFeedAt < f.cooldownMs) return;
+    if (now - this.lastFeedAt < f.cooldownMs) return false;
     this.lastFeedAt = now;
     const x = nx * this.world.w, y = ny * this.world.h;
     const cat = this.cat;
-    if (!cat) return;
-    if (!(nx > 0.03 && nx < 0.97 && ny > 0.04 && y < this.world.h - f.toolbarBandS)) { this.hints.offer('FOOD_INVALID', now / 1000); return; }
-    if (cat.foods.length >= f.maxFood) { this.hints.offer('FOOD_LIMIT', now / 1000); return; }
+    if (!cat) return false;
+    if (!(nx > 0.03 && nx < 0.97 && ny > 0.04 && y < this.world.h - f.toolbarBandS)) { this.hints.offer('FOOD_INVALID', now / 1000); return false; }
+    if (cat.foods.length >= f.maxFood) { this.hints.offer('FOOD_LIMIT', now / 1000); return false; }
     cat.addFood({ id: `f${++this.foodSeq}`, x, y, born: this.simTime });
     this.out.push({ type: 'food_dropped' });
     if (cat.needs.fullness >= this.p.limits.fullAt) {
@@ -219,6 +240,7 @@ export class Simulation {
       cat.emit('refusal', this.ctx(), { reasonCode: 'TOO_FULL', measurement: { request: 'SEEK_FOOD' } });
       cat.hint('TOO_FULL');
     }
+    return true;
   }
 
   siblingAt(nx, ny, r = 0.1) {
@@ -476,6 +498,7 @@ export class Simulation {
       ctx.critter = this.critter && !this.critter.fleeing ? { id: this.critter.id, kind: this.critter.kind, x: this.critter.x, y: this.critter.y } : null;
       if (s.state === 'ACTIVE') { this.directLitter(); this.stepCritter(dt); this.readMoves(); }
       ctx.toy = s.state === 'ACTIVE' ? this.stepToy(dt) : null;
+      ctx.growth = this.growthOn;
       this.cat.step(dt, ctx);
       this.collect(ctx);
       this.systemHints(nowS);
@@ -632,7 +655,8 @@ export class Simulation {
     this.memory.reset();
     this.log = [];
     this.recap = null;
-    this.tool = 'FEED';
+    this.tool = this.toolless ? 'PET' : 'FEED';
+    this.held = null;
     this.hints.clear();
   }
 
@@ -710,6 +734,7 @@ export class Simulation {
       },
       stillThere: s.stillThere,
       offerEnd: s.offerEnd,
+      timed: s.timed,
       kitten: { id: c.kitten.id, name: c.kitten.name, temperament: c.kitten.temperament },
       litter: (s.state === 'ATTRACT' || !this.cat ? this.litter.filter((x) => x !== c) : this.siblings).map((x) => ({
         id: x.id, kitten: x.kitten.id, position: { x: x.x / W, y: x.y / H }, heading: x.heading,
@@ -770,6 +795,8 @@ export class Simulation {
       },
       intent: { ...this.intent },
       activeTool: this.tool,
+      toolless: this.toolless,
+      held: this.held,
       displayHint: hint ? { code: hint.code, owner: hint.owner } : null,
       reasonCode: hint?.code ?? null,
       diagnostics: {
