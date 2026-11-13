@@ -182,6 +182,7 @@ const sketch = (p) => {
     if (k === 'm' || k === 'M') { soundOn = !soundOn; sound.setOn(soundOn); return; }
     // the pouch: 1 a treat, 2 the feather; Esc puts it back before it pauses the visit
     if (st === 'ACTIVE' && (k === '1' || k === '2')) { const items = sim.snapshot().items ?? ['treat', 'wand']; ui.take(items[Number(k) - 1]); return; }
+    if (st === 'ACTIVE' && k === '3') { ui.take('hand'); return; }
     if (st === 'ACTIVE' && (k === '[' || k === ']')) { dispatch({ type: 'scene', dir: k === ']' ? 1 : -1 }); return; }
     if (k === 'Escape' && st === 'ACTIVE' && sim.held) { dispatch({ type: 'hold', item: null }); return; }
     if (k === 'Escape') { if (st === 'ACTIVE') dispatch({ type: 'pause', reason: 'user' }); else if (st === 'PAUSED') dispatch({ type: 'resume' }); return; }

@@ -8,6 +8,7 @@
 import { COPY, KITTENS } from '../core/config.js';
 import { CAMERA_ERRORS } from './camera.js';
 import { kit } from './kit.js';
+import { svg } from './icons.js';
 import { drawPostcard } from './keepsake.js';
 
 const $ = (id) => document.getElementById(id);
@@ -47,8 +48,8 @@ const ITEM_LOOK = {
   bowl: { label: 'Water', icon: () => BOWL },
 };
 const ITEM_GUIDE = {
-  treat: { camera: 'Open your hand, move to any spot, then pinch to drop the fish', pointer: 'Click anywhere to drop the fish. Every kitten nearby will want it' },
-  wand: { camera: 'Move the feather in short darts, then pause. Pinch the slot again to put it back', pointer: 'Move the feather in short darts, then pause. Click the slot again to put it back' },
+  treat: { camera: 'Open your hand, move to any spot, then pinch to drop a fish. The basket stays in your hand', pointer: 'Click anywhere to drop a fish. Every kitten nearby will want it' },
+  wand: { camera: 'Move the feather in short darts, then pause. Pinch Hand to put it down', pointer: 'Move the feather in short darts, then pause. Click Hand to put it down' },
   snowball: { camera: 'Swing your hand and pinch to throw the snowball', pointer: 'Move, then click to throw the snowball' },
   bowl: { camera: 'Move to where the bowl should go, then pinch to set it down', pointer: 'Click where the water bowl should go' },
 };
@@ -153,7 +154,7 @@ export class UI {
     for (const b of document.querySelectorAll('.scene-arrow')) b.addEventListener('click', (e) => { e.stopPropagation(); dispatch({ type: 'scene', dir: Number(b.dataset.dir) }); });
     for (const b of document.querySelectorAll('.scene-arrow')) b.addEventListener('pointerdown', (e) => e.stopPropagation());
     for (const b of document.querySelectorAll('#pouch .slot')) {
-      b.querySelector('.w').innerHTML = b.dataset.item === 'treat' ? FISH_BASKET : kit(`inventory/${b.dataset.item}`, 28);
+      b.querySelector('.w').innerHTML = b.dataset.item === 'treat' ? FISH_BASKET : b.dataset.item === 'hand' ? svg('HAND', 30) : kit(`inventory/${b.dataset.item}`, 28);
       b.addEventListener('click', (e) => { e.stopPropagation(); this.take(b.dataset.item); });
       b.addEventListener('pointerdown', (e) => e.stopPropagation());
     }
@@ -171,9 +172,24 @@ export class UI {
     return !!document.elementFromPoint(x, y)?.closest('button, [role="dialog"], #pouch, #coach');
   }
 
+  // A tracked hand is never pixel-exact: the button under the hand wins, else the nearest
+  // visible button within a small reach, so a pinch just beside a pouch slot still takes it.
+  buttonAt(x, y, reach = 56) {
+    const under = document.elementFromPoint(x, y)?.closest('button');
+    if (under) return under;
+    let best = null, bestD = reach;
+    for (const b of document.querySelectorAll('button')) {
+      if (b.disabled || b.classList.contains('dwell') || !b.offsetParent || b.closest('[hidden]')) continue; // edge arrows need the hand right on them
+      const r = b.getBoundingClientRect();
+      if (!r.width || !r.height) continue;
+      const d = Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
+      if (d < bestD && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('button') === b) { best = b; bestD = d; }
+    }
+    return best;
+  }
+
   activateAt(x, y) {
-    const target = document.elementFromPoint(x, y);
-    const button = target?.closest('button');
+    const button = this.buttonAt(x, y);
     if (button && !button.disabled) {
       button.click();
       return true;
@@ -181,8 +197,14 @@ export class UI {
     return this.blocksSceneAt(x, y);
   }
 
-  // Take something from the pouch, or put it back if it is already in hand.
-  take(item) { this.dispatch({ type: 'hold', item: this.held === item ? null : item }); }
+  // Take something from the pouch. It stays in hand until something else is taken; the Hand
+  // slot empties the hand for stroking. Taking what is already held changes nothing, so a
+  // second pinch on the same slot never drops it by accident.
+  take(item) {
+    const next = item === 'hand' ? null : item;
+    if (next === (this.held ?? null)) return;
+    this.dispatch({ type: 'hold', item: next });
+  }
 
   showHow(on, cam = this.lastSource === 'camera') {
     if (on) $('howGrid').innerHTML = HOW.map(([icon, t, d, mouse]) => `<div class="how-item">${kit(icon, 26)}<b>${t}</b><span>${cam ? d : mouse}</span></div>`).join('');
@@ -272,7 +294,7 @@ export class UI {
     const items = snap.items ?? ['treat', 'wand'];
     if (this.itemsShown !== items.join()) {
       this.itemsShown = items.join();
-      [...document.querySelectorAll('#pouch .slot')].forEach((b, i) => {
+      [...document.querySelectorAll('#pouch .slot:not(.hand)')].forEach((b, i) => {
         b.dataset.item = items[i];
         b.querySelector('.w').innerHTML = ITEM_LOOK[items[i]].icon();
         b.querySelector('.l').textContent = ITEM_LOOK[items[i]].label;
@@ -314,7 +336,7 @@ export class UI {
     const dom = cam && at && st !== 'ACTIVE';
     ptr.hidden = !dom;
     if (dom) { ptr.style.left = `${at.x}px`; ptr.style.top = `${at.y}px`; }
-    const target = at ? document.elementFromPoint(at.x, at.y)?.closest('button') : null;
+    const target = at ? this.buttonAt(at.x, at.y) : null;
     if (target !== this.handTarget) {
       this.handTarget?.classList.remove('hand-target');
       this.handTarget?.style.setProperty('--p', '0%');
@@ -483,7 +505,7 @@ export class UI {
     const need = this.pulse ? null : snap.need?.hint ? snap.need : null;
     const call = this.pulse ?? NEED_ITEM[need?.kind] ?? null;
     for (const b of document.querySelectorAll('#pouch .slot')) {
-      b.setAttribute('aria-pressed', String(b.dataset.item === snap.held));
+      b.setAttribute('aria-pressed', String(b.dataset.item === (snap.held ?? 'hand')));
       b.classList.toggle('pulse', call === b.dataset.item && snap.held !== b.dataset.item);
     }
     if (snap.sessionId !== this.albumSession) { this.albumSession = snap.sessionId; this.album = []; this.saved = false; }
@@ -507,7 +529,8 @@ export class UI {
       bubble.style.left = `${x.catPx.x}px`;
       bubble.style.top = `${Math.max(110, x.catPx.y - x.catPx.r * 0.95)}px`;
     } else { bubble.className = 'glass'; this.bubbleCode = null; }
-    if (h && h.owner === 'system' && !(cam && h.code === 'TRACKING_LOST')) {
+    // a lost hand shows in the camera preview; a mouse resting on a panel is not lost at all
+    if (h && h.owner === 'system' && h.code !== 'TRACKING_LOST') {
       sys.innerHTML = `${kit(h.code === 'TRACKING_LOST' ? 'ai/hand-lost' : 'ai/motion-unclear', 20)}<span>${this.copy[h.code] ?? h.code}</span>`;
       sys.className = 'glass show';
 
