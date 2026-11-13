@@ -3,180 +3,119 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Wildling · Learning each other's distance</title>
-  <meta name="description" content="An explainable AI creature for a public exhibition: it tells you when it cannot see your hand, why it says no, and adapts a little to your rhythm.">
+  <title>Wildling · A first meeting</title>
+  <meta name="description" content="Three wild kittens live in a forest clearing. Choose one and earn its trust with your hand: an explainable AI creature that tells you when it cannot see you and why it says no.">
   <link rel="icon" href="assets/crest.svg">
   <link rel="stylesheet" href="style.css">
   <script src="vendor/p5.min.js"></script>
   <script src="vendor/qrcode.js"></script>
 </head>
 <body>
-  <main id="stage" aria-label="Wildling, a litter of virtual wild kittens"></main>
+  <main id="stage" aria-label="Wildling, a litter of wild kittens in a forest clearing"></main>
   <div id="tags" aria-hidden="true"></div>
 
-  <!-- ATTRACT: the field guide -->
-  <section id="guide" class="screen" hidden>
-    <aside class="guide-panel frame reveal" aria-label="Field guide">
-      <header class="brand">
-        <img class="crest" src="assets/crest.svg" alt="">
-        <div>
-          <div class="wordmark">Wildling</div>
-          <div class="subtitle">Learning each other's distance</div>
-        </div>
-      </header>
-      <div class="rule"><i></i></div>
-      <nav class="tabs" role="tablist" aria-label="Field guide sections">
-        <kbd class="glyph">Q</kbd>
-        <button role="tab" data-tab="litter">Kittens</button>
-        <button role="tab" data-tab="care">Care</button>
-        <button role="tab" data-tab="habitats">Habitats</button>
-        <button role="tab" data-tab="journal">Journal</button>
-        <kbd class="glyph">E</kbd>
-      </nav>
-      <div class="panes">
-        <div class="pane" data-pane="litter">
-          <p class="lede">Three wild kittens share this clearing. Choose one to meet. The other two will keep to themselves.</p>
-          <div class="kittens" id="kittenCards"></div>
-        </div>
-        <div class="pane" data-pane="care">
-          <p class="lede">A tool says what you are <em>offering</em>. Your kitten decides whether to accept.</p>
-          <div class="rows" id="careRows"></div>
-        </div>
-        <div class="pane" data-pane="habitats">
-          <p class="lede">Balanced care grows your kitten through three chapters. Each one changes how it looks and unlocks something new.</p>
-          <div class="rows" id="habitatRows"></div>
-        </div>
-        <div class="pane" data-pane="journal">
-          <p class="lede">What the kitten remembers, and what it never keeps.</p>
-          <ul class="ledger">
-            <li id="memoryRule"><b>This visit only.</b> Your kitten remembers a few real moments from this session, and forgets them all when you leave.</li>
-            <li><b>No video is saved.</b> The camera looks for one hand. Frames stay in this browser and are never recorded or uploaded.</li>
-            <li><b>Your browser still asks.</b> Using the camera always needs your permission. A mouse or the keyboard works just as well.</li>
-            <li><b>A postcard to keep.</b> At the end you can save a postcard with photos from your visit. It is made in this browser, not uploaded.</li>
-            <li><b>Growing up is the goal.</b> Balanced care fills the growth meter. Stepping back counts as care too, and your kitten still decides.</li>
-          </ul>
-          <button class="link" id="btnForget" hidden>Forget me in this browser</button>
-        </div>
+  <!-- ENTRY: the litter is the menu -->
+  <section id="entry" class="screen" hidden>
+    <div class="entry-title">
+      <h1>Wildling</h1>
+      <p>Three wild kittens live in this clearing.<br>Choose one, and earn its trust.</p>
+      <div class="entry-actions">
+        <button class="btn primary" id="btnStart">Meet them</button>
+        <button class="btn glass" id="btnHow">How it works</button>
       </div>
-      <div class="facts"><span><b>3</b>kittens</span><span><b>3</b>habitats</span><span><b>4</b>ways to care</span><span><b>~4</b>minutes</span></div>
-      <footer class="guide-cta">
-        <button class="cta" id="btnStart"><span>Let's say hello</span><kbd class="glyph">Enter</kbd></button>
-        <p class="prompt">Move closer, or start with a mouse</p>
-      </footer>
-    </aside>
+      <p class="entry-note" id="entryNote">Point at a kitten to meet it first.</p>
+    </div>
   </section>
 
-  <!-- CONSENT: choose an approach -->
+  <!-- HOW IT WORKS: four moves, no reading required -->
+  <section id="how" class="screen dim" hidden>
+    <div class="card glass how-card" role="dialog" aria-labelledby="howTitle">
+      <h2 id="howTitle">Four things you can do</h2>
+      <p class="sub">Nothing to select. Your hand, and what it holds, says what you mean.</p>
+      <div class="how-grid" id="howGrid"></div>
+      <p class="fine">The kitten can say no to any of them. It is never your fault when the camera loses your hand.</p>
+      <div class="card-actions"><button class="btn primary" id="btnHowClose">Got it</button></div>
+    </div>
+  </section>
+
+  <!-- INPUT: one question, asked in place -->
   <section id="consent" class="screen dim" hidden>
-    <div class="modal frame reveal">
-      <div class="eyebrow center">Before you begin</div>
-      <h2 class="display center">Choose your approach</h2>
-      <div class="rule"><i></i></div>
-      <div class="options">
-        <button class="option" id="btnCamera"></button>
-        <button class="option" id="btnMouse"></button>
-        <button class="option" id="btnKeyboard"></button>
+    <div class="card glass input-card" role="dialog" aria-labelledby="inputTitle">
+      <h2 id="inputTitle">How will you say hello?</h2>
+      <p class="sub">You can switch at any time.</p>
+      <div class="opts">
+        <button class="opt recommended" id="btnCamera"></button>
+        <button class="opt" id="btnMouse"></button>
       </div>
-      <p class="fineprint">The camera only looks for one hand. Frames stay in this browser and are never saved. Your browser will still ask for permission.</p>
       <p class="error" id="cameraError" hidden></p>
-      <button class="link" id="btnCancel">Back to the kittens</button>
+      <p class="fine split"><span>The camera only looks for one hand. Nothing is recorded or uploaded.</span><button class="textlink" id="btnKeyboard">Use the keyboard</button></p>
+      <button class="textlink back" id="btnCancel">Back to the clearing</button>
     </div>
   </section>
 
   <!-- CALIBRATING -->
   <section id="calibrate" class="screen" hidden>
     <div class="guide-ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46"/><circle id="calibArc" cx="50" cy="50" r="46"/></svg></div>
-    <div class="modal small frame">
-      <h2 class="display center">Show one open hand</h2>
-      <p class="center" id="calibStatus"></p>
-      <button class="link" id="btnCalibMouse">Use the mouse instead</button>
+    <div class="card glass small calib-card">
+      <h2>Hold up one open hand</h2>
+      <p id="calibStatus"></p>
+      <button class="textlink" id="btnCalibMouse">Use the mouse instead</button>
     </div>
   </section>
 
-  <!-- ACTIVE: heads-up display -->
+  <!-- ACTIVE -->
   <div id="ui" hidden>
-    <header id="hud" class="plate frame">
-      <div class="numeral" id="numeral">I</div>
-      <div class="plate-body">
-        <div class="eyebrow" id="chapter"></div>
-        <div class="kname"><span id="kname"></span><span class="temper" id="temper"></span></div>
-        <div class="relation"><span class="pips" id="pips"><i></i><i></i><i></i></span><span id="relation"></span></div>
-      </div>
+    <header id="who" class="glass" aria-live="polite">
+      <span class="face" id="face"></span>
+      <span class="who-text"><b id="kname"></b><span class="bond"><span class="hearts" id="hearts" aria-hidden="true"><i></i><i></i><i></i></span><span id="relation"></span></span></span>
     </header>
-    <section id="growthPanel" class="plate frame" aria-label="Growing up">
-      <div class="gp-head"><span class="gp-title" id="gpTitle">Growing up</span><span class="gp-pct" id="gpPct">0%</span></div>
-      <div class="gp-track" id="gpTrack"><i id="gpFill"></i><span class="gp-pop" id="gpPop"></span></div>
-      <div class="gp-steps" id="gpSteps"></div>
-      <div class="gp-needs" id="gpNeeds"></div>
-      <div class="gp-status" id="gpStatus"></div>
-      <div class="gp-next" id="gpNext"></div>
-    </section>
-    <div id="treasures" class="chip" hidden></div>
-    <aside id="mind" class="frame" hidden aria-live="off"></aside>
-    <div id="topright">
-      <div id="inputStatus" class="chip" role="status"></div>
-      <button id="btnMind" class="chip" aria-pressed="false"></button>
-      <button id="btnHelp" class="chip" aria-label="Show the tutorial">?</button>
-      <button id="btnSound" class="chip"></button>
-      <button id="btnEnd" class="chip">End visit</button>
-    </div>
-    <div id="bubble" role="status" aria-live="polite"></div>
-    <div id="sysHint" role="status" aria-live="assertive"></div>
-    <div id="toolHint"></div>
-    <nav id="toyTray" aria-label="Toys" hidden></nav>
-    <div id="wheel" role="menu" aria-label="Ask about a sibling" hidden></div>
-    <aside id="tricksPanel" class="frame" aria-label="Tricks" hidden></aside>
-    <div id="coachArt" class="coach-art" aria-hidden="true" hidden></div>
-    <section id="coach" class="coach" role="status" aria-live="polite" hidden></section>
-    <div id="dream" aria-hidden="true" hidden><div class="dream-cloud"><img id="dreamImg" alt=""><span id="dreamCap"></span></div><i></i><i></i></div>
-    <nav id="toolbar" aria-label="Care tools"></nav>
-    <div id="still" class="toast frame" hidden></div>
-    <div id="offerEnd" class="toast slim" hidden></div>
-  </div>
-
-  <!-- CHAPTER CELEBRATION -->
-  <div id="celebrate" hidden aria-live="polite">
-    <div class="cel-card frame">
-      <div class="eyebrow center" id="celEyebrow"></div>
-      <h2 class="display center" id="celTitle"></h2>
-      <p class="center cel-sub" id="celSub"></p>
-      <ul class="cel-list" id="celList"></ul>
-    </div>
+    <nav id="sys" aria-label="Visit controls">
+      <button class="ib glass" id="btnMind" aria-pressed="false" aria-label="See what it sees (T)" title="See what it sees · T"></button>
+      <button class="ib glass" id="btnSound" aria-label="Sound"></button>
+      <button class="ib glass" id="btnHelp" aria-label="How it works"></button>
+      <button class="ib glass" id="btnEnd" aria-label="End the visit" title="End the visit"></button>
+    </nav>
+    <div id="inputStatus" class="glass" role="status" hidden></div>
+    <aside id="mind" class="glass" hidden aria-live="off"></aside>
+    <div id="bubble" class="glass" role="status" aria-live="polite"></div>
+    <div id="sysHint" class="glass" role="status" aria-live="assertive"></div>
+    <div id="coach" class="glass" role="status" aria-live="polite" hidden></div>
+    <nav id="pouch" class="glass" aria-label="Pouch: pick something up">
+      <span class="cap">Pick one up</span>
+      <button class="slot" data-item="treat" aria-pressed="false"><span class="w"></span><span class="l">Treat</span><kbd>1</kbd></button>
+      <button class="slot" data-item="wand" aria-pressed="false"><span class="w"></span><span class="l">Feather</span><kbd>2</kbd></button>
+    </nav>
+    <div id="still" class="toast glass" hidden></div>
+    <div id="offerEnd" class="toast glass slim" hidden></div>
   </div>
 
   <!-- PAUSED -->
   <section id="paused" class="screen dim" hidden>
-    <div class="modal small frame reveal">
-      <h2 class="display center">Paused</h2>
-      <p class="center" id="pausedReason"></p>
-      <div class="btns center">
-        <button class="cta small" id="btnResume">Continue</button>
-        <button class="ghost" id="btnSwitch">Switch to mouse</button>
-        <button class="ghost" id="btnPausedEnd">End visit</button>
+    <div class="card glass small">
+      <h2>Paused</h2>
+      <p id="pausedReason" class="sub"></p>
+      <div class="card-actions">
+        <button class="btn glass" id="btnSwitch">Switch to mouse</button>
+        <button class="btn glass" id="btnPausedEnd">End visit</button>
+        <button class="btn primary" id="btnResume">Continue</button>
       </div>
     </div>
   </section>
 
   <!-- REFLECTION: field journal -->
   <section id="reflection" class="screen dim" hidden>
-    <article class="journal frame reveal">
-      <header class="journal-head">
-        <div class="seal" id="seal"><span id="sealNumeral">I</span></div>
-        <div>
-          <div class="eyebrow">Field journal</div>
-          <h2 class="display" id="reflectTitle"></h2>
-          <div class="subtitle" id="reflectSub"></div>
-        </div>
-      </header>
-      <div class="rule"><i></i></div>
-      <ol id="recap"></ol>
+    <article class="card glass journal">
+      <div class="eyebrow" id="reflectEyebrow"></div>
+      <h2 id="reflectTitle"></h2>
+      <p class="sub" id="reflectSub"></p>
       <div class="album" id="album"></div>
-      <div class="steps-row" id="journalSteps"></div>
-      <div class="tally" id="recapCounts"></div>
-      <p class="fineprint" id="keepNote">This relationship lives only in this visit. The next visitor meets a kitten that has never met anyone.</p>
+      <ol id="recap"></ol>
       <div class="journal-actions">
-        <button class="ghost" id="btnPostcard"></button>
-        <button class="cta" id="btnNext"></button>
+        <span class="fine" id="keepNote"></span>
+        <span class="card-actions">
+          <button class="btn glass" id="btnPostcard"></button>
+          <button class="btn primary" id="btnNext"></button>
+        </span>
       </div>
     </article>
   </section>
