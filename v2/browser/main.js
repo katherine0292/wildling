@@ -22,6 +22,7 @@ import { KITTENS } from '../core/config.js';
 import { Keepsakes } from './keepsake.js';
 import { PassersBy } from './presence.js';
 import { Coach } from './coach.js';
+import { CameraPreview } from './campreview.js';
 
 // Moments worth a photo for the album: [event test, caption, delay in seconds].
 const NAMES = Object.fromEntries(KITTENS.map((k) => [k.id, k.name]));
@@ -53,7 +54,7 @@ const sketch = (p) => {
     return { w: p.width / S, h: p.height / S };
   };
 
-  let keepsakes, presence = null, lastMode = null, coach;
+  let keepsakes, presence = null, lastMode = null, coach, preview;
   const photoQueue = [];
   // The core only learns about a returning visitor from this browser's own keepsake.
   const tellReturning = () => {
@@ -111,11 +112,14 @@ const sketch = (p) => {
       dispatch,
       keepsakes,
       onChooseInput: chooseInput,
+      // from the cover straight into the clearing: no kitten to choose, no extra screen
+      onStart: (source) => { dispatch({ type: 'start' }); chooseInput(source); },
       onRecoverMouse: useMouse,
       onToggleSound: () => { soundOn = !soundOn; sound.setOn(soundOn); },
       onHelp: () => ui.showHow(true),
     });
     staff = new StaffPanel({ dispatch });
+    preview = new CameraPreview(camera);
     coach = new Coach({ ui, renderer, kiosk: params.get('kiosk') === '1' });
     if (params.get('kitten')) sim.command({ id: 'init_kitten', type: 'choose_kitten', kitten: params.get('kitten') });
     if (params.get('staff') === '1') staff.toggle();
@@ -134,18 +138,29 @@ const sketch = (p) => {
       mouse.sx = e.clientX / p.width; mouse.sy = e.clientY / p.height; toWorld(e); mouse.inside = true;
       if (sim.session.state === 'ATTRACT') ui.hoverAt(e.clientX, e.clientY);
     });
-    stage.addEventListener('pointerleave', () => { mouse.inside = false; ui.hoverAt(null); });
+    stage.addEventListener('pointerleave', () => { mouse.inside = false; ui.hoverAt(null); endFollow(); });
+    // the mouse's pointing finger: press and hold on open ground with nothing in hand, and the
+    // nearest kitten follows the pointer until the button is released
+    let followTimer = null, following = false;
+    const endFollow = () => { clearTimeout(followTimer); followTimer = null; if (following) { following = false; dispatch({ type: 'follow', on: false }); } };
+    stage.addEventListener('pointerdown', () => {
+      if (sim.session.state !== 'ACTIVE' || sim.track.source !== 'mouse' || sim.held) return;
+      followTimer = setTimeout(() => { following = true; dispatch({ type: 'follow', on: true }); }, 220);
+    });
+    window.addEventListener('pointerup', endFollow);
     stage.addEventListener('pointerdown', (e) => {
       sound.start();
       mouse.sx = e.clientX / p.width; mouse.sy = e.clientY / p.height; toWorld(e); mouse.inside = true;
       // on the entry screen the litter is the menu: clicking a kitten chooses it
-      if (sim.session.state === 'ATTRACT') { const k = ui.kittenAt(e.clientX, e.clientY, ui.x); if (k) dispatch({ type: 'choose_kitten', kitten: k }); return; }
+      if (sim.session.state === 'ATTRACT') return; // the cover is entered with its two buttons
       if (sim.track.source === 'mouse') dispatch({ type: 'confirm', x: mouse.x, y: mouse.y });
     });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) dispatch({ type: 'pause', reason: 'hidden' });
     });
     window.addEventListener('keydown', onKeyDown);
+    // every button press makes a small click, whether it came from the mouse, a key or a pinch
+    document.addEventListener('click', (e) => { if (e.target.closest?.('button') && soundOn) { sound.start(); sound.click(); } }, true);
     window.addEventListener('keyup', (e) => { keyboard.up(e.key); if (e.key === 'v' || e.key === 'V') ui.holdMind(false); });
     window.addEventListener('blur', () => ui.holdMind(false));
   };
@@ -160,14 +175,14 @@ const sketch = (p) => {
     if (k === 'd' || k === 'D') { staff.toggle(); return; }
     if (k === 'Escape' && ui.howOpen) { ui.showHow(false); return; }
     if (st === 'ATTRACT') {
-      if (['1', '2', '3'].includes(k)) { dispatch({ type: 'choose_kitten', kitten: KITTENS[Number(k) - 1].id }); return; }
-      if (k === 'Enter' && !typing) { dispatch({ type: 'start' }); return; }
+      if (k === 'Enter' && !typing) { dispatch({ type: 'start' }); chooseInput('mouse'); return; }
     }
     if ((k === 't' || k === 'T') && st === 'ACTIVE') { ui.toggleMind(); return; }
     if ((k === 'v' || k === 'V') && st === 'ACTIVE') { if (!e.repeat) ui.holdMind(true); return; }
     if (k === 'm' || k === 'M') { soundOn = !soundOn; sound.setOn(soundOn); return; }
     // the pouch: 1 a treat, 2 the feather; Esc puts it back before it pauses the visit
-    if (st === 'ACTIVE' && (k === '1' || k === '2')) { ui.take(k === '1' ? 'treat' : 'wand'); return; }
+    if (st === 'ACTIVE' && (k === '1' || k === '2')) { const items = sim.snapshot().items ?? ['treat', 'wand']; ui.take(items[Number(k) - 1]); return; }
+    if (st === 'ACTIVE' && (k === '[' || k === ']')) { dispatch({ type: 'scene', dir: k === ']' ? 1 : -1 }); return; }
     if (k === 'Escape' && st === 'ACTIVE' && sim.held) { dispatch({ type: 'hold', item: null }); return; }
     if (k === 'Escape') { if (st === 'ACTIVE') dispatch({ type: 'pause', reason: 'user' }); else if (st === 'PAUSED') dispatch({ type: 'resume' }); return; }
     if (keyboard.active) {
@@ -195,7 +210,9 @@ const sketch = (p) => {
       const confirm = s ? sim.ingest(s) : null;
       if (confirm) {
         const at = renderer.worldNToScreen(confirm);
-        if (!ui.activateAt(at.x, at.y)) sim.command(confirm);
+        // a pinch presses whatever button is under the hand; only in a visit does it reach the world
+        const px = sim.session.state === 'ACTIVE' ? at : ui.handPx;
+        if (px && !ui.activateAt(px.x, px.y) && sim.session.state === 'ACTIVE') sim.command(confirm);
       }
     } else if (keyboard.active) {
       sim.ingest(keyboard.sample(dt, now, p.width / p.height, keyboard.keys.size && p.keyIsDown(p.SHIFT)));
@@ -216,6 +233,7 @@ const sketch = (p) => {
       if (soundOn) sound.play(e);
       staff.log(e);
       renderer.onEvent(e, snap);
+      ui.onEvent(e, snap);
       for (const [test, caption, delay] of PHOTO_MOMENTS) if (test(e)) photoQueue.push({ at: now + delay * 1000, caption: caption(e) });
     }
     sound.update(snap);
@@ -250,7 +268,11 @@ const sketch = (p) => {
       catPx: { ...scr(c.position), r: (0.06 + 0.025 * c.ageProgress) * S * z },
       litterPx: snap.litter.map((l) => ({ kitten: l.kitten, ...scr(l.position), r: (0.06 + 0.025 * l.ageProgress) * S * z, wrestling: l.wrestling, fleeing: l.fleeing, invited: l.invited })),
       cursorPx: snap.input.position ? scr(snap.input.position) : null,
+      // over a dimmed screen the canvas hand is hidden, so the page draws a pointer at the palm
+      handPx: snap.input.source === 'camera' && camera.keypoints && snap.input.quality !== 'lost'
+        ? { x: [0, 5, 9, 13, 17].reduce((a, i) => a + camera.keypoints[i].x, 0) / 5 * p.width, y: [0, 5, 9, 13, 17].reduce((a, i) => a + camera.keypoints[i].y, 0) / 5 * p.height } : null,
     });
+    preview.update(snap.input.source === 'camera' ? snap.input.quality : null);
     staff.render(snap, camera);
     window.__wildling = { snapshot: () => snap, sim, renderer, camera, coach, ui, sound }; // for automated smoke tests
   };
