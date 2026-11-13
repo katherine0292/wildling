@@ -70,13 +70,16 @@
       <span class="who-text"><b id="kname"></b><span class="bond"><span class="hearts" id="hearts" aria-hidden="true"><i></i><i></i><i></i></span><span id="relation"></span></span></span>
     </header>
     <nav id="sys" aria-label="Visit controls">
-      <button class="ib glass" id="btnMind" aria-pressed="false" aria-label="See what it sees (T)" title="See what it sees · T"></button>
+      <button class="ib glass" id="btnMind" aria-pressed="false" aria-label="See what it sees. Hold V, or press to keep it open" title="See what it sees · hold V"></button>
       <button class="ib glass" id="btnSound" aria-label="Sound"></button>
       <button class="ib glass" id="btnHelp" aria-label="How it works"></button>
       <button class="ib glass" id="btnEnd" aria-label="End the visit" title="End the visit"></button>
     </nav>
     <div id="inputStatus" class="glass" role="status" hidden></div>
     <aside id="mind" class="glass" hidden aria-live="off"></aside>
+    <div id="lblRing" class="scene-label" hidden></div>
+    <div id="lblHand" class="scene-label" hidden></div>
+    <div id="mindKey" class="glass" hidden><kbd>V</kbd><span>held · seeing what <b id="mindName"></b> sees</span></div>
     <div id="bubble" class="glass" role="status" aria-live="polite"></div>
     <div id="sysHint" class="glass" role="status" aria-live="assertive"></div>
     <div id="coach" class="glass" role="status" aria-live="polite" hidden></div>

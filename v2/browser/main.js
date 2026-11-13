@@ -141,7 +141,8 @@ const sketch = (p) => {
       if (document.hidden) dispatch({ type: 'pause', reason: 'hidden' });
     });
     window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', (e) => keyboard.up(e.key));
+    window.addEventListener('keyup', (e) => { keyboard.up(e.key); if (e.key === 'v' || e.key === 'V') ui.holdMind(false); });
+    window.addEventListener('blur', () => ui.holdMind(false));
   };
 
   function onKeyDown(e) {
@@ -158,6 +159,7 @@ const sketch = (p) => {
       if (k === 'Enter' && !typing) { dispatch({ type: 'start' }); return; }
     }
     if ((k === 't' || k === 'T') && st === 'ACTIVE') { ui.toggleMind(); return; }
+    if ((k === 'v' || k === 'V') && st === 'ACTIVE') { if (!e.repeat) ui.holdMind(true); return; }
     if (k === 'm' || k === 'M') { soundOn = !soundOn; sound.setOn(soundOn); return; }
     // the pouch: 1 a treat, 2 the feather; Esc puts it back before it pauses the visit
     if (st === 'ACTIVE' && (k === '1' || k === '2')) { ui.take(k === '1' ? 'treat' : 'wand'); return; }
@@ -204,7 +206,8 @@ const sketch = (p) => {
     if (pouch && pouch.offsetParent) { const r = pouch.getBoundingClientRect(); renderer.pouchAt = { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
     const bar = document.getElementById('gpTrack');
     if (bar && bar.offsetParent) { const r = bar.getBoundingClientRect(); renderer.hudTarget = { x: r.left + r.width * 0.9, y: r.top + r.height / 2 }; }
-    renderer.draw(snap, { keypoints: camera.keypoints, showSkeleton: staff.open }, dt);
+    renderer.mindView = ui.mindVisible && snap.sessionState === 'ACTIVE';
+    renderer.draw(snap, { keypoints: camera.keypoints, showSkeleton: staff.open || renderer.mindView }, dt);
     // social moments are photographed while they happen, not after
     const mode = snap.creature.socialMode, partner = snap.litter.find((l) => l.mode)?.kitten;
     if (mode && mode !== lastMode && partner && (mode === 'greet' || mode === 'cuddle')) photoQueue.push({ at: now + (mode === 'cuddle' ? 1800 : 1000), caption: mode === 'cuddle' ? `Cosy with ${NAMES[partner]}` : `Friends with ${NAMES[partner]}` });
@@ -228,6 +231,7 @@ const sketch = (p) => {
       catPx: { ...scr(c.position), r: (0.06 + 0.025 * c.ageProgress) * S * z },
       litterPx: snap.litter.map((l) => ({ kitten: l.kitten, ...scr(l.position), r: (0.06 + 0.025 * l.ageProgress) * S * z, wrestling: l.wrestling, fleeing: l.fleeing, invited: l.invited })),
       cursorPx: snap.input.position ? scr(snap.input.position) : null,
+      ring: renderer.ringR ? { ry: renderer.ringR * 0.84 * z, trend: renderer.ringTrend ?? 0 } : null,
     });
     staff.render(snap, camera);
     window.__wildling = { snapshot: () => snap, sim, renderer, camera, coach, ui, sound }; // for automated smoke tests
