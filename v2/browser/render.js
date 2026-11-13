@@ -14,7 +14,10 @@
 import { KITTENS } from '../core/config.js';
 import { CatBody, drawGift } from './catbody.js';
 import { path2d } from './icons.js';
-import { createJungle } from './jungle.js';
+import { createBiome } from './biomes.js';
+
+// V3 habitats use the renderer's three habitat keys, so footprints and dust follow the scene
+const SCENE_KEY = { jungle: 'kitten', snow: 'juvenile', desert: 'adult' };
 
 const INK = [34, 64, 90];
 const SAGE = [169, 201, 155];
@@ -85,8 +88,8 @@ export class Renderer {
     this.grain = this.makeGrain();
     this.grainPattern = p.drawingContext.createPattern(this.grain, 'repeat');
     // paint the habitat on screen now and the other two shortly after, off the first frame
-    // the kitten's world is Prototype A's jungle clearing; the other habitats stay for the older build
-    const makers = { kitten: () => this.makeJungle(), juvenile: () => this.makeSnow(), adult: () => this.makeDesert() };
+    // Prototype A's three habitats: the jungle clearing, the snowfields and the desert
+    const makers = { kitten: () => this.makeBiome('jungle'), juvenile: () => this.makeBiome('snow'), adult: () => this.makeBiome('desert') };
     const gen = (this.gen = (this.gen ?? 0) + 1);
     this.biomes = {};
     this.biome = (ph) => (this.biomes[ph] ??= makers[ph]());
@@ -151,7 +154,8 @@ export class Renderer {
   draw(snap, ui, dt) {
     const p = this.p, ctx = p.drawingContext;
     const c = snap.creature;
-    if (c.phase !== this.shownPhase) { this.prevPhase = this.shownPhase; this.shownPhase = c.phase; this.fade = 0; this.prints = []; }
+    const key = snap.toolless ? SCENE_KEY[snap.scene] ?? 'kitten' : c.phase;
+    if (key !== this.shownPhase) { this.prevPhase = this.shownPhase; this.shownPhase = key; this.fade = 0; this.prints = []; }
     this.fade = Math.min(1, this.fade + dt / 1.6);
     this.updateCamera(snap, dt);
     const t = performance.now() / 1000;
@@ -171,28 +175,32 @@ export class Renderer {
     const hand = snap.input.position && snap.input.quality !== 'lost' ? this.px(snap.input.position) : null;
     const main = this.px(c.position);
 
-    if (st === 'ATTRACT' || st === 'CONSENT') this.groundMark(ctx, main, 1, t);
+    if ((st === 'ATTRACT' || st === 'CONSENT') && !snap.toolless) this.groundMark(ctx, main, 1, t); // no kitten is chosen in V3
     else if (interactive && snap.toolless) this.comfortRing(ctx, main, snap, dt, t);
     else if (interactive) this.groundMark(ctx, main, 0.45, t);
     if (interactive && !snap.toolless && snap.activeTool === 'PET' && c.inviting && !c.acceptedContact) this.inviteZone(ctx, main, t);
     if (interactive && !snap.toolless && snap.activeTool === 'PLAY') for (const s of snap.litter) if (!s.wrestling && !s.fleeing) this.inviteRing(ctx, this.px(s.position), t, s.invited);
 
-    if (snap.toy?.kind === 'ball' && snap.toy.position && interactive) { const b = this.px(snap.toy.position); this.drawBall(ctx, b.x, b.y, t); }
+    if (snap.toy?.kind === 'ball' && snap.toy.position && interactive) { const b = this.px(snap.toy.position); if (snap.scene === 'snow') this.drawSnowball(ctx, b.x, b.y); else this.drawBall(ctx, b.x, b.y, t); }
+    if (snap.bowl) this.waterBowl(ctx, this.px(snap.bowl), t);
     const seen = new Set();
     const partner = snap.litter.find((s) => s.mode);
     const pp = partner ? this.px(partner.position) : null;
-    if (c.socialMode === 'wrestle' && pp) this.dustBehind(ctx, main, pp, t);
+    // V3: a play-fight is drawn as a face-off (both arched, hissing), never as a tangle
+    const faceoff = snap.toolless;
+    if (c.socialMode === 'wrestle' && pp && !faceoff) this.dustBehind(ctx, main, pp, t);
     if (c.socialMode === 'cuddle' && pp) this.warmGlow(ctx, main, pp, t);
     for (const s of snap.litter) {
       seen.add(s.kitten);
-      const reaction = s.standoff ? (s.kitten === 'saffron' ? 'hiss' : 'cower') : s.fleeing ? 'cower' : null;
-      this.body(ctx, s.kitten, s, s.lookAt ? this.px(s.lookAt) : null, dt, 1, { wrestling: s.wrestling, socialMode: s.mode === 'wrestle' ? null : s.mode, reaction });
+      const reaction = s.hissing || (faceoff && s.wrestling) ? 'hiss' : s.standoff ? (s.kitten === 'saffron' ? 'hiss' : 'cower') : s.fleeing ? 'cower' : null;
+      this.body(ctx, s.kitten, s, s.lookAt ? this.px(s.lookAt) : null, dt, 1, { wrestling: s.wrestling && !faceoff, socialMode: s.mode === 'wrestle' ? null : s.mode, reaction, drinking: s.drinking });
+      if (s.hissing && interactive) this.hissMarks(ctx, this.px(s.position), s.heading, t);
     }
     let look = !snap.input.overUI && snap.input.quality === 'valid' && !['REST', 'EAT'].includes(c.behaviour) ? hand : null;
     // a hungry kitten keeps glancing at the pouch: the body asks before any pictogram does
     if (interactive && snap.need?.kind === 'food' && this.pouchAt && !c.acceptedContact && Math.sin(t * 1.3) > -0.2) look = this.toWorld(this.pouchAt.x, this.pouchAt.y);
     seen.add(c.kitten);
-    this.body(ctx, c.kitten, c, look ?? (c.lookAt ? this.px(c.lookAt) : null), dt, 1, { wrestling: c.wrestling, socialMode: c.socialMode, reaction: c.reaction?.type, carrying: c.carrying, trick: c.trick?.name });
+    this.body(ctx, c.kitten, c, look ?? (c.lookAt ? this.px(c.lookAt) : null), dt, 1, { wrestling: c.wrestling && !faceoff, socialMode: c.socialMode, reaction: faceoff && c.wrestling ? 'hiss' : c.reaction?.type, carrying: c.carrying, trick: c.trick?.name, drinking: c.drinking });
     if (c.trick) this.trickSparkle(ctx, main, t, c.trick);
     if (interactive && snap.activeTool === 'TRICK') this.moveTrail(ctx, snap, hand, dt);
     for (const k of [...this.bodies.keys()]) if (!seen.has(k)) this.bodies.delete(k);
@@ -202,11 +210,11 @@ export class Renderer {
     if (c.behaviour === 'REST' && !c.reaction) this.sleepZ(ctx, main, t);
     if (c.acceptedContact) { this.purr(ctx, main, t); this.hearts(ctx, main, t); }
     this.strokeTrail(ctx, snap, hand, main, dt);
-    if (c.socialMode === 'wrestle' && pp) this.scuffle(ctx, main, pp, t, dt);
+    if (c.socialMode === 'wrestle' && pp) { if (faceoff) this.standoff(ctx, main, pp, t); else this.scuffle(ctx, main, pp, t, dt); }
     if (c.socialMode === 'greet' && pp) this.noseHearts(ctx, main, pp, t);
     if (c.socialMode === 'cuddle' && pp) this.cuddleHeart(ctx, main, pp, t);
     if (c.socialMode === 'standoff' && pp) this.standoff(ctx, main, pp, t);
-    if (c.reaction?.type === 'hiss') this.hissMarks(ctx, main, c.heading, t);
+    if (c.reaction?.type === 'hiss' || (faceoff && c.wrestling)) this.hissMarks(ctx, main, c.heading, t);
     this.atmosphere(ctx, dt, t);
     if (interactive && snap.activeTool === 'PLAY' && snap.toy?.kind === 'feather' && snap.toy.position && hand) this.feather(ctx, hand, this.px(snap.toy.position), t);
     if (interactive || st === 'CALIBRATING') {
@@ -218,6 +226,8 @@ export class Renderer {
       else if (kp) this.handCursor(ctx, snap, kp, t);
       else if (handTool && hand) this.handCursor(ctx, snap, this.templateHand(hand, snap, t), t);
       else this.cursor(ctx, snap, ui, t);
+      if (snap.held === 'snowball' && hand) this.drawSnowball(ctx, hand.x, hand.y + 4 * this.u);
+      if (snap.held === 'bowl' && hand) this.waterBowl(ctx, { x: hand.x, y: hand.y + 10 * this.u }, t, 0.8);
       if (snap.held === 'treat' && hand) { // the treat sits in the palm
         ctx.save(); ctx.translate(hand.x, hand.y + 6 * this.u); ctx.scale(1.7, 1.7); ctx.rotate(-0.5);
         this.fish(ctx, { x: 0, y: 0 }, 1, 1); ctx.restore();
@@ -548,7 +558,9 @@ export class Renderer {
 
   handCursor(ctx, snap, kp, t) {
     const u = this.u, q = snap.input.quality;
-    const uncertain = q !== 'valid' || (snap.activeTool === 'PET' && snap.intent.label === 'unknown');
+    // only tracking quality changes the hand's look; an undecided reading is shown in the AI panel,
+    // otherwise the hand flickers between styles whenever the 600 ms reading is not yet sure
+    const uncertain = q !== 'valid';
     const pet = snap.creature.acceptedContact;
     const fast = Math.max(0, Math.min(1, ((snap.input.speedSPerSecond ?? 0) - 0.4) / 0.7));
     const col = uncertain ? [205, 228, 245] : pet ? [255, 226, 190] : [240 + (255 - 240) * fast, 248 + (120 - 248) * fast, 255 + (100 - 255) * fast];
@@ -784,6 +796,35 @@ export class Renderer {
     ctx.restore();
   }
 
+  // V3: a snowball, packed and a little lumpy, with a soft blue shadow
+  drawSnowball(ctx, x, y) {
+    const u = this.u, r = 12 * u;
+    ctx.save();
+    ctx.fillStyle = 'rgba(60,90,140,0.22)'; ctx.beginPath(); ctx.ellipse(x + 4 * u, y + 7 * u, r, r * 0.6, 0, 0, TAU); ctx.fill();
+    const g = ctx.createRadialGradient(x - r * 0.4, y - r * 0.4, 0, x, y, r);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#cfdcec');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(170,190,215,0.6)';
+    for (const [dx, dy, s] of [[0.3, 0.2, 0.18], [-0.35, 0.3, 0.14], [0.05, -0.35, 0.12]]) { ctx.beginPath(); ctx.arc(x + dx * r, y + dy * r, s * r, 0, TAU); ctx.fill(); }
+    ctx.restore();
+  }
+
+  // V3: the desert water bowl: a clay dish with a disc of water that catches the light
+  waterBowl(ctx, { x, y }, t, scale = 1) {
+    const u = this.u * scale, rx = 26 * u, ry = 17 * u;
+    ctx.save();
+    ctx.fillStyle = 'rgba(80,50,20,0.25)'; ctx.beginPath(); ctx.ellipse(x + 5 * u, y + 7 * u, rx * 1.05, ry * 1.05, 0, 0, TAU); ctx.fill();
+    const g = ctx.createLinearGradient(x, y - ry, x, y + ry);
+    g.addColorStop(0, '#d88f5a'); g.addColorStop(1, '#9a5a32');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.fill();
+    const w = ctx.createRadialGradient(x - rx * 0.3, y - ry * 0.3, 0, x, y, rx * 0.8);
+    w.addColorStop(0, '#bfe6f2'); w.addColorStop(1, '#4f9fbf');
+    ctx.fillStyle = w; ctx.beginPath(); ctx.ellipse(x, y, rx * 0.74, ry * 0.68, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = `rgba(255,255,255,${0.35 + 0.25 * Math.sin(t * 2)})`; ctx.lineWidth = 1.4 * u;
+    ctx.beginPath(); ctx.ellipse(x - rx * 0.15, y - ry * 0.15, rx * 0.35, ry * 0.22, 0, Math.PI * 1.1, Math.PI * 1.7); ctx.stroke();
+    ctx.restore();
+  }
+
   drawBall(ctx, x, y, t) {
     const u = this.u, r = 13 * u;
     ctx.save();
@@ -863,6 +904,8 @@ export class Renderer {
 
   // ---------------------------------------------------------------- atmosphere and light
   atmosphere(ctx, dt, t) {
+    this.lastDt = dt;
+    if (this.biome(this.shownPhase).live && this.shownPhase !== 'kitten') return; // Prototype A's snow and desert bring their own weather
     const u = this.u, phase = this.shownPhase, W = this.W, H = this.H;
     ctx.save();
     for (const q of this.particles) {
@@ -897,7 +940,7 @@ export class Renderer {
     ctx.scale(z, z);
     ctx.translate(-this.W / 2, -this.H / 2);
     const live = this.biome(this.shownPhase).live;
-    if (live) live.drawOver(ctx, t); else this.layer(ctx, 'fore');
+    if (live) live.drawOver(ctx, t, this.lastDt ?? 1 / 60); else this.layer(ctx, 'fore');
     ctx.restore();
   }
 
@@ -971,7 +1014,7 @@ export class Renderer {
     const u = this.u;
     const { x, y } = this.px(inp.position);
     const q = inp.quality;
-    const uncertain = q !== 'valid' || snap.intent.label === 'unknown';
+    const uncertain = q !== 'valid';
     const col = uncertain ? COLD : INK;
     const a = q === 'lost' ? 0.35 : 0.95;
     const r = (snap.activeTool === 'PET' ? 27 : 23) * u * (uncertain ? 1 + 0.05 * Math.sin(t * 8) : 1);
@@ -1129,8 +1172,8 @@ export class Renderer {
   }
 
   // Prototype A's jungle: a painted ground plus live layers (dapples below, canopy above).
-  makeJungle() {
-    const live = createJungle(this.W, this.H, { unit: this.u, p5: this.p });
+  makeBiome(kind) {
+    const live = createBiome(kind, this.W, this.H, { unit: this.u, p5: this.p });
     return { ground: live.ground, fore: null, live };
   }
 

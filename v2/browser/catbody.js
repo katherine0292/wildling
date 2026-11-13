@@ -100,6 +100,8 @@ const POSES = {
   EXPLORE:   { ear: 0.15, tailAmp: 0.45, tailCurl: 0.35 },
   OBSERVE:   { sit: 0.7, ear: 0.45, pupil: 0.6, tailAmp: 0.2, tailFreq: 0.6, tailCurl: 0.7 },
   SEEK_FOOD: { crouch: 0.25, ear: 0.4, pupil: 0.7, tailAmp: 0.6, tailFreq: 1.4, tailCurl: 0.3 },
+  // V3: drinking: head low over the bowl, eyes half closed, tail curled softly round
+  DRINK:     { sit: 0.4, crouch: 0.45, eye: 0.5, tailAmp: 0.08, tailFreq: 0.5, tailCurl: 1.35, dip: 1 },
   EAT:       { sit: 0.5, crouch: 0.3, eye: 0.55, tailAmp: 0.3, tailFreq: 0.8, dip: 1 },
   REST:      { curl: 1, eye: 0, ear: 0.35, tailAmp: 0.05, tailFreq: 0.4, pupil: 0.2 },
   GROOM:     { sit: 1, eye: 0.45, tailAmp: 0.2, tailFreq: 0.6, tailCurl: 0.8, dip: 1 },
@@ -176,7 +178,8 @@ export class CatBody {
     this.trickName = s.behaviour === 'TRICK' ? s.trick ?? null : null;
     // a cuddle looks like a shared nap; greeting has its own pose
     if (s.socialMode === 'cuddle') s = { ...s, behaviour: 'REST' };
-    const poseKey = s.wrestling ? 'WRESTLE' : s.socialMode === 'greet' ? 'GREET' : this.trickName ? `TRICK_${this.trickName.toUpperCase()}` : s.behaviour;
+    this.drinking = !!s.drinking;
+    const poseKey = s.drinking ? 'DRINK' : s.wrestling ? 'WRESTLE' : s.socialMode === 'greet' ? 'GREET' : this.trickName ? `TRICK_${this.trickName.toUpperCase()}` : s.behaviour;
     const f = Math.min(dt * 60, 3); // frames at 60 fps, as in Prototype A
     this.time += dt;
     if (Math.abs(s.age - this.age) > 0.002) { this.age = s.age; this.updateDims(); }
@@ -193,7 +196,7 @@ export class CatBody {
     else target.mouth = 0;
     this.roll = this.wrestle ? (this.roll ?? 0) + dt * 8 : this.trickName === 'rollover' ? (this.roll ?? 0) + dt * 3.4 : 0;
     if (this.pose.mouth === undefined) this.pose.mouth = 0;
-    if (s.behaviour === 'EAT' || s.behaviour === 'GROOM') target.dip = 0.5 + 0.5 * Math.sin(this.time * 14);
+    if (s.behaviour === 'EAT' || s.behaviour === 'GROOM' || s.drinking) target.dip = 0.5 + 0.5 * Math.sin(this.time * (s.drinking ? 9 : 14));
     for (const k in target) this.pose[k] = approach(this.pose[k], target[k], (k === 'curl' ? 0.035 : 0.09) * f);
 
     this.speed = s.speed / 60;
@@ -656,9 +659,10 @@ export class CatBody {
 
     ctx.fillStyle = rgba(g.whiteMuzzle ? [246, 242, 236] : c.light, 0.95);
     for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(0.36 * L, s * 0.17 * W, 0.13 * L, 0.2 * W, 0, 0, TAU); ctx.fill(); }
-    if (p.dip > 0.6 && this.behaviour === 'GROOM') {
+    if (p.dip > 0.6 && (this.behaviour === 'GROOM' || this.drinking)) { // the tongue, lapping
+      const out = this.drinking ? 0.06 + 0.06 * Math.max(0, Math.sin(this.time * 9)) : 0;
       ctx.fillStyle = 'rgba(226,120,130,0.95)';
-      ctx.beginPath(); ctx.ellipse(0.5 * L, 0, 0.07 * L, 0.09 * W, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse((0.5 + out) * L, 0, (0.07 + out * 0.5) * L, 0.09 * W, 0, 0, TAU); ctx.fill();
     }
     if (p.mouth > 0.05) { // hissing: open mouth with two small fangs
       ctx.fillStyle = 'rgba(120,40,50,0.95)';
