@@ -14,6 +14,7 @@
 import { KITTENS } from '../core/config.js';
 import { CatBody, drawGift } from './catbody.js';
 import { path2d } from './icons.js';
+import { createJungle } from './jungle.js';
 
 const INK = [34, 64, 90];
 const SAGE = [169, 201, 155];
@@ -84,7 +85,8 @@ export class Renderer {
     this.grain = this.makeGrain();
     this.grainPattern = p.drawingContext.createPattern(this.grain, 'repeat');
     // paint the habitat on screen now and the other two shortly after, off the first frame
-    const makers = { kitten: () => this.makeForest(), juvenile: () => this.makeSnow(), adult: () => this.makeDesert() };
+    // the kitten's world is Prototype A's jungle clearing; the other habitats stay for the older build
+    const makers = { kitten: () => this.makeJungle(), juvenile: () => this.makeSnow(), adult: () => this.makeDesert() };
     const gen = (this.gen = (this.gen ?? 0) + 1);
     this.biomes = {};
     this.biome = (ph) => (this.biomes[ph] ??= makers[ph]());
@@ -160,6 +162,7 @@ export class Renderer {
     ctx.translate(this.W / 2, this.H / 2); ctx.scale(this.cam.z, this.cam.z); ctx.translate(-this.cam.x, -this.cam.y);
 
     this.layer(ctx, 'ground');
+    this.biome(this.shownPhase).live?.drawUnder(ctx, t);
     this.footprints(ctx, dt);
     for (const f of snap.foods) this.fish(ctx, this.px(f.position ?? f), Math.min(1, f.age / 0.3), f.age > 27 ? (30 - f.age) / 3 : 1);
 
@@ -893,12 +896,24 @@ export class Renderer {
     ctx.translate(this.W / 2 + px + sway, this.H / 2 + py);
     ctx.scale(z, z);
     ctx.translate(-this.W / 2, -this.H / 2);
-    this.layer(ctx, 'fore');
+    const live = this.biome(this.shownPhase).live;
+    if (live) live.drawOver(ctx, t); else this.layer(ctx, 'fore');
     ctx.restore();
   }
 
   lighting(ctx, main, st, t) {
     const W = this.W, H = this.H, ph = this.shownPhase;
+    const live = this.biome(ph).live;
+    if (live) { // the jungle brings its own shafts; add only a soft pool of light on the kitten and the vignette
+      ctx.save();
+      const m = this.toScreen(main.x, main.y);
+      const glow = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, this.S * 0.28);
+      glow.addColorStop(0, 'rgba(255,240,190,0.10)'); glow.addColorStop(1, 'rgba(255,240,190,0)');
+      ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+      live.drawVignette(ctx);
+      ctx.restore();
+      return;
+    }
     ctx.save();
     // light shafts through the canopy (forest) or a low sun (desert)
     if (ph !== 'juvenile') {
@@ -1111,6 +1126,12 @@ export class Renderer {
       if (side === 3) pts.push([-inset * r(), f * H]);
     }
     return pts;
+  }
+
+  // Prototype A's jungle: a painted ground plus live layers (dapples below, canopy above).
+  makeJungle() {
+    const live = createJungle(this.W, this.H, { unit: this.u, p5: this.p });
+    return { ground: live.ground, fore: null, live };
   }
 
   makeForest() {
