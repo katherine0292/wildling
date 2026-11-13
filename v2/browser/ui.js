@@ -268,6 +268,7 @@ export class UI {
     const st = snap.sessionState;
     this.chosen = snap.kitten.id;
     this.lastSource = snap.input.source;
+    this.show('inputStatus', st === 'ACTIVE' && this.lastSource === 'camera');
     this.x = x;
     if (st !== this.lastState) {
       this.lastState = st;
@@ -505,7 +506,6 @@ export class UI {
     $('btnSound').setAttribute('aria-pressed', String(x.soundOn));
 
     const cam = snap.input.source === 'camera';
-    this.show('inputStatus', cam);
     if (cam) {
       const q = snap.input.quality;
       $('inputStatus').className = `glass ${q}`;

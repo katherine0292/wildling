@@ -18,7 +18,6 @@ export class CameraPreview {
   update(quality) {
     const cam = this.camera, on = cam.status === 'loading' || cam.status === 'ready';
     this.el.hidden = !on;
-    document.body.classList.toggle('has-cam', on);
     if (!on) return;
     const state = cam.status === 'loading' ? 'loading' : quality ?? 'lost';
     this.el.dataset.state = state;

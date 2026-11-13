@@ -133,7 +133,7 @@ kbd { font: 700 11px var(--body); padding: 1px 6px; border-radius: 6px; border: 
 .ib { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; transition: background .14s; }
 .ib:hover { background: rgba(54, 63, 44, .8); }
 #btnMind[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
-#inputStatus { position: absolute; right: 20px; top: 74px; display: flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px; font: 700 13px var(--body); }
+#inputStatus { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 8px; max-width: 100%; padding: 6px 12px; border-radius: 14px; font: 700 13px var(--body); pointer-events: auto; }
 #trackingText { display: flex; align-items: center; gap: 7px; }
 #trackingText svg { flex: none; }
 #btnRecoverMouse { white-space: nowrap; }
@@ -283,12 +283,13 @@ body.staff #recap li .ev { display: block; }
 #handPointer { position: fixed; z-index: 60; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; border: 3px solid var(--accent); background: rgba(243, 206, 135, .18); box-shadow: 0 0 0 6px rgba(243, 206, 135, .15); pointer-events: none; transition: left .06s linear, top .06s linear; }
 
 /* ---------- camera preview ---------- */
-#camPreview { position: fixed; right: 20px; top: 74px; z-index: 30; width: 192px; margin: 0; border-radius: 14px; overflow: hidden; border: 2px solid rgba(159, 214, 230, .6); box-shadow: var(--shadow); background: #10160f; pointer-events: none; }
+#cameraHud { position: fixed; top: 74px; right: max(20px, env(safe-area-inset-right)); z-index: 9; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; max-width: min(320px, calc(100% - 40px)); pointer-events: none; }
+#camPreview { width: 172px; flex: none; margin: 0; border-radius: 14px; overflow: hidden; border: 2px solid rgba(159, 214, 230, .6); box-shadow: var(--shadow); background: #10160f; pointer-events: none; }
 #camPreview canvas { display: block; width: 100%; height: auto; }
 #camPreview figcaption { padding: 5px 10px 6px; font: 700 12.5px var(--body); color: var(--cool); background: rgba(16, 22, 15, .9); }
 #camPreview[data-state="valid"] { border-color: rgba(243, 206, 135, .85); }
 #camPreview[data-state="valid"] figcaption { color: var(--accent); }
-body.has-cam #inputStatus { top: 260px; }
+
 
 /* Habitat buttons share a row above the panels and keep the clearing clickable. */
 #ui > #sceneNav { grid-area: scenes; display: flex; justify-content: space-between; gap: 12px; pointer-events: none; }
@@ -314,7 +315,7 @@ body.has-cam #inputStatus { top: 260px; }
   #relation { display: none; }
   #sys { right: 12px; top: 14px; gap: 6px; }
   .ib { width: 40px; height: 40px; }
-  #inputStatus { right: 12px; top: 62px; max-width: calc(100% - 24px); }
+
   #sysHint { top: 172px; }
   /* phones: the pouch is one even row along the bottom, the MIND panel sits above it, and the
      coach moves to the top so nothing stacks */
@@ -334,13 +335,17 @@ body.has-cam #inputStatus { top: 260px; }
   .pol b { font-size: 13px; } .pol span { display: none; }
   .journal-actions { flex-direction: column; align-items: stretch; }
   #staff { left: 12px; right: 12px; width: auto; }
-  #camPreview { right: 12px; top: 62px; width: 120px; }
+  #cameraHud { top: 62px; right: max(12px, env(safe-area-inset-right)); max-width: min(172px, 44%); }
+  #camPreview { width: min(120px, 100%); }
+  body[data-state="active"] #camCaption { display: none; }
   .scene-arrow { min-height: 48px; padding: 0 10px; font-size: 13px; }
   #toolGuide { top: 64px; max-width: calc(100% - 24px); font-size: 14px; }
-  body.has-cam #inputStatus { top: 170px; }
+  body:has(#camPreview:not([hidden])) #coach { right: auto; width: min(45%, calc(100% - 198px)); flex-wrap: wrap; gap: 6px; padding: 8px 10px; border-radius: 16px; }
+  body:has(#camPreview:not([hidden])) :is(#toolGuide, #sysHint) { left: 12px; max-width: min(45%, calc(100% - 198px)); translate: none; transform: none; }
+  body:has(#camPreview:not([hidden])) #sysHint { top: 220px; }
 }
 /* phones held sideways: little height, so the pouch goes back to the right and shrinks */
-@media (orientation: landscape) and (max-height: 640px) {
+@media (orientation: landscape) and (max-height: 760px) {
   #ui { grid-template: 'space space' minmax(0, 1fr) 'scenes scenes' auto 'mind pouch' auto / minmax(0, 1fr) auto; gap: 12px; padding: 0 max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
   #pouch { justify-self: end; display: flex; gap: 6px; padding: 6px 8px; }
   #pouch .cap { display: none; }
@@ -352,11 +357,21 @@ body.has-cam #inputStatus { top: 260px; }
   .scene-arrow { min-height: 46px; padding: 0 8px; }
   #coach { position: relative; inset: auto; grid-area: scenes; justify-self: center; max-width: calc(100% - 252px); font-size: 14px; }
   #toolGuide { top: 64px; max-width: calc(100% - 340px); font-size: 13px; }
-  #camPreview { right: 12px; top: 66px; width: clamp(76px, calc(25vh - 6px), 120px); }
-  body.has-cam #inputStatus { top: 68px; right: auto; left: 12px; max-width: calc(50% - 20px); }
+  #cameraHud { top: 68px; right: max(12px, env(safe-area-inset-right)); max-width: min(260px, 44%); flex-direction: row; align-items: flex-start; }
+  #camPreview { order: 1; width: clamp(76px, 23vh, 120px); }
+  body[data-state="active"] #camCaption { display: none; }
+  body:has(#camPreview:not([hidden])) #coach { width: auto; right: auto; }
+  body:has(#camPreview:not([hidden])) :is(#toolGuide, #sysHint) { left: 50%; max-width: calc(100% - 340px); translate: -50% 0; }
+  body:has(#camPreview:not([hidden])) #sysHint { top: 68px; }
+}
+@media (orientation: portrait) and (max-height: 650px) {
+  #camPreview { width: min(96px, 100%); }
 }
 @media (orientation: landscape) and (max-height: 380px) {
-  #camPreview { right: 206px; top: 12px; }
+  #cameraHud { top: 12px; right: max(206px, calc(env(safe-area-inset-right) + 194px)); max-width: min(260px, calc(100% - 344px)); }
+  #inputStatus { gap: 3px 6px; padding: 5px 8px; font-size: 12px; }
+  #trackingText { gap: 5px; }
+  #trackingText svg { width: 14px; height: 14px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

@@ -75,10 +75,6 @@
       <button class="ib glass" id="btnHelp" aria-label="How it works"></button>
       <button class="ib glass" id="btnEnd" aria-label="End the visit" title="End the visit"></button>
     </nav>
-    <div id="inputStatus" class="glass" hidden>
-    <span id="trackingText" role="status"></span>
-    <button class="textlink" id="btnRecoverMouse" hidden>Use mouse</button>
-  </div>
     <aside id="mind" class="glass" aria-label="What the kitten is thinking" aria-live="off"></aside>
     <div id="bubble" class="glass" role="status" aria-live="polite"></div>
     <div id="sysHint" class="glass" role="status" aria-live="assertive"></div>
@@ -134,10 +130,16 @@
   </section>
 
   <!-- CAMERA PREVIEW: what the hand tracker sees, mirrored like a mirror -->
-  <figure id="camPreview" hidden aria-label="Camera preview">
-    <canvas id="camCanvas" width="384" height="288"></canvas>
-    <figcaption id="camCaption"></figcaption>
-  </figure>
+  <div id="cameraHud">
+    <figure id="camPreview" hidden aria-label="Camera preview">
+      <canvas id="camCanvas" width="384" height="288"></canvas>
+      <figcaption id="camCaption"></figcaption>
+    </figure>
+    <div id="inputStatus" class="glass" hidden>
+      <span id="trackingText" role="status"></span>
+      <button class="textlink" id="btnRecoverMouse" hidden>Use mouse</button>
+    </div>
+  </div>
 
   <div id="handPointer" aria-hidden="true" hidden></div>
 
