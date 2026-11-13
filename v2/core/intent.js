@@ -39,7 +39,7 @@ export function extractFeatures(points, cat, p = PARAMS) {
   for (let i = pts.length - 1; i > 0; i--) {
     const q = pts[i];
     const inZone = Math.hypot(q.x - cat.x, q.y - cat.y) < cat.contactRadius;
-    if (!inZone || speeds[i - 1] > p.intent.gentleSpeed) break;
+    if (!inZone || speeds[i - 1] > (p.intent.strokeSpeed ?? p.intent.gentleSpeed)) break;
     dwell += (pts[i].t - pts[i - 1].t) / 1000;
   }
   return {
@@ -66,16 +66,22 @@ export function scoreWindow(f, p = PARAMS, fastScale = 1) {
   const zone = p.creature.contactRadius;
   const inZone = 1 - soft(f.dist, zone, zone * 1.4);
   const slow = 1 - soft(f.meanSpeed, ip.gentleSpeed * 0.6, ip.gentleSpeed * 1.2);
+  const stroking = 1 - soft(f.meanSpeed, (ip.strokeSpeed ?? ip.gentleSpeed) * 0.6, (ip.strokeSpeed ?? ip.gentleSpeed) * 1.2);
   const settled = soft(f.dwell, ip.contactDwell * 0.5, ip.contactDwell * 0.9);
   const near = 1 - soft(f.edgeDist, ip.nearS, ip.nearS * 1.6);
   const fast = soft(f.approachSpeed, ip.fastSpeed * 0.7 * fastScale, ip.fastSpeed * 1.1 * fastScale);
   const towards = soft(f.approachSpeed, 0.02, 0.12);
   const reachable = 1 - soft(f.dist, 0.45, 0.65);
   const openHand = soft(f.open, 0.3, 0.6);
+  // Waving or swatting near the kittens is as threatening as lunging at them, whichever way
+  // the hand travels; a stroke on the back stays far below this speed.
+  const waveNear = 1 - soft(f.edgeDist, ip.waveNearS ?? 0.2, (ip.waveNearS ?? 0.2) * 1.75);
+  const waving = soft(f.meanSpeed, (ip.waveSpeed ?? 1) * fastScale, (ip.waveSpeed ?? 1) * 1.6 * fastScale);
+  const notFist = soft(f.open, 0.1, 0.3); // a relaxed or cupped hand can still stroke
 
   const raw = {
-    stable_contact: inZone * slow * settled * openHand,
-    fast_approach: near * fast,
+    stable_contact: inZone * stroking * settled * notFist,
+    fast_approach: Math.max(near * fast, waveNear * waving),
     gentle_approach: reachable * towards * slow * (1 - settled * inZone) * openHand,
     neutral_motion: 0,
   };
@@ -83,7 +89,7 @@ export function scoreWindow(f, p = PARAMS, fastScale = 1) {
   const sum = LABELS.reduce((s, k) => s + raw[k], 0) || 1;
   const scores = Object.fromEntries(LABELS.map((k) => [k, raw[k] / sum]));
   const ranked = LABELS.slice().sort((a, b) => scores[b] - scores[a]);
-  return { scores, label: ranked[0], score: scores[ranked[0]], margin: scores[ranked[0]] - scores[ranked[1]] };
+  return { scores, label: ranked[0], score: scores[ranked[0]], margin: scores[ranked[0]] - scores[ranked[1]], wave: waveNear * waving > near * fast };
 }
 
 // Gate + temporal confirmation. Holds state across 100 ms cycles.
@@ -107,6 +113,7 @@ export class IntentClassifier {
     const out = (label, extra = {}) => {
       this.current = { label, score: null, margin: null, source, coverage: extra.coverage ?? 0, scores: extra.scores ?? null, modelVersion: null };
       if (isCamera && extra.score !== undefined) { this.current.score = extra.score; this.current.margin = extra.margin; }
+      if (label === 'fast_approach') this.current.wave = !!extra.wave;
       return this.current;
     };
 
@@ -136,6 +143,6 @@ export class IntentClassifier {
     if (this.pendingCount < need) {
       return out(isCamera ? 'unknown' : this.current.label, { coverage, scores: r.scores, score: r.score, margin: r.margin });
     }
-    return out(r.label, { coverage, scores: r.scores, score: r.score, margin: r.margin });
+    return out(r.label, { coverage, scores: r.scores, score: r.score, margin: r.margin, wave: r.wave });
   }
 }

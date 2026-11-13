@@ -20,13 +20,20 @@ export const PARAMS = Object.freeze({
   },
 
   // F2-04 pinch
-  pinch: { close: 0.25, open: 0.45, holdMs: 100, cooldownMs: 400 },
+  // Thumb tip to index tip over palm length, measured in 3D. Real fingertips that touch still
+  // read 0.15–0.3, so 0.25 missed many genuine pinches; release must open well past it.
+  pinch: { close: 0.33, open: 0.5, holdMs: 100, cooldownMs: 400 },
 
   // F2-05 intent window and rejection
   intent: {
     windowMs: 600, sampleHz: 20, minCoverage: 0.8,
     topScore: 0.8, margin: 0.2, confirmCycles: 2,
     gentleSpeed: 0.4, fastSpeed: 1.1, nearS: 0.18,
+    // Stroking moves: a hand already resting on the kitten may sweep along its back this fast
+    // and still be contact. Only approaching it has to be slow.
+    strokeSpeed: 0.9,
+    // Waving the hand this fast within waveNearS of a kitten startles it, whatever the direction.
+    waveSpeed: 1.0, waveNearS: 0.2,
     contactDwell: 0.6, withdrawS: 0.25, withdrawSec: 1.0,
     // A mouse or keyboard pointer crosses the screen far faster than a hand in front of a
     // camera, so only a real lunge at the kitten counts as a fast approach for those inputs.
@@ -65,7 +72,7 @@ export const PARAMS = Object.freeze({
     ball: { friction: 1.1, throwScale: 1.2, maxThrow: 1.4, batSpeed: 0.75, maxIdleSec: 25 },
   },
   contact: { trustPerSec: 0.02, stressPerSec: 0.08, maxSegmentSec: 6, trustBudgetSec: 12, budgetWindowSec: 60, breakSec: 2 },
-  startle: { stress: 0.15, cooldownSec: 2, sustainAfterSec: 2, trustPerSec: 0.01, maxTrustLoss: 0.05 },
+  startle: { retreatSec: 2.2, stress: 0.15, cooldownSec: 2, sustainAfterSec: 2, trustPerSec: 0.01, maxTrustLoss: 0.05 },
   // backing off never takes the kitten out of view: it stays this far inside the frame
   retreat: { margin: 0.12, step: 0.3 },
   wait: { farS: 0.25, stableSec: 1 },

@@ -52,14 +52,15 @@ export function updateStartle(c, ctx, dt) {
   if (!h.valid) { st.episode = null; return; } // uncertainty stops any penalty at once
   const fast = ctx.intent.label === 'fast_approach';
   // Chasing the toy is not a threat — but only while it is actually playing and relaxed.
-  const exempt = c.behaviour === 'PLAY' && c.needs.stress < c.p.limits.playStress;
+  // Swinging a toy is play too: a wave only frightens when the hand holds nothing to play with.
+  const exempt = (c.behaviour === 'PLAY' && c.needs.stress < c.p.limits.playStress) || (ctx.intent.wave && ctx.tool === 'PLAY');
   if (fast && !exempt) {
     if (ctx.time >= st.cooldownUntil) {
       const before = c.needSnapshot();
       c.needs.stress = clamp(c.needs.stress + s.stress);
       st.cooldownUntil = ctx.time + s.cooldownSec;
       // high trust shortens the retreat; it never removes the reaction entirely
-      c.retreatUntil = ctx.time + 1.2 * (1 - 0.6 * c.needs.trust);
+      c.retreatUntil = ctx.time + c.p.startle.retreatSec * (1 - 0.6 * c.needs.trust);
       if (!st.episode) st.episode = { start: ctx.time, loss: 0, lastSeen: ctx.time };
       c.stats.startles++;
       c.markNeedsSpace('PRESSURE_HIGH', ctx.time);
@@ -84,7 +85,7 @@ export function updateStartle(c, ctx, dt) {
 export function updateDwell(c, ctx, dt) {
   const h = ctx.hand;
   const inZone = h.valid && dist(h.x, h.y, c.x, c.y) < c.p.creature.contactRadius;
-  const slow = h.speed < c.p.intent.gentleSpeed;
+  const slow = h.speed < (c.p.intent.strokeSpeed ?? c.p.intent.gentleSpeed);
   c.dwell = ctx.tool === 'PET' && inZone && slow ? c.dwell + dt : 0;
 }
 
