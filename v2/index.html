@@ -18,12 +18,12 @@
   <section id="entry" class="screen" hidden>
     <div class="entry-title">
       <h1>Wildling</h1>
-      <p>Three wild kittens live in this clearing.<br>Choose one, and earn its trust.</p>
+      <p>Three wild kittens live in this clearing.<br>Meet them with your hand, or with the mouse.</p>
       <div class="entry-actions">
-        <button class="btn primary" id="btnStart">Meet them</button>
-        <button class="btn glass" id="btnHow">How it works</button>
+        <button class="btn primary big" id="btnStartHand"></button>
+        <button class="btn glass big" id="btnStartMouse"></button>
       </div>
-      <p class="entry-note" id="entryNote">Point at a kitten to meet it first.</p>
+      <p class="entry-note"><span id="entryNote">The camera only looks for your hand. Nothing is recorded.</span> <button class="textlink" id="btnHow">How it works</button></p>
     </div>
   </section>
 
@@ -83,9 +83,12 @@
     <div id="bubble" class="glass" role="status" aria-live="polite"></div>
     <div id="sysHint" class="glass" role="status" aria-live="assertive"></div>
     <div id="coach" class="glass" role="status" aria-live="polite" hidden></div>
+    <button id="sceneLeft" class="scene-arrow left glass dwell" data-dir="-1"><span class="ar" aria-hidden="true">‹</span><span class="lbl"></span></button>
+    <button id="sceneRight" class="scene-arrow right glass dwell" data-dir="1"><span class="lbl"></span><span class="ar" aria-hidden="true">›</span></button>
+    <div id="toolGuide" class="glass" role="status" aria-live="polite" hidden></div>
     <nav id="pouch" class="glass" aria-label="Pouch: pick something up">
       <span class="cap">Pick one up</span>
-      <button class="slot" data-item="treat" aria-pressed="false"><span class="w"></span><span class="l">Treat</span><kbd>1</kbd></button>
+      <button class="slot" data-item="treat" aria-pressed="false"><span class="w"></span><span class="l">Fish</span><kbd>1</kbd></button>
       <button class="slot" data-item="wand" aria-pressed="false"><span class="w"></span><span class="l">Feather</span><kbd>2</kbd></button>
     </nav>
     <div id="still" class="toast glass" hidden></div>
@@ -123,6 +126,14 @@
       </div>
     </article>
   </section>
+
+  <!-- CAMERA PREVIEW: what the hand tracker sees, mirrored like a mirror -->
+  <figure id="camPreview" hidden aria-label="Camera preview">
+    <canvas id="camCanvas" width="384" height="288"></canvas>
+    <figcaption id="camCaption"></figcaption>
+  </figure>
+
+  <div id="handPointer" aria-hidden="true" hidden></div>
 
   <!-- STAFF DIAGNOSTICS (press D) -->
   <aside id="staff" hidden aria-label="Staff diagnostics"></aside>

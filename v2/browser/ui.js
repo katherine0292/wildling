@@ -27,6 +27,34 @@ const PICTO = {
 const NEED_ICON = { food: 'inventory/treat', play: 'inventory/wand', touch: 'mood/affectionate', rest: 'mood/sleepy' };
 const NEED_WORDS = { food: 'It is hungry', play: 'It wants to play', touch: 'It would like to be stroked', rest: 'It is tired. Give it some space' };
 const NEED_ITEM = { food: 'treat', play: 'wand' };
+// A woven basket heaped with little fish: the fish slot, drawn in colour so it reads as food.
+const FISH_BASKET = `<svg class="basket" viewBox="0 0 48 40" width="40" height="34" aria-hidden="true">
+  <g stroke="#2f2a1c" stroke-width="1" stroke-linejoin="round">
+    <path d="M10 15c-2-6 4-9 8-6 2-5 9-5 11 0 4-3 10 0 8 6z" fill="#8fb3c8"/>
+    <path d="M16 12l3 1.5M27 10.5l3 1.6M33 13l2.5 1" stroke="#5d7f95"/>
+    <circle cx="20.5" cy="11.2" r=".9" fill="#1b2228" stroke="none"/><circle cx="31" cy="10.2" r=".9" fill="#1b2228" stroke="none"/>
+    <path d="M6 15h36l-4 19c-.4 2-2 3-4 3H14c-2 0-3.6-1-4-3z" fill="#c99a5b"/>
+    <path d="M8 21h32M9 27h30M10.5 33h27" stroke="#8a6334"/>
+    <path d="M15 15l1.5 22M22 15l.5 22M29 15l-.5 22M36 15l-1.5 22" stroke="#8a6334" stroke-width=".8"/>
+  </g></svg>`;
+// V3 habitats: what each pouch item looks like and is called, and how to use it
+const SNOWBALL = '<svg viewBox="0 0 40 40" width="34" height="34" aria-hidden="true"><circle cx="20" cy="21" r="13" fill="#eef4fb" stroke="#2f3a46" stroke-width="1"/><circle cx="25" cy="25" r="2.4" fill="#c4d3e6"/><circle cx="14" cy="24" r="1.9" fill="#c4d3e6"/><circle cx="19" cy="14" r="1.6" fill="#c4d3e6"/></svg>';
+const BOWL = '<svg viewBox="0 0 44 34" width="38" height="30" aria-hidden="true"><ellipse cx="22" cy="18" rx="19" ry="12" fill="#c47e4c" stroke="#2f2a1c" stroke-width="1"/><ellipse cx="22" cy="17" rx="13.5" ry="7.5" fill="#6db6d2"/><path d="M14 14q4-3 9-2" stroke="#e6f6fb" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>';
+const ITEM_LOOK = {
+  treat: { label: 'Fish', icon: () => FISH_BASKET },
+  wand: { label: 'Feather', icon: () => kit('inventory/wand', 28) },
+  snowball: { label: 'Snowball', icon: () => SNOWBALL },
+  bowl: { label: 'Water', icon: () => BOWL },
+};
+const ITEM_GUIDE = {
+  treat: { camera: 'Open your hand, move to any spot, then pinch to drop the fish', pointer: 'Click anywhere to drop the fish. Every kitten nearby will want it' },
+  wand: { camera: 'Move the feather in short darts, then pause. Pinch the slot again to put it back', pointer: 'Move the feather in short darts, then pause. Click the slot again to put it back' },
+  snowball: { camera: 'Swing your hand and pinch to throw the snowball', pointer: 'Move, then click to throw the snowball' },
+  bowl: { camera: 'Move to where the bowl should go, then pinch to set it down', pointer: 'Click where the water bowl should go' },
+};
+const SCENE_NAME = { jungle: 'Jungle', snow: 'Snowfields', desert: 'Desert' };
+const SCENE_NOTE = { jungle: 'The jungle clearing: fish and the feather', snow: 'The snowfields: a snowball instead of the feather', desert: 'The desert: a water bowl instead of the fish' };
+const SCENE_ORDER = ['jungle', 'snow', 'desert'];
 const WARN = new Set(['PRESSURE_HIGH', 'NOT_CLOSE_YET', 'SIB_STANDOFF', 'SIB_TENSE', 'SIB_FOOD']);
 
 const READING = {
@@ -43,7 +71,7 @@ const REPLY = {
 const ACTS = {
   EXPLORE: 'Wander', OBSERVE: 'Watch you', SEEK_FOOD: 'Eat', EAT: 'Eat', REST: 'Nap', GROOM: 'Wash',
   APPROACH: 'Come to you', PLAY: 'Play', CONTACT: 'Be stroked', RETREAT: 'Back off', SOCIAL: 'Join a sibling',
-  HUNT: 'Hunt', GIFT: 'Find you a gift', TRICK: 'A trick',
+  HUNT: 'Hunt', GIFT: 'Find you a gift', TRICK: 'A trick', FOLLOW: 'Follow your finger', DRINK: 'Drink',
 };
 const WHY_NOT = {
   NEED_REST: 'too tired', PRESSURE_HIGH: 'too tense', TOO_FULL: 'full', HUNGRY_FIRST: 'hungry first', NOT_READY: 'not ready yet',
@@ -54,13 +82,14 @@ const WHY_NOT = {
 const THOUGHT = {
   EXPLORE: 'just looking around.', OBSERVE: 'who are you?', APPROACH: 'you seem gentle…', CONTACT: 'mm. that’s nice.',
   REST: 'zzz…', EAT: 'nom.', GROOM: 'tidy, tidy.', PLAY: 'got it, got it!', RETREAT: 'too close!', SOCIAL: 'hey, you!',
-  TRICK: 'like this?', HISS: 'hss!',
+  TRICK: 'like this?', HISS: 'hss!', FOLLOW: 'wait for me!', FOOD: 'mine! hss!', DRINK: 'lap, lap, lap…',
 };
 
 const HOW = [
   ['ai/sees-you', 'Come in slowly', 'A slow, steady hand shrinks the ring around it. A fast one makes it back off.', 'Move your hand towards it, then stop.'],
   ['mood/affectionate', 'Stroke it', 'Rest your hand on it and move gently. Watch its tail: a flick means stop.', 'Keep the pointer on it and move slowly.'],
-  ['inventory/treat', 'Offer a treat', 'Pinch over the treat to pick it up. Open your fingers, then pinch again near the kitten to drop it.', 'Pick the treat, then click where it should land.'],
+  ['inventory/treat', 'Drop a fish', 'Pinch a fish from the basket. Open your fingers, then pinch again anywhere to drop it. Every kitten nearby will want it.', 'Click the basket, then click where the fish should land.'],
+  ['ai/sees-you', 'Point one finger', 'Point with your index finger and the nearest kitten follows it.', 'Press and hold on the ground: the nearest kitten follows the pointer.'],
   ['inventory/wand', 'Play with the feather', 'Pinch over the feather to pick it up. Dart, then pause.', 'Pick the feather; your pointer moves it.'],
   ['mood/relaxed', 'Step back', 'When it is tired or tense, move your hand away. It notices, and it comes back.', 'Move the pointer to the edge, or off the window.'],
 ];
@@ -80,7 +109,7 @@ const T = {
 };
 
 export class UI {
-  constructor({ dispatch, onChooseInput, onRecoverMouse, onToggleSound, onHelp, keepsakes }) {
+  constructor({ dispatch, onChooseInput, onStart, onRecoverMouse, onToggleSound, onHelp, keepsakes }) {
     this.dispatch = dispatch;
     this.keep = keepsakes;
     this.album = [];
@@ -93,7 +122,11 @@ export class UI {
     this.pulse = null;
 
     // entry
-    $('btnStart').onclick = () => dispatch({ type: 'start' });
+    // the cover offers the two ways in; either one starts the visit straight away
+    $('btnStartHand').innerHTML = `${kit('system/camera-gesture', 24)}Use your hand`;
+    $('btnStartMouse').innerHTML = `${kit('system/mouse', 24)}Use the mouse`;
+    $('btnStartHand').onclick = () => onStart('camera');
+    $('btnStartMouse').onclick = () => onStart('mouse');
     $('btnHow').onclick = () => this.showHow(true);
     $('btnHowClose').onclick = () => this.showHow(false);
     $('how').addEventListener('click', (e) => { if (e.target === $('how')) this.showHow(false); });
@@ -117,8 +150,10 @@ export class UI {
     $('btnEnd').innerHTML = kit('system/end', 22);
     $('btnEnd').onclick = (e) => { e.stopPropagation(); dispatch({ type: 'end' }); };
     $('btnSound').onclick = (e) => { e.stopPropagation(); onToggleSound(); };
+    for (const b of document.querySelectorAll('.scene-arrow')) b.addEventListener('click', (e) => { e.stopPropagation(); dispatch({ type: 'scene', dir: Number(b.dataset.dir) }); });
+    for (const b of document.querySelectorAll('.scene-arrow')) b.addEventListener('pointerdown', (e) => e.stopPropagation());
     for (const b of document.querySelectorAll('#pouch .slot')) {
-      b.querySelector('.w').innerHTML = kit(`inventory/${b.dataset.item}`, 28);
+      b.querySelector('.w').innerHTML = b.dataset.item === 'treat' ? FISH_BASKET : kit(`inventory/${b.dataset.item}`, 28);
       b.addEventListener('click', (e) => { e.stopPropagation(); this.take(b.dataset.item); });
       b.addEventListener('pointerdown', (e) => e.stopPropagation());
     }
@@ -151,7 +186,7 @@ export class UI {
 
   showHow(on, cam = this.lastSource === 'camera') {
     if (on) $('howGrid').innerHTML = HOW.map(([icon, t, d, mouse]) => `<div class="how-item">${kit(icon, 26)}<b>${t}</b><span>${cam ? d : mouse}</span></div>`).join('');
-    $('howTitle').textContent = `${HOW.length === 5 ? 'Five' : HOW.length} things you can do`;
+    $('howTitle').textContent = `${['Four', 'Five', 'Six', 'Seven'][HOW.length - 4] ?? HOW.length} things you can do`;
     this.show('how', on);
     if (on) setTimeout(() => $('btnHowClose').focus({ preventScroll: true }), 0);
   }
@@ -219,10 +254,11 @@ export class UI {
       this.show('ui', st === 'ACTIVE');
       if (st !== 'ATTRACT' && st !== 'ACTIVE') this.showHow(false);
       document.body.dataset.state = st.toLowerCase();
-      const focus = { ATTRACT: 'btnStart', CONSENT: 'btnCamera', PAUSED: 'btnResume', REFLECTION: 'btnNext' }[st];
+      const focus = { ATTRACT: 'btnStartHand', CONSENT: 'btnCamera', PAUSED: 'btnResume', REFLECTION: 'btnNext' }[st];
       if (focus) setTimeout(() => $(focus)?.focus({ preventScroll: true }), 0);
     }
     this.nameTags(snap, x);
+    this.handPointer(snap, x);
     if (st === 'ATTRACT') this.entry(snap);
     if (st === 'CONSENT') this.consent(x.camera);
     if (st === 'CALIBRATING') this.calibrating(snap, x.camera);
@@ -231,10 +267,72 @@ export class UI {
     if (st === 'ACTIVE') this.active(snap, x);
   }
 
+  // V3 habitats: the pouch shows this habitat's two items, the edge arrows name where they lead.
+  habitat(snap) {
+    const items = snap.items ?? ['treat', 'wand'];
+    if (this.itemsShown !== items.join()) {
+      this.itemsShown = items.join();
+      [...document.querySelectorAll('#pouch .slot')].forEach((b, i) => {
+        b.dataset.item = items[i];
+        b.querySelector('.w').innerHTML = ITEM_LOOK[items[i]].icon();
+        b.querySelector('.l').textContent = ITEM_LOOK[items[i]].label;
+      });
+    }
+    const i = SCENE_ORDER.indexOf(snap.scene ?? 'jungle');
+    const left = SCENE_ORDER[(i + 2) % 3], right = SCENE_ORDER[(i + 1) % 3];
+    $('sceneLeft').querySelector('.lbl').textContent = SCENE_NAME[left];
+    $('sceneRight').querySelector('.lbl').textContent = SCENE_NAME[right];
+    $('sceneLeft').setAttribute('aria-label', `Go to the ${SCENE_NAME[left]}`);
+    $('sceneRight').setAttribute('aria-label', `Go to the ${SCENE_NAME[right]}`);
+    if (this.guideUntil && performance.now() > this.guideUntil) { this.guideUntil = 0; this.show('toolGuide', false); }
+  }
+
+  // Semantic events the page forwards: a short how-to when something is picked up, and a
+  // line naming the habitat when it changes.
+  onEvent(e, snap) {
+    const cam = snap?.input?.source === 'camera';
+    if (e.type === 'held' && e.item) this.guide(ITEM_GUIDE[e.item]?.[cam ? 'camera' : 'pointer']);
+    if (e.type === 'scene_changed') this.guide(SCENE_NOTE[e.measurement?.to]);
+  }
+
+  guide(text) {
+    if (!text) return;
+    const el = $('toolGuide');
+    el.innerHTML = `${kit('system/help', 20)}<span>${text}</span>`;
+    el.hidden = false; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
+    this.guideUntil = performance.now() + 4200;
+  }
+
+  // The hand as a pointer for the interface: over a dimmed screen (pause, journal) the canvas
+  // hand is hidden, so a ring follows the palm; on any screen the button under the hand lights
+  // up, and a pinch presses it, exactly like a click.
+  handPointer(snap, x) {
+    const st = snap.sessionState, cam = snap.input.source === 'camera';
+    const at = !cam ? null : st === 'ACTIVE' ? (snap.input.quality === 'valid' ? x.cursorPx : null) : x.handPx;
+    this.handPx = at;
+    const ptr = $('handPointer');
+    const dom = cam && at && st !== 'ACTIVE';
+    ptr.hidden = !dom;
+    if (dom) { ptr.style.left = `${at.x}px`; ptr.style.top = `${at.y}px`; }
+    const target = at ? document.elementFromPoint(at.x, at.y)?.closest('button') : null;
+    if (target !== this.handTarget) {
+      this.handTarget?.classList.remove('hand-target');
+      this.handTarget?.style.setProperty('--p', '0%');
+      target?.classList.add('hand-target');
+      this.handTarget = target;
+      this.dwellSince = performance.now();
+    }
+    // a hand resting on an edge arrow fills its ring, then presses it: no pinch needed
+    if (target?.classList.contains('dwell') && performance.now() > (this.dwellCooldown ?? 0)) {
+      const k = Math.min(1, (performance.now() - this.dwellSince) / 900);
+      target.style.setProperty('--p', `${Math.round(k * 100)}%`);
+      if (k >= 1) { target.click(); target.style.setProperty('--p', '0%'); this.dwellCooldown = performance.now() + 1500; this.dwellSince = performance.now(); }
+    }
+  }
+
   entry(snap) {
     const k = KITTENS.find((q) => q.id === snap.kitten.id);
-    $('btnStart').textContent = `Meet ${k.name}`;
-    $('entryNote').textContent = this.hover && this.hover !== k.id ? `Click to choose ${NAMES[this.hover]}.` : 'Point at a kitten, or click one to choose it.';
+    void k; // every kitten can be met; there is nothing to choose before the visit
   }
 
   // Names over the litter on the entry screen. The chosen or pointed-at kitten shows its
@@ -250,15 +348,13 @@ export class UI {
       let el = this.tags.get(l.kitten);
       if (!el) {
         const k = KITTENS.find((q) => q.id === l.kitten);
-        el = document.createElement('button');
+        el = document.createElement('div'); // a label, not a control: every kitten can be met
         el.className = 'tag glass';
         el.innerHTML = `<b>${k.name}</b><span>${k.temperament[0].toUpperCase()}${k.temperament.slice(1)}. ${k.blurb}</span>${this.keep?.badge(k.id) ? `<em>${this.keep.badge(k.id)}</em>` : ''}`;
-        el.onclick = (e) => { e.stopPropagation(); this.dispatch({ type: 'choose_kitten', kitten: k.id }); };
         root.appendChild(el);
         this.tags.set(l.kitten, el);
       }
-      el.classList.toggle('chosen', l.kitten === snap.kitten.id);
-      el.classList.toggle('open', l.kitten === (this.hover ?? snap.kitten.id));
+      el.classList.toggle('open', l.kitten === this.hover);
       // keep the tag on screen, even when the kitten is near an edge
       const half = el.offsetWidth / 2 + 8;
       el.style.left = `${Math.max(half, Math.min(x.width - half, l.x))}px`;
@@ -320,6 +416,12 @@ export class UI {
     document.body.classList.toggle('mind-on', scene);
     $('btnMind').setAttribute('aria-pressed', String(this.mindOn));
     const c = snap.creature, d = snap.diagnostics, n = c.needs ?? {}, input = snap.input;
+    // each kitten has its own colours; the panel changes with whichever kitten you are meeting
+    const el = $('mind');
+    if (el.dataset.kitten !== snap.kitten.id) {
+      el.dataset.kitten = snap.kitten.id;
+      el.classList.remove('switch'); void el.offsetWidth; el.classList.add('switch');
+    }
     const doing = d.chosen === 'SEEK_FOOD' || d.chosen === 'EAT' ? 'EAT' : d.chosen;
     const label = (k) => (k === 'SOCIAL' && c.socialTarget ? `Join ${NAMES[c.socialTarget]}` : ACTS[k] ?? k);
     const setAside = snap.toolless ? ['HUNT', 'GIFT', 'TRICK'] : [];
@@ -331,7 +433,8 @@ export class UI {
       }).join('');
     const needs = [['Energy', n.energy, 'energy'], ['Fullness', n.fullness, 'full'], ['Fun', n.fun, 'fun'], ['Trust', n.trust, 'trust'], ['Stress', n.stress, 'stress']]
       .map(([k, v, cls]) => `<div class="m-need ${cls}"><span>${k}</span><i style="--v:${Math.round((v ?? 0) * 100)}%"></i><b>${Math.round((v ?? 0) * 100)}</b></div>`).join('');
-    const move = input.quality === 'lost' ? (input.source === 'camera' ? 'Hand out of view' : 'Move into the clearing')
+    const pointing = snap.pose?.label === 'point' || c.behaviour === 'FOLLOW';
+    const move = pointing && input.quality === 'valid' ? 'Pointing: leading the way' : input.quality === 'lost' ? (input.source === 'camera' ? 'Hand out of view' : 'Move into the clearing')
       : input.quality === 'uncertain' ? 'Finding a steady hand'
       : input.overUI ? 'Selecting a control' : READING[snap.intent.label] ?? 'Watching';
     const guidance = input.quality !== 'valid' ? (input.source === 'camera' ? 'Bring your hand back into view.' : 'Move your pointer into the clearing.')
@@ -339,7 +442,7 @@ export class UI {
       : c.behaviour === 'RETREAT' ? 'Move a little farther away.' : REPLY[snap.reasonCode] ? `${snap.kitten.name} ${REPLY[snap.reasonCode].toLowerCase()}.` : '';
     const tone = input.quality !== 'valid' || snap.intent.label === 'unknown' ? 'cool' : snap.intent.label === 'fast_approach' ? 'warn' : '';
     const html = `<div class="m-head"><span class="eyebrow">Mind</span><span class="m-state">${label(doing)}</span></div>
-      <p class="m-thought">“${THOUGHT[c.reaction?.type === 'hiss' ? 'HISS' : doing] ?? '…'}”</p>
+      <p class="m-thought"><b>${snap.kitten.name}</b> “${THOUGHT[c.reaction?.reasonCode === 'SIB_FOOD' ? 'FOOD' : c.reaction?.type === 'hiss' ? 'HISS' : doing] ?? '…'}”</p>
       ${needs}
       <div class="m-hand ${tone}"><span>Your move</span><em>${move}</em></div>
       <div class="m-head sub"><span class="eyebrow">Desires</span><span class="m-note">highest score wins</span></div>${rows}
@@ -375,13 +478,7 @@ export class UI {
     }
 
     this.held = snap.held;
-    const handTarget = cam && snap.input.quality === 'valid' && x.cursorPx
-      ? document.elementFromPoint(x.cursorPx.x, x.cursorPx.y)?.closest('button') : null;
-    if (handTarget !== this.handTarget) {
-      this.handTarget?.classList.remove('hand-target');
-      handTarget?.classList.add('hand-target');
-      this.handTarget = handTarget;
-    }
+    this.habitat(snap);
     // the coach leads in Act 1; after that the kitten's own need lights up the matching slot
     const need = this.pulse ? null : snap.need?.hint ? snap.need : null;
     const call = this.pulse ?? NEED_ITEM[need?.kind] ?? null;
