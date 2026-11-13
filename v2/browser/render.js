@@ -269,9 +269,26 @@ export class Renderer {
     const fast = snap.intent?.label === 'fast_approach' || c.behaviour === 'RETREAT';
     const want = Math.max(0, Math.min(1, 0.65 * n.stress + 0.55 * (1 - n.trust) + (fast ? 0.45 : 0) - (c.inviting ? 0.35 : 0)));
     const target = this.S * (0.075 + 0.14 * want);
+    const before = this.ringR ?? target;
     this.ringR = this.ringR ? this.ringR + (target - this.ringR) * Math.min(1, dt * (fast ? 6 : 1.6)) : target;
-    if (c.acceptedContact) return;
+    this.ringTrend = (this.ringTrend ?? 0) * 0.9 + ((this.ringR - before) / Math.max(dt, 1e-3) / this.S) * 0.1;
     const u = this.u, r = this.ringR, warm = c.inviting;
+    if (this.mindView) { // the same judgement, shown plainly: a solid ring, and a line to the hand
+      ctx.save();
+      ctx.translate(at.x, at.y + 6 * u);
+      ctx.strokeStyle = 'rgba(243,206,135,0.95)'; ctx.lineWidth = 3 * u;
+      ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.84, 0, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = 'rgba(243,206,135,0.4)'; ctx.lineWidth = 1.5 * u; ctx.setLineDash([6 * u, 6 * u]);
+      ctx.beginPath(); ctx.ellipse(0, 0, Math.max(r * 1.45, this.S * 0.2), Math.max(r * 1.45, this.S * 0.2) * 0.84, 0, 0, TAU); ctx.stroke();
+      ctx.restore();
+      const h = snap.input.position && snap.input.quality !== 'lost' ? this.px(snap.input.position) : null;
+      if (h) {
+        ctx.save(); ctx.strokeStyle = 'rgba(159,214,230,0.85)'; ctx.lineWidth = 1.6 * u; ctx.setLineDash([4 * u, 5 * u]);
+        ctx.beginPath(); ctx.moveTo(at.x, at.y); ctx.lineTo(h.x, h.y); ctx.stroke(); ctx.restore();
+      }
+      return;
+    }
+    if (c.acceptedContact) return;
     ctx.save();
     ctx.translate(at.x, at.y + 6 * u);
     ctx.fillStyle = warm ? 'rgba(255,214,140,0.16)' : 'rgba(255,250,232,0.08)';
