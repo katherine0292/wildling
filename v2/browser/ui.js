@@ -23,6 +23,10 @@ const PICTO = {
   SIB_FOOD: 'mood/alert', SIB_REST: 'mood/sleepy', SIB_TENSE: 'mood/alert', SIB_PLAY: 'mood/playful',
   SIB_FRIEND: 'mood/affectionate', SIB_CUDDLE: 'mood/affectionate', SIB_STANDOFF: 'mood/startled', FRIENDS: 'mood/affectionate',
 };
+// What the kitten is asking for (the need cycle), and what in the pouch answers it.
+const NEED_ICON = { food: 'inventory/treat', play: 'inventory/wand', touch: 'mood/affectionate', rest: 'mood/sleepy' };
+const NEED_WORDS = { food: 'It is hungry', play: 'It wants to play', touch: 'It would like to be stroked', rest: 'It is tired. Give it some space' };
+const NEED_ITEM = { food: 'treat', play: 'wand' };
 const WARN = new Set(['PRESSURE_HIGH', 'NOT_CLOSE_YET', 'SIB_STANDOFF', 'SIB_TENSE', 'SIB_FOOD']);
 
 // Peek inside: plain names for each choice and each reason a choice is blocked.
@@ -316,9 +320,12 @@ export class UI {
     }
 
     this.held = snap.held;
+    // the coach leads in Act 1; after that the kitten's own need lights up the matching slot
+    const need = this.pulse ? null : snap.need?.hint ? snap.need : null;
+    const call = this.pulse ?? NEED_ITEM[need?.kind] ?? null;
     for (const b of document.querySelectorAll('#pouch .slot')) {
       b.setAttribute('aria-pressed', String(b.dataset.item === snap.held));
-      b.classList.toggle('pulse', this.pulse === b.dataset.item && snap.held !== b.dataset.item);
+      b.classList.toggle('pulse', call === b.dataset.item && snap.held !== b.dataset.item);
     }
     if (snap.sessionId !== this.albumSession) { this.albumSession = snap.sessionId; this.album = []; this.saved = false; }
     this.show('still', snap.stillThere);
@@ -331,6 +338,13 @@ export class UI {
       if (this.bubbleCode !== h.code) { this.bubbleCode = h.code; bubble.innerHTML = kit(PICTO[h.code], 30, this.copy[h.code] ?? h.code); }
       bubble.className = `glass show ${WARN.has(h.code) ? 'warn' : ''}`;
       bubble.title = this.copy[h.code] ?? '';
+      bubble.style.left = `${x.catPx.x}px`;
+      bubble.style.top = `${Math.max(110, x.catPx.y - x.catPx.r * 0.95)}px`;
+    } else if (need) { // no reply to show: the kitten asks for what it needs
+      const code = `need:${need.kind}`;
+      if (this.bubbleCode !== code) { this.bubbleCode = code; bubble.innerHTML = kit(NEED_ICON[need.kind], 30, NEED_WORDS[need.kind]); }
+      bubble.className = 'glass show need';
+      bubble.title = NEED_WORDS[need.kind];
       bubble.style.left = `${x.catPx.x}px`;
       bubble.style.top = `${Math.max(110, x.catPx.y - x.catPx.r * 0.95)}px`;
     } else { bubble.className = 'glass'; this.bubbleCode = null; }

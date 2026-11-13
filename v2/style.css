@@ -146,6 +146,8 @@ kbd { font: 700 11px var(--body); padding: 1px 6px; border-radius: 6px; border: 
 #bubble.warn { color: var(--warn); box-shadow: 0 0 0 2px rgba(242, 164, 143, .75), 0 0 0 8px rgba(242, 164, 143, .16), var(--shadow); }
 #bubble::after { content: ''; position: absolute; left: 50%; bottom: -5px; width: 10px; height: 10px; transform: translateX(-50%) rotate(45deg); background: rgba(30, 36, 26, .62); }
 #bubble.show { opacity: 1; transform: translate(-50%, calc(-100% - 8px)) scale(1); }
+#bubble.need.show { animation: ask 2.4s ease-in-out infinite; }
+@keyframes ask { 0%, 100% { transform: translate(-50%, calc(-100% - 8px)); } 50% { transform: translate(-50%, calc(-100% - 14px)); } }
 
 /* the system's own messages stay with the hand, in cool blue and words */
 #sysHint { position: absolute; display: flex; align-items: center; gap: 9px; padding: 9px 15px; border-radius: 999px; font: 700 14.5px var(--body); color: var(--cool); border-color: rgba(159, 214, 230, .45); opacity: 0; transform: translate(-50%, -100%); transition: opacity .2s; pointer-events: none; white-space: nowrap; }
