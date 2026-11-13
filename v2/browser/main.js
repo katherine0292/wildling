@@ -36,6 +36,7 @@ const PHOTO_MOMENTS = [
   [(e) => e.type === 'gift_given', () => 'A gift for me', 0.4],
   [(e) => e.type === 'phase_changed', (e) => ({ juvenile: 'Chapter II', adult: 'Chapter III' }[e.measurement?.phase] ?? 'Growing up'), 2.4],
   [(e) => e.type === 'fully_grown', () => 'All grown up', 2.4],
+  [(e) => e.type === 'slept_beside_hand', () => 'Asleep beside you', 0],
   [(e) => e.type === 'trick_done', (e) => ({ spin: 'A spin!', rollover: 'Rolled over', wave: 'A wave' }[e.measurement?.trick] ?? 'A trick'), 0.6],
 ];
 
@@ -233,7 +234,8 @@ const sketch = (p) => {
     coach.update(snap, events, now, dt);
     while (photoQueue.length && photoQueue[0].at <= now) {
       const ph = photoQueue.shift();
-      if (snap.sessionState === 'ACTIVE') ui.addPhoto(renderer.capture(snap), ph.caption);
+      // the last photo is taken as the visit closes: the kitten asleep beside the hand
+      if (snap.sessionState === 'ACTIVE' || (snap.endReason === 'asleep' && snap.sessionState === 'REFLECTION')) ui.addPhoto(renderer.capture(snap), ph.caption);
     }
     photoQueue.sort((a, b) => a.at - b.at);
     const S = Math.min(p.width, p.height);
