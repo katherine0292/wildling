@@ -17,15 +17,16 @@ python3 -m http.server 8790     # from the repository root
 
 Open <http://localhost:8790/v2/> in Chrome. Camera mode needs localhost or HTTPS. The hand model, p5.js and fonts ship with the app. Camera frames stay on the device.
 
-Choose **Your hand** and keep one hand in view until the ring fills. Move slowly towards the kitten and pause to let it come closer. Pinch over a pouch slot to pick up an item. Open your fingers before the next pinch. To feed the kitten, pinch again over clear ground nearby. To play, move the feather in short bursts with pauses. If tracking is lost, bring one open hand back into view or choose **Use mouse**.
+Choose **Use your hand** (or **Use the mouse**) on the cover. Keep one open hand in view: the small camera preview in the corner shows what the tracker sees. Bring your hand in slowly and let a kitten come to you, then stroke along its back. Pinch a pouch slot to pick something up; it stays in your hand until you take something else, and the **Hand** slot empties it. Pinch anywhere to use it. Wave near the kittens and they scatter. Rest your hand on an edge arrow to change habitat. A pinch presses any button, so the hand can do everything the mouse can.
 
 | Key | Action |
 |---|---|
-| `1`–`3` · `Enter` on the entry screen | Pick a kitten with `1`–`3`, then start the visit with `Enter` |
-| `1` `2` during the visit | Take or put back a treat or feather |
+| `Enter` on the cover | Start with the mouse |
+| `1` `2` · `3` during the visit | Take this habitat's first or second item · empty hand |
+| `[` `]` | Previous or next habitat |
 | Arrow keys + `Space` | Move and confirm with the keyboard hand |
 | Hold `V` or press `T` | View what the kitten sees. The eye button also toggles this view |
-| `Esc` | Put the held item back, or pause or resume the visit |
+| `Esc` | Put the held item down, or pause or resume the visit |
 | `D` | Staff diagnostics |
 | `M` | Toggle sound |
 
@@ -50,6 +51,9 @@ v2/core/        pure JavaScript, no DOM, no p5: runs in the page and under `node
   sim.js          the single authority: commands (de-duplicated), fixed 60 Hz step, snapshot
 v2/browser/     everything that touches the page
   catbody.js      procedural kitten body (spine, IK legs, tail, coats), display only
+  biomes.js       the jungle, snowfields and desert backgrounds
+  campreview.js   the mirrored camera preview with the tracked hand
+  coach.js        the first-minute coach: one goal at a time, cleared by doing it
   render.js       painted habitats, follow camera, light, feedback layers and cursor (reads the snapshot only)
   ui.js           field guide, approach choice, HUD and journal
   staff.js        diagnostics panel
