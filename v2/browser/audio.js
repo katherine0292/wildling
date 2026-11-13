@@ -132,19 +132,19 @@ export class SoundAdapter {
 
   // ---------------------------------------------------------------- voices
   // A meow: a buzzy voice through two moving formants, so the vowel slides "mi-a-ow" like a
-  // real cat's. The old single narrow band lost most of the voice's energy and was hard to hear.
-  meow(scale = 1, delay = 0, vol = 0.5) { this.voice({ scale, delay, vol: vol * 1.9, dur: 0.62 }); }
+  // real cat's. Short and soft: a kitten's "mew", heard but never louder than the room.
+  meow(scale = 1, delay = 0, vol = 0.5) { this.voice({ scale, delay, vol: vol * 0.75, dur: 0.34 }); }
 
-  voice({ scale = 1, delay = 0, vol = 0.9, dur = 0.6, sharp = false }) {
+  voice({ scale = 1, delay = 0, vol = 0.9, dur = 0.6 }) {
     const c = this.ctx, t = c.currentTime + delay;
-    const base = [820, 620, 470][this.phaseIdx ?? 0] * scale * (sharp ? 1.45 : 1);
+    const base = [820, 620, 470][this.phaseIdx ?? 0] * scale;
     const o = c.createOscillator(), vib = c.createOscillator(), vd = c.createGain(), g = c.createGain();
     o.type = 'sawtooth';
-    // pitch: up into the "a", down through the "ow"; an angry cry jumps up fast and stays high
-    o.frequency.setValueAtTime(base * (sharp ? 0.95 : 0.8), t);
-    o.frequency.linearRampToValueAtTime(base * (sharp ? 1.3 : 1.18), t + dur * (sharp ? 0.15 : 0.3));
-    o.frequency.linearRampToValueAtTime(base * (sharp ? 1.05 : 0.72), t + dur);
-    vib.frequency.value = sharp ? 11 : 6; vd.gain.value = base * (sharp ? 0.035 : 0.015);
+    // pitch: up into the "a", down through the "ow"
+    o.frequency.setValueAtTime(base * 0.8, t);
+    o.frequency.linearRampToValueAtTime(base * 1.18, t + dur * 0.3);
+    o.frequency.linearRampToValueAtTime(base * 0.72, t + dur);
+    vib.frequency.value = 6; vd.gain.value = base * 0.015;
     vib.connect(vd).connect(o.frequency);
     const formant = (f0, f1, f2, q, level) => {
       const f = c.createBiquadFilter(), fg = c.createGain();
@@ -154,12 +154,11 @@ export class SoundAdapter {
       f.frequency.linearRampToValueAtTime(f2, t + dur);
       o.connect(f).connect(fg).connect(g);
     };
-    formant(sharp ? 900 : 650, sharp ? 1300 : 1000, sharp ? 1100 : 520, 5, 1.4); // first formant
-    formant(sharp ? 2600 : 1900, sharp ? 3200 : 1600, sharp ? 2800 : 950, 6, sharp ? 1.2 : 0.8); // second
-    if (sharp) formant(4200, 4600, 4000, 3, 0.5); // the harsh edge of a spat cry
+    formant(650, 1000, 520, 5, 1.4); // first formant
+    formant(1900, 1600, 950, 6, 0.8); // second
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + (sharp ? 0.02 : 0.06));
-    g.gain.setValueAtTime(vol * (sharp ? 0.9 : 0.8), t + dur * 0.6);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.06);
+    g.gain.setValueAtTime(vol * 0.8, t + dur * 0.6);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     g.connect(this.out);
     o.start(t); o.stop(t + dur + 0.05); vib.start(t); vib.stop(t + dur + 0.05);
@@ -178,18 +177,19 @@ export class SoundAdapter {
     o.connect(f).connect(g).connect(this.out); o.start(t); o.stop(t + 0.32); fl.start(t); fl.stop(t + 0.32);
   }
 
-  // A hiss is voiced: a short, shrill, angry meow over a quick breathy spit, so it reads as a
-  // cat's warning rather than static.
+  // a hiss: a sharp spit, then sustained breathy noise high in the spectrum
   hiss(vol = 1, delay = 0) {
     const c = this.ctx, t = c.currentTime + delay;
-    this.voice({ delay, vol: 0.85 * vol, dur: 0.45, sharp: true });
-    const s = c.createBufferSource(), hp = c.createBiquadFilter(), g = c.createGain();
+    const s = c.createBufferSource(), hp = c.createBiquadFilter(), pk = c.createBiquadFilter(), g = c.createGain();
     s.buffer = this.noise; s.playbackRate.value = 0.9 + Math.random() * 0.2;
-    hp.type = 'highpass'; hp.frequency.value = 3000;
+    hp.type = 'highpass'; hp.frequency.value = 2200;
+    pk.type = 'peaking'; pk.frequency.value = 4800; pk.gain.value = 10; pk.Q.value = 1.4;
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.18 * vol, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
-    s.connect(hp).connect(g).connect(this.out); s.start(t); s.stop(t + 0.32);
+    g.gain.exponentialRampToValueAtTime(0.45 * vol, t + 0.015);      // spit
+    g.gain.exponentialRampToValueAtTime(0.22 * vol, t + 0.12);
+    g.gain.setValueAtTime(0.22 * vol, t + 0.7);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.05);
+    s.connect(hp).connect(pk).connect(g).connect(this.out); s.start(t); s.stop(t + 1.1);
   }
 
   // one beat of a scuffle: a soft body thump, a growl or a squeak
