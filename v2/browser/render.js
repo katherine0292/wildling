@@ -81,7 +81,8 @@ export class Renderer {
     this.S = Math.min(this.W, this.H);
     this.u = this.S / 900;
     this.dpr = p.pixelDensity();
-    this.grain = this.p.drawingContext.createPattern(this.makeGrain(), 'repeat');
+    this.grain = this.makeGrain();
+    this.grainPattern = p.drawingContext.createPattern(this.grain, 'repeat');
     // paint the habitat on screen now and the other two shortly after, off the first frame
     const makers = { kitten: () => this.makeForest(), juvenile: () => this.makeSnow(), adult: () => this.makeDesert() };
     const gen = (this.gen = (this.gen ?? 0) + 1);
@@ -936,7 +937,7 @@ export class Renderer {
     ctx.globalAlpha = 0.05;
     ctx.globalCompositeOperation = 'overlay';
     ctx.translate(-ox, -oy);
-    ctx.fillStyle = this.grain;
+    ctx.fillStyle = this.grainPattern;
     ctx.fillRect(0, 0, this.W + 256, this.H + 256);
     ctx.restore();
   }
