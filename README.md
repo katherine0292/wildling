@@ -19,7 +19,7 @@
 
 **Wildling** is an explainable AI creature for a public exhibition. Three wild kittens live in a clearing. You meet them **with your bare hand in front of a camera**, or with a mouse. Rest your palm on a kitten's back and it purrs. Drop a fish and the litter squabbles over it. Throw a ball, set down a bowl of water, or wave your hand and watch them scatter. Each kitten has its own needs, its own relationships with its siblings, and the right to say no. An always-on **MIND** panel shows what the nearest kitten is thinking and why. Whatever happens, it is clear **whether the system lost your hand or the kitten made a choice**.
 
-<p align="center"><img src="docs/readme/v3/stroke.webp" alt="A hand comes in slowly; Ember walks up, the hand strokes its back, purr rings spread and the MIND panel switches to 'Be stroked'" width="100%"></p>
+<p align="center"><img src="docs/readme/v3/stroke.webp" alt="The pointer moves slowly to Ember and strokes its back; purr rings spread and the MIND panel switches to 'Be stroked'" width="100%"></p>
 
 ## At a glance
 
@@ -32,6 +32,8 @@
 | **Evidence** | 119 deterministic replay tests across 19 suites, run in CI. What has not been measured on real hands is labelled as such. |
 
 ## What you can do
+
+The clips below are captured from the browser build using scripted inputs.
 
 <table>
   <tr>
