@@ -436,3 +436,18 @@ body:has(#toyTray:not([hidden])) #toolHint { bottom: 226px; }
 @keyframes breathe-art { 50% { transform: translate(-50%, -50%) scale(1.04); } }
 @keyframes wave { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
 body.coaching #toolHint { visibility: hidden; }
+
+/* ---------- narrow screens: nothing overlaps, the kitten stays visible ---------- */
+@media (max-width: 760px) {
+  #hud { width: auto; right: 12px; }
+  /* the growth detail does not fit beside the kitten on a phone; the plate keeps name and bond */
+  #growthPanel { display: none; }
+  #topright { top: 112px; bottom: auto; left: 12px; right: 12px; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+  #topright .chip { padding: 8px 12px; font-size: 14px; }
+  #toolbar { left: 8px; right: 8px; bottom: max(10px, env(safe-area-inset-bottom)); transform: none; justify-content: space-between; gap: 2px; padding: 8px 8px 6px; }
+  #toolbar .slot { width: auto; flex: 1 1 0; min-width: 0; }
+  #toolbar .slot span, #toolbar .slot .label { font-size: 12px; }
+  #toolHint { bottom: 112px; }
+  .coach, .coach.in { left: 12px; right: 12px; top: auto; bottom: 132px; width: auto; transform: none; animation: none; padding: 12px 16px 10px; }
+  .coach-art { display: none; }
+}
