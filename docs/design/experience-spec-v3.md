@@ -94,7 +94,7 @@ Siblings requests and their four hand shapes, the three habitats and life stages
 | Pictogram replies instead of sentences; system messages stay in words | Built |
 | See what it sees (T) | Built as a toggle; hold-to-show and in-scene labels to come |
 | Journal that stays open on the website | Built |
-| Need cycle and need bubbles (Act 2) | Next |
+| Need cycle (Act 2): one need at a time, shown by the body first, a pictogram after 8 s, the matching pouch slot lit; each episode logged with how long the answer took | Built (`v2/core/needs.js`) |
 | The kitten falls asleep to end the visit; "what it learned about you" | To come |
 
 The layout mockups that preceded the build are in [`mockups/`](mockups/README.md).
