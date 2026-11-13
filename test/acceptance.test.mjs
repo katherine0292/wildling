@@ -246,3 +246,15 @@ test('a visit on the website is not timed: no idle pause and no time limit', () 
   d.cmd('end');
   assert.equal(d.state, 'REFLECTION');
 });
+
+test('on the website the journal stays open until the visitor moves on', () => {
+  const d = new Driver({ timed: false });
+  d.startMouse();
+  d.run(2, () => mouseAt(0.5, 0.5));
+  d.cmd('end');
+  d.run(60);
+  assert.equal(d.state, 'REFLECTION');
+  d.cmd('next');
+  d.run(0.5);
+  assert.equal(d.state, 'ATTRACT');
+});
