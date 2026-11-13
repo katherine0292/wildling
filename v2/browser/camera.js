@@ -1,10 +1,32 @@
 // Video frames are transferred to a local worker and never recorded or uploaded.
 const START_TIMEOUT_MS = 25000;
 const PALM = [0, 5, 9, 13, 17];
-const TIPS = [8, 12, 16, 20];
-const CROP = 0.1;
+// The screen maps to the middle of the camera frame. The bottom margin is the widest: the
+// wrist and forearm hang below the palm, so a palm low on the screen must still leave the
+// whole hand inside the frame, or the tracker loses it right where the pouch is.
+const CROP_X = 0.15, CROP_TOP = 0.15, CROP_BOTTOM = 0.25;
+const SPAN_X = 1 - 2 * CROP_X, SPAN_Y = 1 - CROP_TOP - CROP_BOTTOM;
+const DRAWN_PALM = 0.12; // wrist to middle knuckle, as a share of the screen height
 const HOLD_MS = 300; // how long the drawn hand survives a missed detection
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const dist3 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0));
+const FINGERS = [[5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16], [17, 18, 19, 20]];
+
+// Hand features that must not depend on how the hand is turned. A stroking hand faces down
+// and its fingers point away from the camera, so in the flat image they look short; the 3D
+// world landmarks (metres, centred on the hand) keep their true length.
+//   open:       0 = fist, 1 = fingers straight (mean wrist-to-tip reach over finger length)
+//   pinchRatio: thumb tip to index tip over palm length; a fist never pinches
+export function handFeatures(points, world) {
+  const k = world?.length === 21 ? world : points;
+  const d = world?.length === 21 ? dist3 : dist;
+  const palm = Math.max(d(k[0], k[9]), 1e-6);
+  const reach = FINGERS.map(([m, p, q, t]) => d(k[0], k[t]) / Math.max(d(k[0], k[m]) + d(k[m], k[p]) + d(k[p], k[q]) + d(k[q], k[t]), 1e-6));
+  const open = Math.max(0, Math.min(1, (reach.reduce((a, b) => a + b, 0) / 4 - 0.55) / 0.3));
+  const indexReach = d(k[0], k[8]) / palm;
+  const pinchRatio = indexReach < 0.85 ? 1 : d(k[4], k[8]) / palm;
+  return { open, pinchRatio };
+}
 const centroid = (points) => ({
   x: PALM.reduce((sum, i) => sum + points[i].x, 0) / PALM.length,
   y: PALM.reduce((sum, i) => sum + points[i].y, 0) / PALM.length,
@@ -112,13 +134,18 @@ export class CameraInput {
     this.prev = { ...hand.center, time };
     const raw = hand.points.map((k) => ({ x: k.x * width, y: k.y * height }));
     const palm = dist(raw[0], raw[9]);
-    const center = centroid(raw);
-    const spread = TIPS.reduce((sum, i) => sum + dist(raw[i], center), 0) / TIPS.length;
     const normal = hand.points.map((k) => ({
-      x: (1 - k.x - CROP) / (1 - 2 * CROP),
-      y: (k.y - CROP) / (1 - 2 * CROP),
+      x: (1 - k.x - CROP_X) / SPAN_X,
+      y: (k.y - CROP_TOP) / SPAN_Y,
     }));
     const c = centroid(normal);
+    // The drawn hand keeps one size on screen however near or far the visitor stands: the
+    // keypoints are scaled about the palm so the palm is always DRAWN_PALM of the screen height.
+    // Only the picture changes; position, openness and pinch are measured on the real hand.
+    const handScale = palm / (Math.min(width, height) * SPAN_Y);
+    const want = Math.max(0.35, Math.min(3, DRAWN_PALM / Math.max(handScale, 1e-3)));
+    this.drawScale = this.drawScale ? this.drawScale + 0.25 * (want - this.drawScale) : want;
+    const drawn = normal.map((q) => ({ x: c.x + (q.x - c.x) * this.drawScale, y: c.y + (q.y - c.y) * this.drawScale }));
     // Smooth the drawn hand more when it is still. The recognizer receives the actual sample.
     const previous = this.keypoints;
     const dt = Math.max((time - (this.visualTime ?? time)) / 1000, 1 / 120);
@@ -126,14 +153,14 @@ export class CameraInput {
     const alpha = !previous || dt > 0.2 || movement > 0.25 ? 1
       : 1 - Math.exp(-2 * Math.PI * (4 + Math.min(22, 4 * movement / dt)) * dt);
     this.raw = hand.points.map((k) => ({ x: k.x, y: k.y })); // camera space, for the preview window
-    this.keypoints = normal.map((point, i) => previous ? ({
+    this.keypoints = drawn.map((point, i) => previous ? ({
       x: previous[i].x + alpha * (point.x - previous[i].x),
       y: previous[i].y + alpha * (point.y - previous[i].y),
     }) : point);
     this.visualTime = time;
-    this.sample = { ...sample, x: c.x, y: c.y, handScale: palm / (Math.min(width, height) * (1 - 2 * CROP)),
-      open: Math.max(0, Math.min(1, (spread / Math.max(palm, 1) - 0.9) / 0.7)),
-      pinchRatio: dist(raw[4], raw[8]) / Math.max(palm, 1), keypointCount: 21,
+    const { open, pinchRatio } = handFeatures(raw, hand.world);
+    this.sample = { ...sample, x: c.x, y: c.y, handScale,
+      open, pinchRatio, keypointCount: 21,
       keypoints: normal, keypoints3D: hand.world ?? null };
   }
 
@@ -157,6 +184,7 @@ export class CameraInput {
     this.raw = null;
     this.visualTime = null;
     this.prev = null;
+    this.drawScale = null;
     this.multiHand = false;
   }
 }
