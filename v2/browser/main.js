@@ -8,7 +8,7 @@
 //
 // URL options for demos and screenshots:
 //   ?staff=1  ?seed=42  ?adapt=0  ?kitten=ember|juniper|saffron  ?input=mouse|keyboard (skips the approach screen)
-//   ?kiosk=1  exhibition mode: no keepsakes, every visitor meets a fresh kitten
+//   ?kiosk=1  exhibition mode: no keepsakes, every visitor meets a fresh kitten, visits are timed
 //   ?adopt=…  a postcard's code: brings a keepsake into this browser
 
 import { Simulation } from '../core/sim.js';
@@ -88,6 +88,7 @@ const sketch = (p) => {
       world: worldFor(),
       seed: Number(params.get('seed')) || Math.floor(Math.random() * 1e9),
       adaptation: params.get('adapt') !== '0',
+      timed: params.get('kiosk') === '1', // only the exhibition moves visitors on
     });
     keepsakes = new Keepsakes({ kiosk: params.get('kiosk') === '1' });
     const adopted = keepsakes.importFrom(params.get('adopt'));

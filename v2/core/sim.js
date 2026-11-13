@@ -52,12 +52,12 @@ class HintBoard {
 }
 
 export class Simulation {
-  constructor({ world = { w: 16 / 9, h: 1 }, params = PARAMS, seed = 7, adaptation = true, lang = 'en' } = {}) {
+  constructor({ world = { w: 16 / 9, h: 1 }, params = PARAMS, seed = 7, adaptation = true, lang = 'en', timed = true } = {}) {
     this.p = params;
     this.world = world;
     this.rand = mulberry32(seed);
     this.lang = lang;
-    this.session = new SessionController(params, this.rand);
+    this.session = new SessionController(params, this.rand, { timed });
     this.track = new InputTrack(world, params);
     this.pinch = new PinchDetector(params);
     this.intentClf = new IntentClassifier(params);

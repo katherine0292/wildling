@@ -11,8 +11,11 @@ let counter = 0;
 const newSessionId = (rand) => `s_${Date.now().toString(36)}_${(++counter).toString(36)}_${Math.floor(rand() * 1e6).toString(36)}`;
 
 export class SessionController {
-  constructor(params = PARAMS, rand = Math.random) {
+  // `timed` is the exhibition setting: a visit has a length and an idle visitor is moved on.
+  // On the website nobody is waiting, so the visit lasts until the visitor ends it.
+  constructor(params = PARAMS, rand = Math.random, { timed = true } = {}) {
     this.p = params.session;
+    this.timed = timed;
     this.rand = rand;
     this.state = 'ATTRACT';
     this.sessionId = null;
@@ -90,8 +93,8 @@ export class SessionController {
         this.activeTime += dt;
         this.idle += dt;
         if (ctx.grown) this.end('grown');
-        else if (this.activeTime >= this.p.maxActiveSec) this.end('time_limit');
-        else if (this.idle >= this.p.idlePauseSec) this.pause('idle');
+        else if (this.timed && this.activeTime >= this.p.maxActiveSec) this.end('time_limit');
+        else if (this.timed && this.idle >= this.p.idlePauseSec) this.pause('idle');
         break;
       case 'PAUSED':
         if (this.pauseReason === 'idle') {
@@ -119,8 +122,8 @@ export class SessionController {
     this.go('ATTRACT', 'reset_done');
   }
 
-  get stillThere() { return this.state === 'ACTIVE' && this.idle >= this.p.idleHintSec; }
-  get offerEnd() { return this.state === 'ACTIVE' && this.activeTime >= this.p.offerEndSec; }
+  get stillThere() { return this.timed && this.state === 'ACTIVE' && this.idle >= this.p.idleHintSec; }
+  get offerEnd() { return this.timed && this.state === 'ACTIVE' && this.activeTime >= this.p.offerEndSec; }
   get reflectionLeft() { return this.state === 'REFLECTION' ? Math.max(0, this.p.reflectionSec - this.stateTime) : null; }
 
   drain() { const t = this.transitions; this.transitions = []; return t; }
