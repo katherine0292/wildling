@@ -83,8 +83,10 @@
     <div id="bubble" class="glass" role="status" aria-live="polite"></div>
     <div id="sysHint" class="glass" role="status" aria-live="assertive"></div>
     <div id="coach" class="glass" role="status" aria-live="polite" hidden></div>
-    <button id="sceneLeft" class="scene-arrow left glass dwell" data-dir="-1"><span class="ar" aria-hidden="true">‹</span><span class="lbl"></span></button>
-    <button id="sceneRight" class="scene-arrow right glass dwell" data-dir="1"><span class="lbl"></span><span class="ar" aria-hidden="true">›</span></button>
+    <nav id="sceneNav" aria-label="Change habitat">
+      <button id="sceneLeft" class="scene-arrow glass dwell" data-dir="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7"/></svg><span class="lbl"></span></button>
+      <button id="sceneRight" class="scene-arrow glass dwell" data-dir="1"><span class="lbl"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
+    </nav>
     <div id="toolGuide" class="glass" role="status" aria-live="polite" hidden></div>
     <nav id="pouch" class="glass" aria-label="Pouch: pick something up">
       <span class="cap">Pick one up</span>

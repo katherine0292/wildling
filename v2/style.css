@@ -113,7 +113,12 @@ kbd { font: 700 11px var(--body); padding: 1px 6px; border-radius: 6px; border: 
 .calib-card p { margin: 6px 0 12px; color: var(--muted); font: 600 15px var(--body); }
 
 /* ---------- heads-up display ---------- */
-#ui { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+#ui {
+  position: fixed; inset: 0; z-index: 5; pointer-events: none;
+  display: grid; grid-template: 'space space' minmax(0, 1fr) 'scenes scenes' auto 'mind pouch' auto / minmax(0, 1fr) auto;
+  align-items: end; gap: 18px 16px;
+  padding: 0 max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+}
 #ui > * { pointer-events: auto; }
 #who { position: absolute; left: 20px; top: 20px; display: flex; align-items: center; gap: 12px; padding: 10px 16px 10px 10px; border-radius: 16px; }
 #who .face { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(248, 234, 208, .45); }
@@ -135,12 +140,12 @@ kbd { font: 700 11px var(--body); padding: 1px 6px; border-radius: 6px; border: 
 #inputStatus.valid { color: var(--ink); }
 #inputStatus.uncertain, #inputStatus.lost { color: var(--cool); border-color: rgba(159, 214, 230, .5); }
 
-#pouch { position: absolute; right: 20px; bottom: 20px; display: flex; gap: 12px; align-items: flex-end; padding: 14px 16px; border-radius: 24px; } /* big targets: a tracked hand is never pixel-exact */
+#pouch { grid-area: pouch; justify-self: end; position: relative; --slot-width: clamp(62px, calc((100vw - 436px) / 5), 92px); display: flex; gap: 12px; align-items: flex-end; padding: 14px 16px; border-radius: 24px; } /* big targets: a tracked hand is never pixel-exact */
 #pouch .cap { position: absolute; right: 14px; top: -24px; font: 800 12px var(--body); letter-spacing: .06em; text-transform: uppercase; color: #fff6e4; text-shadow: 0 1px 6px rgba(0, 0, 0, .6); pointer-events: none; }
-.slot { position: relative; width: 92px; text-align: center; font: 700 14px var(--body); color: var(--muted); }
+.slot { position: relative; width: var(--slot-width); text-align: center; font: 700 14px var(--body); color: var(--muted); }
 .slot .w svg.basket { width: 60px; height: 50px; }
 .slot .w svg { width: 46px; height: 46px; }
-.slot .w { display: grid; place-items: center; width: 84px; height: 84px; margin: 0 auto 6px; border-radius: 22px; border: 1px solid var(--line); background: rgba(255, 255, 255, .05); color: var(--ink); transition: background .14s, border-color .14s, transform .2s var(--pop); }
+.slot .w { display: grid; place-items: center; width: min(84px, 100%); height: 84px; margin: 0 auto 6px; border-radius: 22px; border: 1px solid var(--line); background: rgba(255, 255, 255, .05); color: var(--ink); transition: background .14s, border-color .14s, transform .2s var(--pop); }
 .slot:hover .w, .slot.hand-target .w { background: rgba(255, 255, 255, .1); }
 .hand-target { outline: 2px solid var(--accent); outline-offset: 4px; }
 .slot.hand-target { border-radius: 12px; }
@@ -162,7 +167,7 @@ kbd { font: 700 11px var(--body); padding: 1px 6px; border-radius: 6px; border: 
 #sysHint { position: absolute; display: flex; align-items: center; gap: 9px; left: 50%; top: 90px; max-width: calc(100% - 24px); padding: 9px 15px; border-radius: 16px; font: 700 14.5px var(--body); color: var(--cool); border-color: rgba(159, 214, 230, .45); opacity: 0; transform: translateX(-50%); transition: opacity .2s; pointer-events: none; }
 #sysHint.show { opacity: 1; }
 
-#coach { position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 10px 10px 10px 22px; border-radius: 999px; font: 700 17px var(--body); white-space: normal; max-width: min(610px, calc(100% - 40px)); }
+#coach { grid-area: scenes; z-index: 1; justify-self: center; align-self: center; display: flex; align-items: center; gap: 14px; padding: 10px 10px 10px 22px; border-radius: 999px; font: 700 17px var(--body); max-width: min(610px, calc(100% - 300px)); }
 #coach.in { animation: rise .5s var(--ease) both; }
 #coach.ok { border-color: var(--accent); color: var(--accent); }
 #coach .dots { display: flex; gap: 5px; }
@@ -180,7 +185,7 @@ kbd { font: 700 11px var(--body); padding: 1px 6px; border-radius: 6px; border: 
 body.mind-on #stage { filter: saturate(.4) brightness(.78); transition: filter .3s; }
 #stage { transition: filter .3s; }
 body.mind-on #coach { display: none; }
-#mind { position: absolute; left: 20px; bottom: 20px; width: 300px; padding: 14px 18px 12px; border-radius: 18px; background: rgba(14, 22, 14, .72); pointer-events: none; }
+#mind { grid-area: mind; width: 300px; max-width: 100%; padding: 14px 18px 12px; border-radius: 18px; background: rgba(14, 22, 14, .72); pointer-events: none; }
 /* each kitten's panel has its own colours: Ember warm orange, Juniper cool silver, Saffron gold */
 #mind { --cat: var(--accent); border-color: color-mix(in srgb, var(--cat) 55%, transparent); }
 #mind[data-kitten="ember"] { --cat: #f0a066; background: rgba(34, 20, 12, .74); }
@@ -285,10 +290,10 @@ body.staff #recap li .ev { display: block; }
 #camPreview[data-state="valid"] figcaption { color: var(--accent); }
 body.has-cam #inputStatus { top: 260px; }
 
-/* ---------- habitats: edge arrows and the item guide ---------- */
-.scene-arrow { position: absolute; top: 40%; display: flex; align-items: center; gap: 8px; min-height: 64px; padding: 0 16px; border-radius: 18px; font: 700 15px var(--body); color: var(--ink); --p: 0%; isolation: isolate; }
-.scene-arrow.left { left: 16px; } .scene-arrow.right { right: 16px; }
-.scene-arrow .ar { font: 600 34px/1 var(--display); color: var(--accent); }
+/* Habitat buttons share a row above the panels and keep the clearing clickable. */
+#ui > #sceneNav { grid-area: scenes; display: flex; justify-content: space-between; gap: 12px; pointer-events: none; }
+.scene-arrow { position: relative; display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 56px; padding: 0 14px; border-radius: 18px; font: 700 15px/1 var(--body); color: var(--ink); pointer-events: auto; --p: 0%; isolation: isolate; }
+.scene-arrow svg { display: block; width: 24px; height: 24px; flex: none; fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .scene-arrow::after { content: ''; position: absolute; inset: -4px; border-radius: 22px; z-index: -1; background: conic-gradient(var(--accent) var(--p), transparent 0); -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); padding: 3px; }
 .scene-arrow:hover, .scene-arrow.hand-target { background: rgba(54, 63, 44, .85); }
 #toolGuide { position: absolute; left: 50%; top: 24px; translate: -50% 0; /* not transform: the rise animation owns transform */ display: flex; align-items: center; gap: 10px; max-width: min(540px, calc(100% - 420px)); padding: 10px 18px; border-radius: 16px; font: 700 15.5px/1.35 var(--body); }
@@ -313,13 +318,14 @@ body.has-cam #inputStatus { top: 260px; }
   #sysHint { top: 172px; }
   /* phones: the pouch is one even row along the bottom, the MIND panel sits above it, and the
      coach moves to the top so nothing stacks */
-  #pouch { left: 10px; right: 10px; bottom: max(10px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 8px; border-radius: 20px; }
+  #ui { grid-template: 'space' minmax(0, 1fr) 'scenes' auto 'mind' auto 'pouch' auto / minmax(0, 1fr); gap: 12px; padding: 0 max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+  #pouch { justify-self: stretch; display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 8px; border-radius: 20px; }
   #pouch .cap { display: none; }
   .slot { width: auto; min-width: 0; font-size: 12px; } .slot .w { width: 100%; max-width: 60px; height: 52px; margin-bottom: 4px; border-radius: 14px; }
   .slot .w svg { width: 30px; height: 30px; } .slot .w svg.basket { width: 40px; height: 34px; } .slot kbd { display: none; }
   .slot[aria-pressed="true"] .w { transform: translateY(-2px); }
-  #coach { left: 12px; right: 12px; top: 116px; bottom: auto; transform: none; justify-content: space-between; white-space: normal; font-size: 15px; padding: 8px 8px 8px 16px; }
-  #mind { left: 10px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 96px); width: 168px; padding: 9px 11px; border-radius: 14px; }
+  #coach { position: absolute; inset: 116px 12px auto; grid-area: auto; justify-self: stretch; justify-content: space-between; max-width: none; font-size: 15px; padding: 8px 8px 8px 16px; }
+  #mind { width: 168px; padding: 9px 11px; border-radius: 14px; }
   #mind .m-thought, #mind .m-hand, #mind .m-head.sub, #mind .m-row, #mind .m-foot { display: none; }
   .m-need { grid-template-columns: 56px 1fr 22px; gap: 6px; font-size: 11.5px; }
   .mind-on #coach { visibility: hidden; }
@@ -329,22 +335,28 @@ body.has-cam #inputStatus { top: 260px; }
   .journal-actions { flex-direction: column; align-items: stretch; }
   #staff { left: 12px; right: 12px; width: auto; }
   #camPreview { right: 12px; top: 62px; width: 120px; }
-  .scene-arrow { top: 46%; min-height: 52px; padding: 0 10px; } .scene-arrow .lbl { display: none; }
+  .scene-arrow { min-height: 48px; padding: 0 10px; font-size: 13px; }
   #toolGuide { top: 64px; max-width: calc(100% - 24px); font-size: 14px; }
   body.has-cam #inputStatus { top: 170px; }
 }
 /* phones held sideways: little height, so the pouch goes back to the right and shrinks */
-@media (max-width: 960px) and (max-height: 480px) {
-  #pouch { left: auto; right: 10px; bottom: max(8px, env(safe-area-inset-bottom)); display: flex; gap: 6px; padding: 6px 8px; }
+@media (orientation: landscape) and (max-height: 640px) {
+  #ui { grid-template: 'space space' minmax(0, 1fr) 'scenes scenes' auto 'mind pouch' auto / minmax(0, 1fr) auto; gap: 12px; padding: 0 max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+  #pouch { justify-self: end; display: flex; gap: 6px; padding: 6px 8px; }
   #pouch .cap { display: none; }
   .slot { width: 54px; font-size: 11px; } .slot .w { width: 50px; height: 44px; margin-bottom: 2px; border-radius: 12px; }
   .slot .w svg { width: 26px; height: 26px; } .slot .w svg.basket { width: 34px; height: 30px; } .slot kbd { display: none; }
-  #mind { left: 10px; bottom: 8px; width: 160px; padding: 8px 10px; }
+  #mind { width: 160px; padding: 8px 10px; }
   #mind .m-thought, #mind .m-hand, #mind .m-head.sub, #mind .m-row, #mind .m-foot { display: none; }
   .m-need { grid-template-columns: 52px 1fr 22px; gap: 6px; font-size: 11px; }
-  .scene-arrow { top: 36%; min-height: 46px; padding: 0 8px; } .scene-arrow .lbl { display: none; }
-  #coach { left: 50%; right: auto; top: 64px; bottom: auto; transform: translateX(-50%); max-width: calc(100% - 300px); font-size: 14px; }
+  .scene-arrow { min-height: 46px; padding: 0 8px; }
+  #coach { position: relative; inset: auto; grid-area: scenes; justify-self: center; max-width: calc(100% - 252px); font-size: 14px; }
   #toolGuide { top: 64px; max-width: calc(100% - 340px); font-size: 13px; }
+  #camPreview { right: 12px; top: 66px; width: clamp(76px, calc(25vh - 6px), 120px); }
+  body.has-cam #inputStatus { top: 68px; right: auto; left: 12px; max-width: calc(50% - 20px); }
+}
+@media (orientation: landscape) and (max-height: 380px) {
+  #camPreview { right: 130px; top: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
