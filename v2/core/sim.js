@@ -25,6 +25,12 @@ export const PROTOCOL_VERSION = '1.0';
 // field-guide panel; during a session the two siblings keep to the margins.
 const ATTRACT_REGION = { x0: 0.5, x1: 0.92, y0: 0.22, y1: 0.74 };
 const SIBLING_REGIONS = [{ x0: 0.04, x1: 0.18, y0: 0.5, y1: 0.72 }, { x0: 0.83, x1: 0.95, y0: 0.32, y1: 0.62 }];
+// V3: three habitats, each with its own two things in the pouch. Snow swaps the feather for a
+// snowball to throw; the desert swaps the fish for a water bowl to set down.
+export const SCENES = ['jungle', 'snow', 'desert'];
+export const SCENE_ITEMS = { jungle: ['treat', 'wand'], snow: ['treat', 'snowball'], desert: ['bowl', 'wand'] };
+// V3: every kitten can be met, so the others roam most of the clearing instead of its edges
+const SIBLING_REGIONS_V3 = [{ x0: 0.06, x1: 0.46, y0: 0.18, y1: 0.74 }, { x0: 0.54, x1: 0.94, y0: 0.18, y1: 0.74 }];
 
 export function mulberry32(seed) {
   let a = seed >>> 0;
@@ -67,6 +73,7 @@ export class Simulation {
     // With growth off the kitten stays a kitten; the bond is the progress instead.
     this.growthOn = growth;
     this.needs = new NeedCycle();
+    this.resetLitter3();
     this.track = new InputTrack(world, params);
     this.pinch = new PinchDetector(params);
     this.intentClf = new IntentClassifier(params);
@@ -136,7 +143,8 @@ export class Simulation {
     if (sample.source !== 'camera') return;
     this.track.update(sample.t);
     if (accepted) this.readPose(sample);
-    const valid = accepted && this.track.valid && this.session.state === 'ACTIVE';
+    // a pinch is a click on every screen the visitor can act on, so the hand can do all the mouse can
+    const valid = accepted && this.track.valid && ['ACTIVE', 'PAUSED', 'REFLECTION'].includes(this.session.state);
     if (!valid && this.pinch.closedSince !== null) this.pinch.requireRelease();
     if (this.pinch.update(sample.pinchRatio, valid, sample.t)) {
       const confirmation = { id: `pinch_${sample.seq ?? sample.t}`, type: 'confirm',
@@ -171,6 +179,10 @@ export class Simulation {
         break;
       case 'calibration_failed': s.backToConsent(cmd.reason ?? 'camera_failed'); break;
       case 'hold': if (s.state === 'ACTIVE') this.hold(cmd.item ?? null); break;
+      // V3: a held mouse button on open ground, with an empty hand, is the mouse's pointing finger
+      case 'follow': this.followMouse = !!cmd.on; break;
+      // V3: the arrows at the screen edges move to the next or previous habitat
+      case 'scene': if (s.state === 'ACTIVE' && this.toolless) this.setScene(cmd.to ?? SCENES[(SCENES.indexOf(this.scene) + (cmd.dir ?? 1) + SCENES.length) % SCENES.length]); break;
       case 'select_tool':
         if (this.toolless) break;
         if (['FEED', 'PLAY', 'PET', 'WAIT', 'LITTER', 'TRICK'].includes(cmd.tool)) { this.tool = cmd.tool; s.noteActivity(); if (cmd.tool !== 'TRICK') this.learner.cancel(); }
@@ -179,7 +191,12 @@ export class Simulation {
         s.noteActivity();
         if (s.state !== 'ACTIVE') break;
         // siblings are asked with the Siblings tool (social_request), never by a stray click
-        if (this.toolless) { if (this.held === 'treat' && this.dropFood(cmd.x, cmd.y)) this.hold(null); break; }
+        if (this.toolless) {
+          if (this.held === 'treat' && this.dropFood(cmd.x, cmd.y)) this.hold(null);
+          else if (this.held === 'snowball') { this.throwBall(cmd.x, cmd.y); this.hold(null); }
+          else if (this.held === 'bowl') { this.placeBowl(cmd.x, cmd.y); this.hold(null); }
+          break;
+        }
         if (this.tool === 'FEED') this.dropFood(cmd.x, cmd.y);
         else if (this.tool === 'PLAY' && this.toy.kind === 'ball') this.throwBall(cmd.x, cmd.y);
         break;
@@ -217,12 +234,238 @@ export class Simulation {
     return { ack: cmd.id ?? null };
   }
 
+  // ---------------------------------------------------------------- V3: every kitten can be met
+  resetLitter3() {
+    this.full = {};                 // kitten id → its own creature, kept while another is met
+    this.needCycles = {};           // kitten id → its own need cycle
+    this.followMouse = false;
+    this.scene = 'jungle';
+    this.bowl = null;
+    this.feast = null;              // a fish two kittens are facing off over
+    this.pair = null;               // two litter-mates meeting on their own
+    this.focusAt = -Infinity;
+    this.nextPairAt = this.between(this.p.litter3.pairEverySec);
+  }
+
+  // The kitten nearest the hand, or the feather, becomes the one being met. Never in the middle
+  // of a touch, a meal or a moment with a sibling, and not more than about once a second.
+  updateFocus(ctx) {
+    const L3 = this.p.litter3, c = this.cat, h = ctx.hand;
+    if (!c || !h.valid || this.feast || this.simTime - this.focusAt < L3.focusHoldSec) return;
+    if (c.acceptedContact || c.behaviour === 'EAT' || c.socialActive || c.held) return;
+    const p = this.held === 'wand' && this.toy.live && this.toy.x !== null ? { x: this.toy.x, y: this.toy.y } : h;
+    const dc = Math.hypot(p.x - c.x, p.y - c.y);
+    let best = null, bd = Infinity;
+    for (const o of this.siblings) {
+      if (o.held?.partner === c.id || o.held?.behaviour === 'EAT') continue;
+      const d = Math.hypot(p.x - o.x, p.y - o.y);
+      if (d < bd) { bd = d; best = o; }
+    }
+    if (best && bd < L3.focusNearS && bd < dc * L3.focusRatio) this.switchFocus(best.kitten.id);
+  }
+
+  switchFocus(id) {
+    const old = this.cat;
+    if (!old || old.kitten.id === id) return;
+    const twinNew = this.litter.find((o) => o.kitten.id === id), twinOld = this.litter.find((o) => o.kitten.id === old.kitten.id);
+    if (!twinNew || !twinOld) return;
+    // the kitten you were meeting goes back to the litter where it stands, with its own state
+    old.acceptedContact = false; old.contact.active = false;
+    Object.assign(old.social, { partner: null, mode: null, wrestleUntil: 0 });
+    Object.assign(twinOld, { x: old.x, y: old.y, heading: old.heading, vx: 0, vy: 0, held: null, goal: null, behaviour: 'OBSERVE', forceRedecide: true });
+    Object.assign(twinOld.needs, old.needs);
+    twinOld.setRegion(twinNew.region);
+    this.full[old.kitten.id] = old;
+    let core = this.full[id];
+    if (!core) core = new CreatureCore({ world: this.world, params: this.p, rand: this.rand, id: `cat_${this.session.sessionId}_${id}`, kitten: twinNew.kitten, at: { x: twinNew.x, y: twinNew.y } });
+    Object.assign(core, { x: twinNew.x, y: twinNew.y, heading: twinNew.heading, vx: 0, vy: 0, held: null, goal: null, reaction: null, behaviour: 'OBSERVE', forceRedecide: true });
+    Object.assign(core.social, { partner: null, mode: null, wrestleUntil: 0 });
+    core.foods = old.foods; old.foods = []; // a fish on the ground belongs to whoever gets there
+    this.endVisit();
+    this.kittenId = id;
+    this.cat = core;
+    this.needCycles[old.kitten.id] = this.needs; // each kitten keeps its own asks
+    this.needs = this.needCycles[id] ??= new NeedCycle();
+    this.intentClf.reset(); this.intent = this.intentClf.current;
+    this.focusAt = this.simTime;
+    const e = { id: `focus_${Math.round(this.simTime * 1000)}_${id}`, type: 'focus_changed', simulationTime: this.simTime, validity: 'valid', sessionId: this.session.sessionId, measurement: { kitten: id, from: old.kitten.id } };
+    this.log.push(e); this.out.push(e);
+  }
+
+  setScene(scene) {
+    if (!SCENES.includes(scene) || scene === this.scene) return;
+    const from = this.scene;
+    this.scene = scene;
+    if (this.held && !SCENE_ITEMS[scene].includes(this.held)) this.hold(null);
+    if (this.toy.kind === 'ball') this.toy.live = false;
+    this.bowl = null;
+    if (this.tool === 'PLAY' && !this.held) this.tool = 'PET';
+    this.logLitter('scene_changed', { from, to: scene });
+  }
+
+  // The water bowl (desert): set down where the visitor pinches or clicks; the kitten you are
+  // meeting goes to drink, and so does any litter-mate passing by.
+  placeBowl(nx, ny) {
+    const x = nx * this.world.w, y = Math.min(ny * this.world.h, this.world.h - this.p.feed.toolbarBandS);
+    this.bowl = { x, y, placedAt: this.simTime };
+    if (this.cat) this.cat.wantsWater = true;
+    this.out.push({ type: 'bowl_placed' });
+  }
+
+  // A pointing finger (or a held mouse button) with an empty hand: the kitten follows the tip.
+  followPoint(ctx) {
+    if (this.held !== null || !ctx.hand.valid) return null;
+    const pointing = this.track.source === 'camera' ? this.pose.label === 'point' : this.track.source === 'mouse' && this.followMouse;
+    return pointing ? { x: ctx.hand.x, y: ctx.hand.y } : null;
+  }
+
+  // The rest of the litter around the kitten you are meeting: they chase the feather too, rush
+  // a fish, face off over it, and meet each other when nothing else is going on.
+  stepLitter3(dt, ctx) {
+    const L3 = this.p.litter3, cat = this.cat, until = this.demoTime + 0.3;
+    const free = (o) => !o.held || o.held.rush || o.held.chase;
+    // the feather: everyone close enough and awake joins in, each from its own side
+    const toy = ctx.toy?.kind === 'feather' && ctx.toy.valid ? ctx.toy : null;
+    this.siblings.forEach((o, i) => {
+      if (o.held?.chase && !toy) o.held = null;
+      if (!toy || !free(o) || o.behaviour === 'REST' || Math.hypot(o.x - toy.x, o.y - toy.y) > L3.chaseS) return;
+      // each one keeps to its own side of the feather, about a body length out, so nobody piles on
+      const side = Math.atan2(o.y - toy.y, o.x - toy.x) + Math.sin(this.simTime * 1.3 + i * 2) * 0.35;
+      const r = 0.12 + 0.03 * Math.sin(this.simTime * 3 + i); // a little dart in and out, like a pounce
+      o.goal = null;
+      o.held = { behaviour: 'PLAY', chase: true, until, at: { x: toy.x + Math.cos(side) * r, y: toy.y + Math.sin(side) * r }, face: Math.atan2(toy.y - o.y, toy.x - o.x) };
+    });
+    this.stepFeast(ctx, until);
+    this.stepPair(until);
+    // the water bowl: litter-mates close by come to drink too, each from its own side
+    if (this.bowl) this.siblings.forEach((o, i) => {
+      if (o.held?.drink) { if (this.demoTime < o.held.until) return; o.held = null; o.drankAt = this.simTime; return; }
+      if (o.held || o.behaviour === 'REST' || (o.drankAt ?? -99) > this.bowl.placedAt) return;
+      if (Math.hypot(o.x - this.bowl.x, o.y - this.bowl.y) > 0.6) return;
+      const a = Math.atan2(o.y - this.bowl.y, o.x - this.bowl.x);
+      o.goal = null;
+      o.held = { behaviour: 'EAT', drink: true, until: this.demoTime + 4.5, at: { x: this.bowl.x + Math.cos(a) * 0.075, y: this.bowl.y + Math.sin(a) * 0.075 }, face: a + Math.PI };
+    });
+  }
+
+  stepFeast(ctx, until) {
+    const L3 = this.p.litter3, cat = this.cat;
+    const f = this.feast;
+    if (f) {
+      const sib = this.litter.find((o) => o.id === f.sibId);
+      if (this.simTime < f.until && sib) {
+        sib.held = { ...sib.held, until };
+        return;
+      }
+      // the hungrier kitten usually wins; the other backs off
+      const ch = 1 - cat.needs.fullness, sh = sib ? 1 - sib.needs.fullness : 0;
+      const catWins = !sib || this.rand() < (ch + 0.05) / (ch + sh + 0.1);
+      cat.held = null; cat.reaction = null; cat.forceRedecide = true;
+      this.feast = null;
+      if (catWins) {
+        cat.foods.push(f.food);
+        if (sib) sib.held = { behaviour: 'RETREAT', until: this.demoTime + 1.2, flee: { x: f.food.x, y: f.food.y } };
+      } else this.siblingEats(f.food, sib);
+      this.logLitter('food_contest', { winner: catWins ? cat.kitten.id : sib.kitten.id, loser: catWins ? sib?.kitten.id : cat.kitten.id });
+      return;
+    }
+    for (const food of [...cat.foods]) {
+      for (const o of this.siblings) {
+        if (!free(o) || (o.behaviour === 'REST' && !o.held)) continue;
+        const d = Math.hypot(o.x - food.x, o.y - food.y);
+        if (d > L3.rushS) { if (o.held?.rush === food.id) o.held = null; continue; }
+        o.goal = null;
+        o.held = { behaviour: 'SEEK_FOOD', rush: food.id, until, at: { x: food.x, y: food.y }, face: Math.atan2(food.y - o.y, food.x - o.x) };
+        if (d > 0.05) continue;
+        // first to the fish: unless the kitten you are meeting is right there too, it eats
+        const dc = Math.hypot(cat.x - food.x, cat.y - food.y);
+        if (dc < L3.contestS && this.wantsFish(cat)) this.startFeast(food, o, ctx);
+        else this.siblingEats(food, o);
+        return;
+      }
+    }
+    // the kitten you are meeting reaches the fish while another is closing in
+    if (this.wantsFish(cat)) {
+      const food = cat.foods.find((q) => Math.hypot(cat.x - q.x, cat.y - q.y) < 0.12);
+      const rival = food && this.siblings.find((o) => o.held?.rush === food.id && Math.hypot(o.x - food.x, o.y - food.y) < L3.contestS);
+      if (rival) this.startFeast(food, rival, ctx);
+    }
+    function free(o) { return !o.held || o.held.rush || o.held.chase; }
+  }
+
+  // The kitten you meet stands its ground over a fish when it is awake and not full.
+  wantsFish(c) { return c.behaviour !== 'REST' && c.behaviour !== 'EAT' && c.needs.fullness < this.p.limits.fullAt && !c.held; }
+
+  // Two kittens, one fish: they face each other across it, a body length apart, and hiss.
+  startFeast(food, sib, ctx) {
+    const L3 = this.p.litter3, cat = this.cat;
+    cat.foods = cat.foods.filter((q) => q.id !== food.id);
+    let ux = sib.x - food.x, uy = sib.y - food.y;
+    const m = Math.hypot(ux, uy) || 1; ux /= m; uy /= m;
+    if (m < 1e-3) { ux = 1; uy = 0; }
+    const catAt = { x: food.x - ux * L3.gapS, y: food.y - uy * L3.gapS }, sibAt = { x: food.x + ux * L3.gapS, y: food.y + uy * L3.gapS };
+    this.feast = { food, sibId: sib.id, until: this.simTime + L3.contestSec };
+    cat.held = { behaviour: 'SOCIAL', until: this.simTime + L3.contestSec, at: catAt, face: Math.atan2(sibAt.y - catAt.y, sibAt.x - catAt.x) };
+    cat.reaction = { type: 'hiss', reasonCode: 'SIB_FOOD', sibling: sib.kitten.id, siblingId: sib.id, until: this.simTime + L3.contestSec };
+    sib.goal = null;
+    sib.held = { behaviour: 'SOCIAL', standoff: true, hiss: true, until: this.demoTime + 0.3, at: sibAt, face: Math.atan2(catAt.y - sibAt.y, catAt.x - sibAt.x) };
+    this.logLitter('food_standoff', { sibling: sib.kitten.id });
+  }
+
+  siblingEats(food, sib) {
+    const cat = this.cat;
+    cat.foods = cat.foods.filter((q) => q.id !== food.id);
+    sib.goal = null;
+    sib.held = { behaviour: 'EAT', until: this.demoTime + this.p.feed.eatSec * 1.6, at: { x: food.x, y: food.y }, face: sib.heading };
+    sib.needs.fullness = Math.min(1, sib.needs.fullness + this.p.feed.fullness);
+    const own = this.full[sib.kitten.id];
+    if (own) own.needs.fullness = Math.min(1, own.needs.fullness + this.p.feed.fullness);
+    this.logLitter('sibling_ate', { sibling: sib.kitten.id });
+  }
+
+  // The litter on its own: two idle litter-mates now and then meet, and either groom each
+  // other or puff up and face off, a body length apart. Never on top of each other.
+  stepPair(until) {
+    const L3 = this.p.litter3, P = this.pair;
+    const idle = (o) => !o.held && !o.goal && o.behaviour !== 'REST' && o.behaviour !== 'EAT';
+    if (!P) {
+      if (this.simTime < this.nextPairAt) return;
+      const [a, b] = this.siblings;
+      if (!a || !b || !idle(a) || !idle(b)) { this.nextPairAt = this.simTime + 4; return; }
+      const mode = (a.needs.stress + b.needs.stress) / 2 > 0.3 || this.rand() < 0.35 ? 'faceoff' : 'groom';
+      this.pair = { a: a.id, b: b.id, mode, since: this.simTime, meetUntil: this.simTime + 8, until: null };
+      return;
+    }
+    const a = this.litter.find((o) => o.id === P.a), b = this.litter.find((o) => o.id === P.b);
+    const end = () => { this.pair = null; this.nextPairAt = this.simTime + this.between(L3.pairEverySec); if (a?.held?.pair) a.held = null; if (b?.held?.pair) b.held = null; };
+    if (!a || !b || a === this.cat || b === this.cat || !this.siblings.includes(a) || !this.siblings.includes(b)) return end();
+    if ((a.held && !a.held.pair) || (b.held && !b.held.pair)) return end(); // something more pressing came up
+    const d = Math.hypot(a.x - b.x, a.y - b.y), ang = Math.atan2(b.y - a.y, b.x - a.x);
+    if (P.until === null) {
+      if (d <= L3.pairMeetS * 1.15) { P.until = this.simTime + L3.pairSec; this.logLitter(P.mode === 'groom' ? 'litter_groom' : 'litter_faceoff', { a: a.kitten.id, b: b.kitten.id }); }
+      else if (this.simTime > P.meetUntil) return end();
+      else { a.held = { behaviour: 'EXPLORE', pair: true, until, at: { x: b.x - Math.cos(ang) * L3.pairMeetS, y: b.y - Math.sin(ang) * L3.pairMeetS }, face: ang }; return; }
+    }
+    if (this.simTime >= P.until) return end();
+    const groom = P.mode === 'groom';
+    a.held = { behaviour: groom ? 'GROOM' : 'SOCIAL', pair: true, standoff: !groom, hiss: !groom, mode: groom ? 'greet' : null, until, at: { x: b.x - Math.cos(ang) * L3.pairMeetS, y: b.y - Math.sin(ang) * L3.pairMeetS }, face: ang };
+    b.held = { behaviour: groom ? 'GROOM' : 'SOCIAL', pair: true, standoff: !groom, hiss: !groom, mode: groom ? 'greet' : null, until, at: { x: b.x, y: b.y }, face: ang + Math.PI };
+  }
+
+  logLitter(type, measurement) {
+    const e = { id: `${type}_${Math.round(this.simTime * 1000)}`, type, simulationTime: this.simTime, validity: 'valid', sessionId: this.session.sessionId, measurement };
+    this.log.push(e); this.out.push(e);
+  }
+
   // Toolless mode: take something from the pouch, or put it back (item null).
   hold(item) {
-    if (!this.toolless || !['treat', 'wand', null].includes(item)) return;
+    if (!this.toolless || !(item === null || SCENE_ITEMS[this.scene].includes(item))) return;
     this.held = item;
-    this.tool = item === 'treat' ? 'FEED' : item === 'wand' ? 'PLAY' : 'PET';
+    // a thrown snowball keeps rolling (and stays the toy) after the hand lets go
+    const rolling = item === null && this.toy.kind === 'ball' && this.toy.live;
+    this.tool = item === 'treat' ? 'FEED' : item === 'wand' || item === 'snowball' || rolling ? 'PLAY' : 'PET';
     if (item === 'wand' && this.toy.kind !== 'feather') Object.assign(this.toy, { kind: 'feather', live: false, vx: 0, vy: 0 });
+    if (item === 'snowball') Object.assign(this.toy, { kind: 'ball', live: false, vx: 0, vy: 0 });
     this.session.noteActivity();
     this.out.push({ type: 'held', item });
   }
@@ -330,14 +573,14 @@ export class Simulation {
       const mode = cat.social.partner === sib.id ? cat.socialMode : null;
       const toCat = Math.atan2(cat.y - sib.y, cat.x - sib.x);
       const until = this.demoTime + 0.25;
-      if (mode === 'wrestle') {
-        const a = t * 7;
+      if (mode === 'wrestle') { // face to face, a body length apart, puffed up: never on top of each other
+        const away = Math.atan2(sib.y - cat.y, sib.x - cat.x);
         sib.goal = null;
-        sib.held = { behaviour: 'SOCIAL', until, partner: cat.id, wrestle: true,
-          at: { x: cat.x + Math.cos(a) * 0.07, y: cat.y + Math.sin(a * 1.2) * 0.05 }, face: toCat };
+        sib.held = { behaviour: 'SOCIAL', until, partner: cat.id, wrestle: true, hiss: true,
+          at: { x: cat.x + Math.cos(away) * this.p.litter3.pairMeetS, y: cat.y + Math.sin(away) * this.p.litter3.pairMeetS }, face: toCat };
       } else if (mode === 'greet') { // nose to nose
         sib.goal = null;
-        sib.held = { behaviour: 'OBSERVE', until, partner: cat.id, mode, at: { x: cat.x + Math.cos(cat.heading) * 0.13, y: cat.y + Math.sin(cat.heading) * 0.13 }, face: cat.heading + Math.PI };
+        sib.held = { behaviour: 'GROOM', until, partner: cat.id, mode, at: { x: cat.x + Math.cos(cat.heading) * 0.13, y: cat.y + Math.sin(cat.heading) * 0.13 }, face: cat.heading + Math.PI };
       } else if (mode === 'cuddle') { // curled up side by side
         const side = cat.heading + Math.PI / 2;
         sib.goal = null;
@@ -345,7 +588,7 @@ export class Simulation {
       } else if (mode === 'standoff') { // circling, puffed up, face to face
         const a = Math.atan2(sib.y - cat.y, sib.x - cat.x) + 0.35 * (1 / 60) * 6;
         sib.goal = null;
-        sib.held = { behaviour: 'SOCIAL', until, partner: cat.id, mode, standoff: true, at: { x: cat.x + Math.cos(a) * 0.27, y: cat.y + Math.sin(a) * 0.27 }, face: toCat };
+        sib.held = { behaviour: 'SOCIAL', until, partner: cat.id, mode, standoff: true, hiss: true, at: { x: cat.x + Math.cos(a) * 0.27, y: cat.y + Math.sin(a) * 0.27 }, face: toCat };
       } else if (cat.behaviour === 'SOCIAL' && cat.social.target === sib.id && !sib.held?.flee) {
         sib.goal = null;
         sib.held = { behaviour: 'OBSERVE', until: this.demoTime + 0.25, partner: cat.id, face: Math.atan2(cat.y - sib.y, cat.x - sib.x) };
@@ -417,13 +660,13 @@ export class Simulation {
       return { kind: 'feather', x: t.x, y: t.y, valid: true, speed: Math.hypot(t.vx, t.vy) };
     }
     // ball
-    if (!t.live) return { kind: 'ball', valid: false };
+    if (!t.live) { if (this.toolless && !this.held) this.tool = 'PET'; return { kind: 'ball', valid: false }; }
     const b = P.ball, k = Math.exp(-b.friction * dt);
     t.vx *= k; t.vy *= k; t.x += t.vx * dt; t.y += t.vy * dt;
     const W = this.world.w, H = this.world.h - this.p.feed.toolbarBandS;
     if (t.x < 0.05) { t.x = 0.05; t.vx = Math.abs(t.vx) * 0.7; } if (t.x > W - 0.05) { t.x = W - 0.05; t.vx = -Math.abs(t.vx) * 0.7; }
     if (t.y < 0.05) { t.y = 0.05; t.vy = Math.abs(t.vy) * 0.7; } if (t.y > H) { t.y = H; t.vy = -Math.abs(t.vy) * 0.7; }
-    if (this.simTime - t.thrownAt > b.maxIdleSec) { t.live = false; return { kind: 'ball', valid: false }; }
+    if (this.simTime - t.thrownAt > (this.toolless ? 8 : b.maxIdleSec)) { t.live = false; return { kind: 'ball', valid: false }; }
     return { kind: 'ball', x: t.x, y: t.y, valid: true, speed: Math.hypot(t.vx, t.vy) };
   }
 
@@ -500,6 +743,7 @@ export class Simulation {
     this.stepAmbient(ambient, dt);
     if (this.cat && s.state !== 'ATTRACT') {
       if (s.state === 'ACTIVE') this.simTime += dt;
+      if (s.state === 'ACTIVE' && this.toolless) this.updateFocus(this.ctx());
       const ctx = this.ctx();
       ctx.others = this.siblings.map((o) => ({ id: o.id, x: o.x, y: o.y }));
       ctx.siblings = this.siblings.map((o) => ({
@@ -511,6 +755,7 @@ export class Simulation {
       if (s.state === 'ACTIVE') { this.directLitter(); this.stepCritter(dt); this.readMoves(); }
       ctx.toy = s.state === 'ACTIVE' ? this.stepToy(dt) : null;
       ctx.growth = this.growthOn;
+      if (s.state === 'ACTIVE' && this.toolless) { ctx.follow = this.followPoint(ctx); ctx.water = this.bowl; this.stepLitter3(dt, ctx); }
       this.cat.step(dt, ctx);
       this.collect(ctx);
       this.settleByHand(ctx, dt);
@@ -666,7 +911,8 @@ export class Simulation {
       }
       if (t.from === 'CALIBRATING' && t.to === 'CONSENT') this.out.push({ type: 'release_camera', reason: t.reason });
       if (t.to === 'REFLECTION') {
-        if (s.inputSource === 'camera') this.out.push({ type: 'release_camera' });
+        // the camera stays on through the journal so a pinch can press its buttons; it is
+        // released when the journal closes (RESETTING)
         this.memory.freeze();
         if (this.cat) { this.cat.contact.active = false; this.cat.acceptedContact = false; }
         this.recap = buildRecap(this.log, this.lang);
@@ -684,7 +930,7 @@ export class Simulation {
       kitten: chosen.kitten, at: { x: chosen.x, y: chosen.y },
     });
     this.cat.heading = chosen.heading;
-    this.siblings.forEach((c, i) => c.setRegion(SIBLING_REGIONS[i]));
+    this.siblings.forEach((c, i) => c.setRegion((this.toolless ? SIBLING_REGIONS_V3 : SIBLING_REGIONS)[i]));
     this.catSession = s.sessionId;
     this.resetLife();
     this.learner.reset(); this.segmenter.reset();
@@ -699,6 +945,7 @@ export class Simulation {
     this.simTime = 0;
     this.memory.reset();
     this.needs.reset();
+    this.resetLitter3();
     this.log = [];
     this.recap = null;
     this.quietRest = 0;
@@ -791,7 +1038,9 @@ export class Simulation {
         lookAt: x.lookAt ? { x: x.lookAt.x / W, y: x.lookAt.y / H } : null,
         speed: Math.hypot(x.vx, x.vy), behaviour: x.behaviour, ageProgress: this.cat && s.state !== 'ATTRACT' ? this.cat.ageProgress : x.ageProgress,
         wrestling: !!x.held?.wrestle, visiting: this.life.visit?.sibId === x.id, invited: this.life.invite?.sibId === x.id,
-        mode: x.held?.wrestle ? 'wrestle' : x.held?.mode ?? null, standoff: !!x.held?.standoff,
+        mode: x.held?.wrestle ? 'wrestle' : x.held?.mode ?? null, standoff: !!x.held?.standoff, hissing: !!x.held?.hiss,
+        needs: { ...(this.full?.[x.kitten.id]?.needs ?? x.needs) },
+        drinking: !!x.held?.drink,
         bond: this.cat && s.state !== 'ATTRACT' ? this.cat.bond(x.kitten.id) : null,
         fleeing: !!x.held?.flee,
       })),
@@ -819,6 +1068,7 @@ export class Simulation {
         needs: { ...c.needs },
         relation: c.relation,
         acceptedContact: c.acceptedContact,
+        drinking: c.behaviour === 'DRINK' && (c.drinkUntil ?? 0) > this.simTime,
         inviting: c.inviting,
         contactProgress: c.inviting ? Math.min(1, c.dwell / this.memory.prefs.contactDwell) : 0,
         growing: c.growing,
@@ -835,7 +1085,8 @@ export class Simulation {
         lookAt: c.lookAt && s.state === 'ATTRACT' ? { x: c.lookAt.x / W, y: c.lookAt.y / H } : null,
         trick: c.trick ? { name: c.trick.name, t: (this.simTime - c.trick.start) / (c.trick.until - c.trick.start) } : null,
       },
-      foods: c.foods.map((f) => ({ id: f.id, x: f.x / W, y: f.y / H, age: this.simTime - f.born })),
+      // a fish being fought over is off the kitten's list for a moment, but still on the ground
+      foods: [...c.foods, ...(this.feast ? [this.feast.food] : [])].map((f) => ({ id: f.id, x: f.x / W, y: f.y / H, age: this.simTime - f.born })),
       input: {
         source: this.track.source, quality: this.track.quality, present: this.track.present, overUI: !!this.track.lastSample?.overUI,
         position: this.track.x === null ? null : { x: this.track.x / W, y: this.track.y / H },
@@ -846,6 +1097,9 @@ export class Simulation {
       intent: { ...this.intent },
       activeTool: this.tool,
       toolless: this.toolless,
+      scene: this.scene,
+      items: SCENE_ITEMS[this.scene],
+      bowl: this.bowl ? { x: this.bowl.x / W, y: this.bowl.y / H } : null,
       need: this.toolless && this.cat ? this.needs.view(this.simTime) : null,
       held: this.held,
       displayHint: hint ? { code: hint.code, owner: hint.owner } : null,

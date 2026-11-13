@@ -7,13 +7,15 @@ export const PARAMS = Object.freeze({
 
   // F2-03 tracking quality gate
   quality: {
-    maxSampleAgeMs: 200,
+    // A CPU hand model on an ordinary laptop can take 150–300 ms per frame; one slow frame is
+    // not a lost hand, so the gate allows up to 350 ms before calling the evidence stale.
+    maxSampleAgeMs: 350,
     maxMissingRatio: 0.2,
     jumpS: 0.35,          // a jump larger than this within one sample is a tracking error
     holdForFadeMs: 200,
     lostAfterMs: 500,
     stableBeforeWindowMs: 300,
-    minHandScale: 0.04,   // palm size in S units below which keypoints are unreliable
+    minHandScale: 0.025,  // palm size in S units below which keypoints are unreliable (a hand about 2.5 m away)
     maxHandScale: 0.6,
   },
 
@@ -105,6 +107,14 @@ export const PARAMS = Object.freeze({
   hunt: { everySec: [16, 28], lifeSec: 14, pounceS: 0.07, fun: 0.12, energy: 0.05, catchChance: 0.35, cooldownSec: 6, minPhase: 1 },
   // Teach a trick (ADR-019): a 1-nearest-neighbour model on the visitor's own examples.
   tricks: { examples: 3, reject: 0.32, sec: { spin: 1.5, rollover: 1.9, wave: 1.7 }, fun: 0.06, energy: 0.03, minEnergy: 0.3 },
+  // V3: every kitten can be met (toolless mode). The kitten nearest the hand (or the feather)
+  // becomes the one you are meeting; the others join in around food and the feather.
+  litter3: {
+    focusNearS: 0.17, focusRatio: 0.6, focusHoldSec: 1.2,   // who you are meeting
+    rushS: 0.75, contestS: 0.2, contestSec: 2.4, gapS: 0.1, // a fish on the ground
+    chaseS: 0.6,                                             // the feather
+    pairEverySec: [16, 28], pairSec: 3.2, pairMeetS: 0.17,   // the litter on its own: grooming or a face-off
+  },
   // Passers-by (ADR-020): in exhibition mode the litter notices people walking past.
   presence: { lookSec: 4, approachSize: 0.18 },
   // Keepsakes (ADR-016): on the web, a kitten can remember a returning visitor, kept only in
