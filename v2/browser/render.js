@@ -161,9 +161,10 @@ export class Renderer {
     const main = this.px(c.position);
 
     if (st === 'ATTRACT' || st === 'CONSENT') this.groundMark(ctx, main, 1, t);
+    else if (interactive && snap.toolless) this.comfortRing(ctx, main, snap, dt, t);
     else if (interactive) this.groundMark(ctx, main, 0.45, t);
-    if (interactive && snap.activeTool === 'PET' && c.inviting && !c.acceptedContact) this.inviteZone(ctx, main, t);
-    if (interactive && snap.activeTool === 'PLAY') for (const s of snap.litter) if (!s.wrestling && !s.fleeing) this.inviteRing(ctx, this.px(s.position), t, s.invited);
+    if (interactive && !snap.toolless && snap.activeTool === 'PET' && c.inviting && !c.acceptedContact) this.inviteZone(ctx, main, t);
+    if (interactive && !snap.toolless && snap.activeTool === 'PLAY') for (const s of snap.litter) if (!s.wrestling && !s.fleeing) this.inviteRing(ctx, this.px(s.position), t, s.invited);
 
     if (snap.toy?.kind === 'ball' && snap.toy.position && interactive) { const b = this.px(snap.toy.position); this.drawBall(ctx, b.x, b.y, t); }
     const seen = new Set();
@@ -198,10 +199,15 @@ export class Renderer {
     if (interactive || st === 'CALIBRATING') {
       // the real tracked hand, as a see-through ghost hand (Prototype A)
       const kp = snap.input.source === 'camera' && ui?.keypoints && snap.input.quality !== 'lost' ? ui.keypoints.map((q) => this.px(this.screenToWorldN(q.x, q.y))) : null;
-      const handTool = snap.activeTool === 'PET' || snap.activeTool === 'LITTER';
+      const handTool = snap.activeTool === 'PET' || snap.activeTool === 'LITTER' || (snap.toolless && hand);
+      if (interactive && this.demo === 'approach' && hand) this.demoHand(ctx, hand, main, snap, t);
       if (kp) this.handCursor(ctx, snap, kp, t);
       else if (handTool && hand) this.handCursor(ctx, snap, this.templateHand(hand, snap, t), t);
       else this.cursor(ctx, snap, ui, t);
+      if (snap.held === 'treat' && hand) { // the treat sits in the palm
+        ctx.save(); ctx.translate(hand.x, hand.y + 6 * this.u); ctx.scale(1.7, 1.7); ctx.rotate(-0.5);
+        this.fish(ctx, { x: 0, y: 0 }, 1, 1); ctx.restore();
+      }
     }
     this.burstFx(ctx, dt);
     ctx.restore();
@@ -251,6 +257,60 @@ export class Renderer {
     ctx.setLineDash([2 * u, 10 * u]); ctx.lineDashOffset = -t * 8;
     ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.9, 0, 0, TAU); ctx.stroke();
     ctx.restore();
+  }
+
+  // The comfort ring (experience spec V3): how much room the kitten wants, drawn on the
+  // ground. Tension and a fast hand widen it; trust and a calm hand shrink it. When the
+  // kitten is ready for a hand it warms and closes in around it.
+  comfortRing(ctx, at, snap, dt, t) {
+    const c = snap.creature, n = c.needs ?? { stress: 0.2, trust: 0.3 };
+    const fast = snap.intent?.label === 'fast_approach' || c.behaviour === 'RETREAT';
+    const want = Math.max(0, Math.min(1, 0.65 * n.stress + 0.55 * (1 - n.trust) + (fast ? 0.45 : 0) - (c.inviting ? 0.35 : 0)));
+    const target = this.S * (0.075 + 0.14 * want);
+    this.ringR = this.ringR ? this.ringR + (target - this.ringR) * Math.min(1, dt * (fast ? 6 : 1.6)) : target;
+    if (c.acceptedContact) return;
+    const u = this.u, r = this.ringR, warm = c.inviting;
+    ctx.save();
+    ctx.translate(at.x, at.y + 6 * u);
+    ctx.fillStyle = warm ? 'rgba(255,214,140,0.16)' : 'rgba(255,250,232,0.08)';
+    ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.84, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = warm ? 'rgba(255,226,160,0.95)' : fast ? 'rgba(255,236,226,0.9)' : 'rgba(255,250,235,0.7)';
+    ctx.lineWidth = (warm ? 3 : 2.4) * u; ctx.lineCap = 'round';
+    ctx.setLineDash(warm ? [10 * u, 8 * u] : [2 * u, 9 * u]); ctx.lineDashOffset = -t * (warm ? 14 : 6);
+    ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.84, 0, 0, TAU); ctx.stroke();
+    ctx.restore();
+  }
+
+  // Act 1's demonstration: a see-through hand travels from the visitor's hand to the edge of
+  // the comfort ring and stops there, along a dotted path. It loops until the kitten comes.
+  demoHand(ctx, from, cat, snap, t) {
+    const u = this.u, dx = from.x - cat.x, dy = from.y - cat.y, d = Math.hypot(dx, dy) || 1;
+    const r = (this.ringR ?? this.S * 0.12) * 1.08;
+    if (d < r * 1.35) return; // already close: nothing to show
+    const to = { x: cat.x + (dx / d) * r, y: cat.y + (dy / d) * r * 0.9 };
+    const mid = { x: (from.x + to.x) / 2 - dy * 0.12, y: (from.y + to.y) / 2 + dx * 0.12 };
+    const loop = 3.6, k = (t % loop) / loop, move = Math.min(1, k / 0.6), e = 1 - Math.pow(1 - move, 3);
+    const q = (a) => ({ x: (1 - a) * (1 - a) * from.x + 2 * (1 - a) * a * mid.x + a * a * to.x, y: (1 - a) * (1 - a) * from.y + 2 * (1 - a) * a * mid.y + a * a * to.y });
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,252,240,0.8)'; ctx.lineWidth = 2.6 * u; ctx.lineCap = 'round';
+    ctx.setLineDash([1, 10 * u]); ctx.lineDashOffset = -t * 12;
+    ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.quadraticCurveTo(mid.x, mid.y, to.x, to.y); ctx.stroke();
+    ctx.setLineDash([]);
+    // where to stop: a small mark on the ring
+    ctx.fillStyle = 'rgba(255,252,240,0.9)';
+    ctx.beginPath(); ctx.arc(to.x, to.y, 4 * u, 0, TAU); ctx.fill();
+    const p = q(e), fade = k < 0.08 ? k / 0.08 : k > 0.9 ? (1 - k) / 0.1 : 1;
+    const pts = HAND_TEMPLATE.map(([x, y]) => ({ x: p.x + x * u * 0.95, y: p.y + y * u * 0.95 }));
+    ctx.restore();
+    // drawn opaque into its own layer, then composited once, so overlaps never double up
+    const L = this.demoLayer ??= document.createElement('canvas');
+    if (L.width !== ctx.canvas.width || L.height !== ctx.canvas.height) { L.width = ctx.canvas.width; L.height = ctx.canvas.height; }
+    const g = L.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, L.width, L.height);
+    g.setTransform(ctx.getTransform());
+    g.fillStyle = '#ffffff'; g.strokeStyle = '#ffffff';
+    this.traceHand(g, pts);
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0.45 * fade; ctx.drawImage(L, 0, 0); ctx.restore();
   }
 
   // Where contact is welcome: a breathing ring with words in the UI (never colour alone).
@@ -486,9 +546,11 @@ export class Renderer {
     ctx.globalAlpha = fade;
     // the active tool as a small badge on the palm
     const c = { x: (kp[0].x + kp[9].x) / 2, y: (kp[0].y + kp[9].y) / 2 };
-    ctx.fillStyle = `rgba(${CREAM},0.75)`; ctx.strokeStyle = `rgba(${INK},0.6)`; ctx.lineWidth = 1.6 * u;
-    ctx.beginPath(); ctx.arc(c.x, c.y, 12 * u, 0, TAU); ctx.fill(); ctx.stroke();
-    ctx.save(); ctx.translate(c.x, c.y); ctx.scale(0.9 * u, 0.9 * u); ctx.translate(-12, -12); ctx.lineWidth = 1.8; ctx.stroke(path2d(snap.activeTool)); ctx.restore();
+    // the palm shows what the hand means; a held treat or feather speaks for itself
+    if (!snap.held) {
+      ctx.fillStyle = `rgba(${CREAM},0.75)`; ctx.strokeStyle = `rgba(${INK},0.6)`; ctx.lineWidth = 1.6 * u;
+      ctx.beginPath(); ctx.arc(c.x, c.y, 12 * u, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.save(); ctx.translate(c.x, c.y); ctx.scale(0.9 * u, 0.9 * u); ctx.translate(-12, -12); ctx.lineWidth = 1.8; ctx.stroke(path2d(snap.toolless ? 'PET' : snap.activeTool)); ctx.restore(); }
     // a held hand shape (Siblings tool): ring fills while it is held over a sibling
     const pose = snap.pose;
     if (snap.activeTool === 'LITTER' && pose && pose.label !== 'unknown') {
