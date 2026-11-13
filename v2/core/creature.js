@@ -14,7 +14,7 @@ import {
   updateContact, startContact, endContact, updatePlay, updateWaiting,
 } from './care.js';
 
-export const BEHAVIOURS = ['EXPLORE', 'SEEK_FOOD', 'REST', 'GROOM', 'APPROACH', 'PLAY', 'CONTACT', 'RETREAT', 'OBSERVE', 'SOCIAL', 'HUNT', 'GIFT', 'TRICK'];
+export const BEHAVIOURS = ['EXPLORE', 'SEEK_FOOD', 'REST', 'GROOM', 'APPROACH', 'PLAY', 'CONTACT', 'RETREAT', 'OBSERVE', 'SOCIAL', 'HUNT', 'GIFT', 'TRICK', 'FOLLOW', 'DRINK'];
 export const GIFTS = ['pebble', 'feather', 'flower', 'shell'];
 // How rough each kitten plays: wrestling with Saffron gets tense sooner than with Juniper.
 const ROUGH = { ember: 1, juniper: 0.6, saffron: 1.5 };
@@ -367,6 +367,11 @@ export class CreatureCore {
     else if (n.energy < L.restEnter) forced = ['REST', 'energy below 0.15'];
     else if (this.behaviour === 'REST' && (n.energy < L.restExit || ctx.time < this.restMinUntil)) forced = ['REST', 'resting until energy 0.65'];
     else if (this.behaviour === 'GROOM' && ctx.time < this.groomUntil) forced = ['GROOM', 'short action'];
+    // V3: a water bowl set down in the desert: the kitten goes to drink unless it is tired or tense
+    else if (this.behaviour === 'DRINK' && ctx.time < (this.drinkUntil ?? 0)) forced = ['DRINK', 'drinking'];
+    else if (this.wantsWater && ctx.water && n.stress < L.stressRefuse && !this.reaction) forced = ['DRINK', 'going to the water'];
+    // V3: a pointing finger is an invitation a kitten at ease takes up at once; a tired or tense one does not
+    else if (ctx.follow && n.stress < L.stressRefuse && n.energy >= L.playEnergy * 0.6) forced = ['FOLLOW', 'following your finger'];
 
     if (forced) {
       this.setBehaviour(forced[0], ctx);
@@ -615,6 +620,23 @@ export class CreatureCore {
       case 'EAT':
         if (ctx.time >= this.eatUntil) { finishEating(this, ctx); this.behaviour = 'OBSERVE'; this.boutUntil = ctx.time + 1.5; this.forceRedecide = true; }
         break;
+      case 'DRINK': {
+        const w = ctx.water;
+        if (!w) { this.wantsWater = false; this.forceRedecide = true; break; }
+        if (this.drinkUntil && ctx.time < this.drinkUntil) { face = Math.atan2(w.y - this.y, w.x - this.x); break; } // lapping
+        if (this.drinkUntil && ctx.time >= this.drinkUntil) { // done: a little calmer, and it walks off
+          this.drinkUntil = 0; this.wantsWater = false;
+          this.needs.stress = clamp(this.needs.stress - 0.12); this.needs.energy = clamp(this.needs.energy + 0.05);
+          this.emit('drink_completed', ctx, {}); this.forceRedecide = true; break;
+        }
+        tx = w.x; ty = w.y; speed = sp.seek; stopAt = this.bodyRadius + 0.035;
+        if (dist(this.x, this.y, w.x, w.y) < this.bodyRadius + 0.05) this.drinkUntil = ctx.time + 3;
+        break;
+      }
+      case 'FOLLOW':
+        if (ctx.follow) { tx = ctx.follow.x; ty = ctx.follow.y; speed = sp.seek * 1.4; stopAt = this.bodyRadius * 0.9; }
+        else this.forceRedecide = true;
+        break;
       case 'APPROACH':
         if (h.valid) { tx = h.x; ty = h.y; speed = sp.approach; stopAt = ctx.prefs.approachRadius; }
         break;
@@ -636,7 +658,8 @@ export class CreatureCore {
         if (!o) { this.forceRedecide = true; break; }
         const close = this.social.act === 'cuddle' || this.social.act === 'befriend' ? 0.75 : this.social.act === 'hiss' ? 1.7 : 0.8;
         if (this.social.partner !== null) {
-          if (this.social.mode === 'wrestle') { tx = o.x; ty = o.y; speed = sp.approach; stopAt = this.p.social.meetS * 0.6; }
+          // a play-fight is a face-off a body length apart, never a tangle on top of each other
+          if (this.social.mode === 'wrestle') { tx = o.x; ty = o.y; speed = sp.approach; stopAt = this.p.litter3?.pairMeetS ?? this.p.social.meetS * 0.6; face = Math.atan2(o.y - this.y, o.x - this.x); }
           else if (this.social.mode !== 'cuddle') face = Math.atan2(o.y - this.y, o.x - this.x);
           break;
         }
