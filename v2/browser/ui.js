@@ -129,6 +129,9 @@ export class UI {
   get howOpen() { return !$('how').hidden; }
 
   toggleMind() { this.mindOn = !this.mindOn; }
+  // Holding V shows the view only while held; the eye button and T keep it open.
+  holdMind(on) { this.mindHeld = on; }
+  get mindVisible() { return this.mindOn || !!this.mindHeld; }
 
   // Pointer over the clearing on the entry screen: which kitten is under it.
   hoverAt(px, py) { this.hoverPoint = px === null ? null : { x: px, y: py }; }
@@ -272,15 +275,21 @@ export class UI {
   }
 
   // Peek inside: what the kitten notices and what it is weighing, in plain words.
-  mind(snap) {
+  mind(snap, x) {
     const el = $('mind');
-    this.show('mind', this.mindOn);
-    document.body.classList.toggle('mind-on', this.mindOn);
+    const on = this.mindVisible;
+    this.show('mind', on);
+    document.body.classList.toggle('mind-on', on);
     $('btnMind').setAttribute('aria-pressed', String(this.mindOn));
-    if (!this.mindOn) return;
+    this.show('mindKey', !!this.mindHeld && !this.mindOn);
+    this.sceneLabels(snap, x, on);
+    if (!on) return;
+    // the panel takes the side of the screen the kitten is not on
+    el.classList.toggle('left', x.catPx.x > x.width * 0.55);
     const c = snap.creature, d = snap.diagnostics, name = snap.kitten.name;
     const label = (n) => (n === 'SOCIAL' && c.socialTarget ? `Join ${NAMES[c.socialTarget]}` : ACTS[n] ?? n);
-    const rows = d.candidates.filter((q) => q.available || /^[A-Z_]+$/.test(q.blocked ?? '') || ['too_young', 'trust', 'alone'].includes(q.blocked))
+    const setAside = snap.toolless ? ['HUNT', 'GIFT', 'TRICK'] : [];
+    const rows = d.candidates.filter((q) => !setAside.includes(q.name)).filter((q) => q.available || /^[A-Z_]+$/.test(q.blocked ?? '') || ['too_young', 'trust', 'alone'].includes(q.blocked))
       .slice(0, 5).map((q) => {
         const chosen = q.name === d.chosen || (d.chosen === 'EAT' && q.name === 'SEEK_FOOD');
         const why = q.available ? (q.request ? 'you offered this' : q.score.toFixed(2)) : WHY_NOT[q.blocked] ?? q.blocked;
@@ -299,6 +308,41 @@ export class UI {
     if (this.mindHtml !== html) { this.mindHtml = html; el.innerHTML = html; }
   }
 
+  // Labels in the scene while the view is open: the comfort ring and the visitor's hand.
+  sceneLabels(snap, x, on) {
+    const ring = $('lblRing'), hand = $('lblHand');
+    const r = x.ring;
+    this.show('lblRing', on && !!r);
+    this.show('lblHand', on && !!x.cursorPx);
+    if (!on) return;
+    $('mindName').textContent = snap.kitten.name;
+    if (r) {
+      const word = snap.creature.acceptedContact ? 'you are inside it' : snap.creature.inviting ? 'open to you' : r.trend > 0.004 ? 'widening' : r.trend < -0.004 ? 'shrinking' : 'steady';
+      ring.textContent = `comfort distance · ${word}`;
+      ring.style.left = `${x.catPx.x}px`;
+      ring.style.top = `${Math.min(x.height - 40, x.catPx.y + r.ry + 22)}px`;
+    }
+    if (x.cursorPx) {
+      const q = snap.input.source === 'camera' ? snap.input.quality : 'valid';
+      const reading = q === 'lost' ? 'not in view' : q === 'uncertain' ? 'not sure yet' : READING[snap.intent.label] ?? snap.intent.label;
+      hand.textContent = `your hand · ${reading}`;
+      hand.classList.toggle('cool', q !== 'valid' || snap.intent.label === 'unknown');
+      hand.classList.toggle('warn', snap.intent.label === 'fast_approach');
+      // on the far side of the hand from the kitten, so it never covers the kitten or its ring
+      const dx = x.cursorPx.x - x.catPx.x, dy = x.cursorPx.y - x.catPx.y, d = Math.hypot(dx, dy) || 1;
+      hand.style.left = `${Math.max(110, Math.min(x.width - 110, x.cursorPx.x + (dx / d) * 95))}px`;
+      hand.style.top = `${Math.max(110, Math.min(x.height - 30, x.cursorPx.y + (dy / d) * 95 + 20))}px`;
+      // if the two labels still meet (hand right beside the kitten), stack the hand's above
+      if (r) {
+        const a = ring.getBoundingClientRect(), b = hand.getBoundingClientRect();
+        if (a.left < b.right + 6 && b.left < a.right + 6 && a.top < b.bottom + 4 && b.top < a.bottom + 4) {
+          hand.style.top = `${a.top + a.height / 2 - a.height - 10}px`;
+          hand.style.left = `${Math.max(110, Math.min(x.width - 110, a.left + a.width / 2))}px`;
+        }
+      }
+    }
+  }
+
   active(snap, x) {
     const c = snap.creature;
     const k = KITTENS.find((q) => q.id === snap.kitten.id);
@@ -307,7 +351,7 @@ export class UI {
     $('kname').textContent = snap.kitten.name;
     $('relation').textContent = this.copy.relation[c.relation];
     [...$('hearts').children].forEach((el, i) => el.classList.toggle('on', i <= c.relation));
-    this.mind(snap);
+    this.mind(snap, x);
     $('btnSound').innerHTML = kit(x.soundOn ? 'system/sound-on' : 'system/sound-off', 22);
     $('btnSound').setAttribute('aria-pressed', String(x.soundOn));
 
