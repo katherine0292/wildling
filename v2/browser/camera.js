@@ -3,6 +3,7 @@ const START_TIMEOUT_MS = 25000;
 const PALM = [0, 5, 9, 13, 17];
 const TIPS = [8, 12, 16, 20];
 const CROP = 0.1;
+const HOLD_MS = 300; // how long the drawn hand survives a missed detection
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const centroid = (points) => ({
   x: PALM.reduce((sum, i) => sum + points[i].x, 0) / PALM.length,
@@ -92,8 +93,8 @@ export class CameraInput {
     const sample = { t: time, seq: ++this.seq, source: 'camera', present: hands.length > 0 };
     if (!hands.length) {
       this.sample = sample;
-      this.keypoints = null;
-      this.visualTime = null;
+      // keep drawing the last hand briefly: one missed frame should not make it blink
+      if (this.visualTime === null || time - this.visualTime > HOLD_MS) { this.keypoints = null; this.raw = null; this.visualTime = null; }
       return;
     }
 
@@ -124,6 +125,7 @@ export class CameraInput {
     const movement = previous ? dist(c, centroid(previous)) : 0;
     const alpha = !previous || dt > 0.2 || movement > 0.25 ? 1
       : 1 - Math.exp(-2 * Math.PI * (4 + Math.min(22, 4 * movement / dt)) * dt);
+    this.raw = hand.points.map((k) => ({ x: k.x, y: k.y })); // camera space, for the preview window
     this.keypoints = normal.map((point, i) => previous ? ({
       x: previous[i].x + alpha * (point.x - previous[i].x),
       y: previous[i].y + alpha * (point.y - previous[i].y),
@@ -152,6 +154,7 @@ export class CameraInput {
     this.error = null;
     this.sample = null;
     this.keypoints = null;
+    this.raw = null;
     this.visualTime = null;
     this.prev = null;
     this.multiHand = false;

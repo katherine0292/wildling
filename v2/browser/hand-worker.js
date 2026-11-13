@@ -7,11 +7,16 @@ self.onmessage = async ({ data }) => {
       const { FilesetResolver, HandLandmarker } = await import('../vendor/mediapipe/vision_bundle.mjs');
       const base = new URL('../vendor/mediapipe/', self.location.href);
       const files = await FilesetResolver.forVisionTasks(new URL('wasm', base).href);
-      detector = await HandLandmarker.createFromOptions(files, {
-        baseOptions: { modelAssetPath: new URL('hand_landmarker.task', base).href, delegate: 'CPU' },
+      const options = (delegate) => ({
+        baseOptions: { modelAssetPath: new URL('hand_landmarker.task', base).href, delegate },
         runningMode: 'VIDEO',
         numHands: 2,
+        // a little more forgiving than the defaults (0.5), so a hand at exhibition distance is kept
+        minHandDetectionConfidence: 0.4, minHandPresenceConfidence: 0.4, minTrackingConfidence: 0.4,
       });
+      // the GPU is several times faster where the browser allows it in a worker; the CPU always works
+      try { detector = await HandLandmarker.createFromOptions(files, options('GPU')); }
+      catch { detector = await HandLandmarker.createFromOptions(files, options('CPU')); }
       self.postMessage({ type: 'ready' });
     } catch {
       self.postMessage({ type: 'error' });
