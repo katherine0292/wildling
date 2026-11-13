@@ -1,0 +1,192 @@
+[
+  {
+    "id": "system/camera-gesture",
+    "label": "Camera / Gesture Input",
+    "src": "icons/system/camera-gesture.svg"
+  },
+  {
+    "id": "system/mouse",
+    "label": "Mouse",
+    "src": "icons/system/mouse.svg"
+  },
+  {
+    "id": "system/keyboard",
+    "label": "Keyboard",
+    "src": "icons/system/keyboard.svg"
+  },
+  {
+    "id": "system/sound-on",
+    "label": "Sound On",
+    "src": "icons/system/sound-on.svg"
+  },
+  {
+    "id": "system/sound-off",
+    "label": "Sound Off",
+    "src": "icons/system/sound-off.svg"
+  },
+  {
+    "id": "system/pause",
+    "label": "Pause",
+    "src": "icons/system/pause.svg"
+  },
+  {
+    "id": "system/help",
+    "label": "Help",
+    "src": "icons/system/help.svg"
+  },
+  {
+    "id": "system/close",
+    "label": "Close",
+    "src": "icons/system/close.svg"
+  },
+  {
+    "id": "system/back",
+    "label": "Back",
+    "src": "icons/system/back.svg"
+  },
+  {
+    "id": "system/fullscreen",
+    "label": "Fullscreen",
+    "src": "icons/system/fullscreen.svg"
+  },
+  {
+    "id": "system/end",
+    "label": "End",
+    "src": "icons/system/end.svg"
+  },
+  {
+    "id": "system/photo",
+    "label": "Take Photo",
+    "src": "icons/system/photo.svg"
+  },
+  {
+    "id": "inventory/treat",
+    "label": "Treat",
+    "src": "icons/inventory/treat.svg"
+  },
+  {
+    "id": "inventory/wand",
+    "label": "Feather Wand",
+    "src": "icons/inventory/wand.svg"
+  },
+  {
+    "id": "inventory/ball",
+    "label": "Ball",
+    "src": "icons/inventory/ball.svg"
+  },
+  {
+    "id": "inventory/mic",
+    "label": "Microphone (Call Kitten)",
+    "src": "icons/inventory/mic.svg"
+  },
+  {
+    "id": "relationship/alert",
+    "label": "Wary",
+    "src": "icons/relationship/alert.svg"
+  },
+  {
+    "id": "relationship/curious",
+    "label": "Curious",
+    "src": "icons/relationship/curious.svg"
+  },
+  {
+    "id": "relationship/close-bond",
+    "label": "Bonded",
+    "src": "icons/relationship/close-bond.svg"
+  },
+  {
+    "id": "ai/sees-you",
+    "label": "Sees You",
+    "src": "icons/ai/sees-you.svg"
+  },
+  {
+    "id": "ai/hand-found",
+    "label": "Hand Detected",
+    "src": "icons/ai/hand-found.svg"
+  },
+  {
+    "id": "ai/hand-lost",
+    "label": "Hand Lost",
+    "src": "icons/ai/hand-lost.svg"
+  },
+  {
+    "id": "ai/motion-unclear",
+    "label": "Unclear Gesture",
+    "src": "icons/ai/motion-unclear.svg"
+  },
+  {
+    "id": "ai/thinking",
+    "label": "Thinking",
+    "src": "icons/ai/thinking.svg"
+  },
+  {
+    "id": "ai/learned",
+    "label": "Learned",
+    "src": "icons/ai/learned.svg"
+  },
+  {
+    "id": "ai/remembered",
+    "label": "Remembered",
+    "src": "icons/ai/remembered.svg"
+  },
+  {
+    "id": "mood/relaxed",
+    "label": "Relaxed",
+    "src": "icons/mood/relaxed.svg"
+  },
+  {
+    "id": "mood/curious",
+    "label": "Curious",
+    "src": "icons/mood/curious.svg"
+  },
+  {
+    "id": "mood/playful",
+    "label": "Playful",
+    "src": "icons/mood/playful.svg"
+  },
+  {
+    "id": "mood/hungry",
+    "label": "Hungry",
+    "src": "icons/mood/hungry.svg"
+  },
+  {
+    "id": "mood/sleepy",
+    "label": "Sleepy",
+    "src": "icons/mood/sleepy.svg"
+  },
+  {
+    "id": "mood/alert",
+    "label": "Wary",
+    "src": "icons/mood/alert.svg"
+  },
+  {
+    "id": "mood/startled",
+    "label": "Startled",
+    "src": "icons/mood/startled.svg"
+  },
+  {
+    "id": "mood/affectionate",
+    "label": "Affectionate",
+    "src": "icons/mood/affectionate.svg"
+  },
+  {
+    "id": "journal/stamp",
+    "label": "Stamp",
+    "src": "icons/journal/stamp.svg"
+  },
+  {
+    "id": "journal/download",
+    "label": "Download",
+    "src": "icons/journal/download.svg"
+  },
+  {
+    "id": "journal/share",
+    "label": "Share",
+    "src": "icons/journal/share.svg"
+  },
+  {
+    "id": "journal/qr",
+    "label": "QR Code",
+    "src": "icons/journal/qr.svg"
+  }
+]

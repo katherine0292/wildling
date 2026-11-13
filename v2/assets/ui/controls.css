@@ -1,0 +1,20 @@
+:root{--ink:#f8ead0;--muted:#c8c1a9;--accent:#f3ce87;--surface:#272d22;--surface-hover:#363f2c;--surface-pressed:#171e16;--line:#747c63;--focus:#f8dea3;--disabled:#a6a396;--dwell-progress:0%;color-scheme:dark}
+button.control{position:relative;display:inline-flex;min-width:44px;min-height:44px;gap:8px;justify-content:center;align-items:center;padding:0 15px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer;transition:background 140ms,color 140ms,border-color 140ms;isolation:isolate}
+button.control svg{width:24px;height:24px;flex:none}
+button.control:hover,button.control[data-state=hover]{background:var(--surface-hover);border-color:var(--muted)}
+button.control:active,button.control[data-state=pressed]{background:var(--surface-pressed)}
+button.control:disabled,button.control[data-state=disabled]{color:var(--disabled);background:#292a25;border-color:#54564c;cursor:default}
+button.control:focus-visible,button.control[data-state=focus]{outline:2px solid var(--focus);outline-offset:3px}
+button.control.primary{background:var(--accent);color:#262719;border-color:#f8dea3}
+button.control.primary:hover,button.control.primary[data-state=hover]{background:#fae0a7}
+button.control.primary:active,button.control.primary[data-state=pressed]{background:#d9b46d}
+button.control.primary:disabled,button.control.primary[data-state=disabled]{background:#4d4a3a;color:#bbb7a5;border-color:#636052}
+button.control.icon{width:44px;padding:0;border-radius:50%}
+button.control.slot{width:54px;height:54px;padding:0;border-radius:14px}
+button.control.toggle{border-radius:20px}
+button.control.toggle[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+button.control.dwell::after{content:"";position:absolute;inset:-4px;border-radius:inherit;z-index:-1;background:conic-gradient(var(--accent) var(--dwell-progress),#585a45 0);mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px))}
+button.control:not(.icon):not(.slot).dwell::after{border-radius:calc(2px + 12px);padding:2px;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+button.control.toggle.dwell::after{border-radius:23px}
+button.control.slot.dwell::after{border-radius:50%}
+@media (prefers-reduced-motion:reduce){button.control{transition:none}}
