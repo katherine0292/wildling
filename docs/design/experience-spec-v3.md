@@ -64,7 +64,8 @@ A right answer brings the bond closer. A wrong answer costs nothing; the kitten 
 
 - **System and character stay apart** (ADR-004). A lost hand changes the hand cursor and shows one system line; the kitten only looks puzzled.
 - **AI view.** Holding a key shows what the kitten perceives: the hand skeleton, the current reading (slow, fast, still, unclear) and what it is weighing. Releasing the key hides it. The comfort ring is the always-visible form of the same judgement.
-- **Look.** The V2 hand-painted world and kitten, with contact shadows and light added. The interface uses the dark, thin-line kit in `v2/assets/ui/`.
+- **Look.** Prototype A's world and kitten: the dark jungle clearing (`v2/browser/jungle.js`, Prototype A's own painting code) and A's kitten proportions and soft outline on the shared body. The interface uses the dark, thin-line kit in `v2/assets/ui/`, which matches A's glass panels.
+- **The AI panel stays on screen** (revised after review): bottom left, in Prototype A's MIND layout. It shows what the kitten is doing and thinking, its five needs as numbers, how it reads the hand, and the desires it weighs. Holding V adds the same reading to the scene.
 
 ## 4 What is kept from V2
 
@@ -93,8 +94,12 @@ Siblings requests and their four hand shapes, the three habitats and life stages
 | Act 1: comfort ring, demonstration hand, four steps taught by doing | Built |
 | Pictogram replies instead of sentences; system messages stay in words | Built |
 | See what it sees: hold V (or the eye button / T to keep it open). The scene dims; the comfort ring turns solid with a line to the hand; labels name the ring's trend and the hand reading; the panel sits on the side away from the kitten | Built |
+| AI panel always on screen, in Prototype A's MIND layout, with the hand-interaction branch's plain wording for your move and one line of guidance | Built (revised after review) |
+| Prototype A's jungle and kitten look restored | Built (revised after review) |
+| Camera hand tracking with a local MediaPipe model in a worker; pinch selects pouch slots and buttons; Use mouse recovery | Built (hand-interaction branch) |
 | Journal that stays open on the website | Built |
 | Need cycle (Act 2): one need at a time, shown by the body first, a pictogram after 8 s, the matching pouch slot lit; each episode logged with how long the answer took | Built (`v2/core/needs.js`) |
-| The kitten falls asleep to end the visit; "what it learned about you" | To come |
+| The kitten ends the visit: a bonded kitten (three hearts) resting beside a steady, empty hand for 5 s closes it, with a last photo | Built (`settleByHand` in `sim.js`, from the hand-interaction branch) |
+| "What it learned about you": up to three lines (reading its asks, a gentle hand, the favourite act, stepping back), each citing events | Built (`v2/core/learned.js`) |
 
 The layout mockups that preceded the build are in [`mockups/`](mockups/README.md).
