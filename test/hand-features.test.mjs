@@ -69,3 +69,14 @@ test('stroking never counts as waving', () => {
   d.run(8, (sec) => { const p = d.catAt(0.07 * Math.sin(2 * Math.PI * sec), 0); return cam(p.x, p.y, { open: 0.5 }); });
   assert.equal(d.events('startle').length, 0);
 });
+
+test('a palm resting on the kitten\'s back is stroking at once, without waiting to be invited', () => {
+  const d = new Driver({ toolless: true, growth: false });
+  d.startCamera();
+  d.run(1, () => cam(0.9, 0.2));
+  d.cat.needs.trust = 0.1; d.cat.needs.stress = 0.45; // wary: it would not come to a hand by itself
+  const onBack = () => { const p = d.catAt(0.01, 0); return cam(p.x, p.y, { open: 0.4 }); };
+  const t = d.until(() => d.cat.behaviour === 'CONTACT', 3, onBack);
+  assert.ok(t >= 0 && t < 1.5, `contact after ${t}s`);
+  assert.ok(d.events('contact_started').length >= 1);
+});

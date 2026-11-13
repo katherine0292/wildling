@@ -71,7 +71,7 @@ export const PARAMS = Object.freeze({
     feather: { spring: 60, damping: 4.5, catchBelow: 0.9, missFun: 0.03 },
     ball: { friction: 1.1, throwScale: 1.2, maxThrow: 1.4, batSpeed: 0.75, maxIdleSec: 25 },
   },
-  contact: { trustPerSec: 0.02, stressPerSec: 0.08, maxSegmentSec: 6, trustBudgetSec: 12, budgetWindowSec: 60, breakSec: 2 },
+  contact: { palmOnBack: 1.3, onBackDwell: 0.25, trustPerSec: 0.02, stressPerSec: 0.08, maxSegmentSec: 6, trustBudgetSec: 12, budgetWindowSec: 60, breakSec: 2 },
   startle: { retreatSec: 2.2, stress: 0.15, cooldownSec: 2, sustainAfterSec: 2, trustPerSec: 0.01, maxTrustLoss: 0.05 },
   // backing off never takes the kitten out of view: it stays this far inside the frame
   retreat: { margin: 0.12, step: 0.3 },

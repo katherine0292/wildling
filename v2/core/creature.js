@@ -294,15 +294,21 @@ export class CreatureCore {
         : n.stress >= L.playStress ? 'PRESSURE_HIGH'
         : ctx.time < this.play.pauseUntil ? 'PLAY_PAUSE' : null,
       playRequest);
+    // V3: the palm resting on the kitten's back IS stroking. No invitation or steady-hand window
+    // is needed then, only a moment's dwell so a hand sweeping past does not count; a fast
+    // swat never does. The kitten can still say no (tired, tense, hungry).
+    const onBack = this.p.contact.palmOnBack && ctx.tool === 'PET' && h.valid
+      && dist(h.x, h.y, this.x, this.y) < this.bodyRadius * this.p.contact.palmOnBack && ctx.intent.label !== 'fast_approach';
     const contactBlock = ctx.tool !== 'PET' ? 'tool'
       : !h.valid ? 'input'
-      : ctx.intent.label !== 'stable_contact' ? 'intent'
+      : !onBack && ctx.intent.label !== 'stable_contact' ? 'intent'
       : resting ? 'NEED_REST'
       : n.stress >= L.stressRefuse ? 'PRESSURE_HIGH'
       : n.fullness < L.hungerBlocksContact ? 'HUNGRY_FIRST'
-      : !this.inviting ? 'NOT_READY'
+      : !onBack && !this.inviting ? 'NOT_READY'
       : ctx.time < this.contactBreakUntil ? 'break'
-      : this.dwell < ctx.prefs.contactDwell ? 'dwell' : null;
+      : this.dwell < (onBack ? this.p.contact.onBackDwell : ctx.prefs.contactDwell) ? 'dwell' : null;
+    this.palmOnBack = onBack && !contactBlock;
     add('CONTACT', 0.35 + 0.3 * n.trust - 0.4 * n.stress, contactBlock, ctx.tool === 'PET');
     add('RETREAT', 0.2 + 0.7 * n.stress - 0.2 * n.trust,
       n.stress >= L.stressRefuse || ctx.time < this.retreatUntil ? null : 'calm');
@@ -372,6 +378,7 @@ export class CreatureCore {
     else if (this.wantsWater && ctx.water && n.stress < L.stressRefuse && !this.reaction) forced = ['DRINK', 'going to the water'];
     // V3: a pointing finger is an invitation a kitten at ease takes up at once; a tired or tense one does not
     else if (ctx.follow && n.stress < L.stressRefuse && n.energy >= L.playEnergy * 0.6) forced = ['FOLLOW', 'following your finger'];
+    else if (this.palmOnBack && this.behaviour !== 'CONTACT') forced = ['CONTACT', 'a hand on its back'];
 
     if (forced) {
       this.setBehaviour(forced[0], ctx);
