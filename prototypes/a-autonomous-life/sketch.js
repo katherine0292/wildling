@@ -53,11 +53,14 @@ function mouseDragged() { world.hand.onMouse(true); }
 function touchStarted() { if (world.started) { world.hand.onMouse(true); return false; } }
 function touchMoved() { world.hand.onMouse(true); return false; }
 
+// Growing the cat by hand is a development shortcut, so it needs ?debug=1.
+const DEBUG_KEYS = new URLSearchParams(location.search).get('debug') === '1';
+
 function keyPressed() {
   const k = key.toLowerCase();
   if (k === 'm') world.ui.toggle('mind');
   else if (k === 'd') world.debug = !world.debug;
-  else if (k === 'g' && !world.cat.brain.lifecycle) world.cat.age = Math.min(3, world.cat.age + 0.34);
+  else if (k === 'g' && DEBUG_KEYS && !world.cat.brain.lifecycle) world.cat.age = Math.min(3, world.cat.age + 0.34);
   else if (k === 'n') { world.newCat(Genome.random(), world.biomeIndex + 0.05, false); }
   else if (k === 's') world.sound.setMuted(!world.sound.muted);
   else if (k === 'h') world.ui.setVisible(!world.ui.visible);

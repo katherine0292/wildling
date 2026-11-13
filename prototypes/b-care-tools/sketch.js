@@ -21,7 +21,7 @@
 //   PET   rest your hand still on it   -> it purrs                 (Trust)
 //   Moving fast near a shy cat scares it. A tired cat naps by itself.
 //
-// Keys: 1 2 3 tools · G grow faster (for the demo) · S sound · R restart
+// Keys: 1 2 3 tools · S sound · R restart · with ?debug=1, G grows the cat faster
 // =====================================================================
 
 
@@ -151,12 +151,15 @@ function mousePressed() {
 function mouseMoved() { if (hand) hand.lastMouseMove = millis(); }
 function mouseDragged() { if (hand) hand.lastMouseMove = millis(); }
 
+// Growing the cat by hand is a development shortcut, so it needs ?debug=1.
+const DEBUG_KEYS = new URLSearchParams(location.search).get('debug') === '1';
+
 function keyPressed() {
   if (gameScreen === 'start') return;
   sfx.resume();
   const k = key.toLowerCase();
   if (k === '1' || k === '2' || k === '3') selectTool(TOOLS[int(k) - 1].id);
-  if (k === 'g') cat.age = min(cat.age + 0.5, 3);
+  if (k === 'g' && DEBUG_KEYS) cat.age = min(cat.age + 0.5, 3);
   if (k === 's') sfx.toggle();
   if (k === 'r') { gameScreen = 'play'; newCat(); }
 }
@@ -1083,7 +1086,7 @@ function drawHUD() {
   if (hand.mode === 'hand') {
     status = { loading: 'loading hand tracking…', ready: hand.present ? 'hand detected · pinch = click' : 'show your hand to the camera', failed: 'camera unavailable - use the mouse' }[hand.camera];
   }
-  labelText(`${status}   ·   S sound ${sfx.on ? 'on' : 'off'}   ·   R restart   ·   G grow`, width - 20 * unit, 30 * unit, RIGHT);
+  labelText(`${status}   ·   S sound ${sfx.on ? 'on' : 'off'}   ·   R restart${DEBUG_KEYS ? '   ·   G grow' : ''}`, width - 20 * unit, 30 * unit, RIGHT);
 }
 
 // Text on a dark pill, so it can be read on every habitat (even white snow).

@@ -175,7 +175,7 @@ Then open <http://localhost:8790> in **Chrome**.
 |---|---|
 | `M` | show / hide the MIND panel |
 | `D` | debug skeleton: spine, IK legs, foot targets, pet/chase radii |
-| `G` | grow faster (+⅓ stage) — for demos |
+| `G` | grow faster (+⅓ stage) — for demos, only with `?debug=1` |
 | `1` `2` `3` | jump to Jungle / Snow / Desert stage |
 | `N` | new random cat |
 | `S` | mute · `H` hide UI · `C` camera preview · `F` fullscreen |

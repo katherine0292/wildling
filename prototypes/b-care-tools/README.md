@@ -25,7 +25,7 @@ only allow sound after a user gesture.
 | `3` Pet  | rest your hand slowly and still on the cat | Trust |
 
 Fast movement near a shy cat scares it (except while playing).
-Keys: `G` grow faster (demo) · `S` sound · `R` restart.
+Keys: `S` sound · `R` restart. With `?debug=1`, `G` grows the cat faster for demos.
 
 ## How it is built
 
