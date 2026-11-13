@@ -82,3 +82,19 @@ Siblings requests and their four hand shapes, the three habitats and life stages
 4. The new interface and the in-scene tutorial.
 5. Sound from recordings.
 6. A five-person usability test against the V2 baseline.
+
+## 7 Build status
+
+| Part | State |
+|---|---|
+| Entry screen: the litter is the menu, How it works, input card | Built |
+| Corner controls, bond hearts, the pouch, toolless care (`toolless: true`) | Built |
+| Growth switched off in favour of the bond (`growth: false`) | Built |
+| Act 1: comfort ring, demonstration hand, four steps taught by doing | Built |
+| Pictogram replies instead of sentences; system messages stay in words | Built |
+| See what it sees (T) | Built as a toggle; hold-to-show and in-scene labels to come |
+| Journal that stays open on the website | Built |
+| Need cycle and need bubbles (Act 2) | Next |
+| The kitten falls asleep to end the visit; "what it learned about you" | To come |
+
+The layout mockups that preceded the build are in [`mockups/`](mockups/README.md).
