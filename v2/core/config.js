@@ -64,6 +64,8 @@ export const PARAMS = Object.freeze({
   },
   contact: { trustPerSec: 0.02, stressPerSec: 0.08, maxSegmentSec: 6, trustBudgetSec: 12, budgetWindowSec: 60, breakSec: 2 },
   startle: { stress: 0.15, cooldownSec: 2, sustainAfterSec: 2, trustPerSec: 0.01, maxTrustLoss: 0.05 },
+  // backing off never takes the kitten out of view: it stays this far inside the frame
+  retreat: { margin: 0.12, step: 0.3 },
   wait: { farS: 0.25, stableSec: 1 },
   rewardCap: { perToolTrustPerMin: 0.06 },
 

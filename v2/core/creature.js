@@ -626,7 +626,7 @@ export class CreatureCore {
         if (h.valid || h.present) {
           const ax = this.x - (h.x ?? this.x), ay = this.y - (h.y ?? this.y);
           const m = Math.hypot(ax, ay) || 1;
-          tx = this.x + (ax / m) * 0.3; ty = this.y + (ay / m) * 0.3;
+          ({ x: tx, y: ty } = this.retreatSpot(h, ax / m, ay / m));
           speed = sp.retreat * (1 - 0.4 * this.needs.trust);
         }
         break;
@@ -695,9 +695,26 @@ export class CreatureCore {
     this.move(dvx, dvy, dt, face);
   }
 
+  // Where to back off to. Straight away from the hand when there is room; near an edge the
+  // kitten slides along it instead of pressing into the frame, and it never leaves the
+  // part of the world the visitor can see.
+  retreatSpot(h, ux, uy) {
+    const m = this.p.retreat.margin, step = this.p.retreat.step;
+    const x1 = this.world.w - m, y1 = this.world.h - this.p.feed.toolbarBandS - m * 0.5;
+    const inside = (x, y) => ({ x: clamp(x, m, x1), y: clamp(y, m, y1) });
+    const straight = inside(this.x + ux * step, this.y + uy * step);
+    if (dist(straight.x, straight.y, this.x, this.y) > step * 0.6) return straight;
+    // cornered: of the two ways along the edge, take the one that ends further from the hand
+    const hx = h.x ?? this.x, hy = h.y ?? this.y;
+    const a = inside(this.x - uy * step, this.y + ux * step), b = inside(this.x + uy * step, this.y - ux * step);
+    const best = dist(a.x, a.y, hx, hy) >= dist(b.x, b.y, hx, hy) ? a : b;
+    if (dist(best.x, best.y, this.x, this.y) > step * 0.3) return best;
+    return inside(this.world.w / 2, (this.world.h - this.p.feed.toolbarBandS) / 2); // boxed in: head for open ground
+  }
+
   move(dvx, dvy, dt, faceIfStill) {
     // keep away from the edges and the toolbar band
-    const m = 0.08, bottom = this.world.h - this.p.feed.toolbarBandS;
+    const m = this.p.retreat.margin, bottom = this.world.h - this.p.feed.toolbarBandS;
     if (this.x < m) dvx += 0.1; if (this.x > this.world.w - m) dvx -= 0.1;
     if (this.y < m) dvy += 0.1; if (this.y > bottom) dvy -= 0.1;
 
