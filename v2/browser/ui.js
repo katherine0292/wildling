@@ -1,238 +1,160 @@
-// Visitor interface: the field guide, the approach choice, the HUD and the journal.
-// It renders from the snapshot and turns clicks and keys into commands.
-// Copy is short, specific and free of developer terms.
+// Visitor interface (experience spec V3): the entry, the input question, the heads-up
+// display and the journal. It renders from the snapshot and turns clicks into commands.
+//
+// Layout rules: the clearing is the screen. The interface keeps to three corners (the
+// kitten's name and bond, the visit controls, the pouch), and the kitten answers with its
+// body and a pictogram, never with sentences. Words are kept for the system's own messages.
 
 import { COPY, KITTENS } from '../core/config.js';
 import { CAMERA_ERRORS } from './camera.js';
-import { svg } from './icons.js';
+import { kit } from './kit.js';
 import { drawPostcard } from './keepsake.js';
 
-const TOOLS = ['FEED', 'PLAY', 'PET', 'WAIT', 'LITTER', 'TRICK'];
-const TRICK_INFO = { spin: ['SPIN', 'Spin'], rollover: ['ROLL', 'Roll over'], wave: ['WAVE', 'Wave'] };
-// What a visitor can ask of the kitten about a sibling (ADR-017), with the hand shape for each.
-export const ASKS = [
-  ['befriend', 'HAND', 'Make friends', 'open hand'],
-  ['cuddle', 'PEACE', 'Cuddle up', 'two fingers'],
-  ['fight', 'FIST', 'Play-fight', 'fist'],
-  ['hiss', 'CLAW', 'Hiss', 'claw'],
-];
-const TABS = ['litter', 'care', 'habitats', 'journal'];
-const ROMAN = ['1', '2', '3'];
-const CHAPTERS = {
-  kitten: { name: 'The Forest Clearing', short: 'Forest', icon: 'LEAF', thumb: 'kitten-jungle', line: 'Kitten. Big eyes, fuzzy coat. Chases yarn and tumbles with its litter.',
-    looks: ['Big blue eyes and a fuzzy coat', 'A round head and a stubby tail'] },
-  juvenile: { name: 'The Snowfields', short: 'Snowfields', icon: 'SNOW', thumb: 'juvenile-snow', line: 'Juvenile. Long legs, big ears, a winter ruff. Starts to hunt.',
-    looks: ['Long legs and oversized ears', 'Its coat pattern comes in', 'Its eyes start to change colour'] },
-  adult: { name: 'The Desert', short: 'Desert', icon: 'SUN', thumb: 'adult-desert', line: 'Adult. Full coat, ear tufts. Brings gifts to someone it trusts.',
-    looks: ['Full size, with a sharp coat', 'Ear tufts and a chest ruff', 'Its adult eye colour'] },
+const $ = (id) => document.getElementById(id);
+const NAMES = Object.fromEntries(KITTENS.map((k) => [k.id, k.name]));
+const swatchCss = (k) => `radial-gradient(circle at 34% 30%, ${k.coat.light} 0 24%, ${k.coat.base} 25% 58%, ${k.coat.mark} 59% 66%, ${k.coat.base} 67%)`;
+
+// The kitten's replies as pictograms. The words stay as the accessible label.
+const PICTO = {
+  NEED_REST: 'mood/sleepy', PLAY_PAUSE: 'mood/sleepy', TOO_FULL: 'mood/relaxed', HUNGRY_FIRST: 'mood/hungry',
+  NOT_READY: 'mood/curious', NOT_CLOSE_YET: 'mood/alert', PRESSURE_HIGH: 'mood/startled',
+  CONTACT_ACCEPTED: 'mood/affectionate', SPACE_RESPECTED: 'mood/relaxed', RHYTHM_ADAPTED: 'ai/remembered',
+  RETURNING: 'mood/affectionate', GIFT_GIVEN: 'mood/affectionate', TRICK_LEARNED: 'ai/learned',
+  SIB_FOOD: 'mood/alert', SIB_REST: 'mood/sleepy', SIB_TENSE: 'mood/alert', SIB_PLAY: 'mood/playful',
+  SIB_FRIEND: 'mood/affectionate', SIB_CUDDLE: 'mood/affectionate', SIB_STANDOFF: 'mood/startled', FRIENDS: 'mood/affectionate',
 };
-const UNLOCK_COPY = { yarn: ['PLAY', 'Yarn play'], siblings: ['LITTER', 'Rough-and-tumble with the litter'], hunting: ['BUG', 'Hunting critters'], gifts: ['GIFT', 'Bringing you gifts'] };
-const NEEDS = [['fed', 'FEED', 'Fed'], ['rested', 'WAIT', 'Rested'], ['played', 'PLAY', 'Played'], ['calm', 'CALM', 'Calm']];
-const BLOCKED = { fullness: 'it is hungry', energy: 'it is tired', fun: 'it is bored', stress: 'it is tense', wellbeing: 'it needs a little more care overall' };
+const WARN = new Set(['PRESSURE_HIGH', 'NOT_CLOSE_YET', 'SIB_STANDOFF', 'SIB_TENSE', 'SIB_FOOD']);
+
 // Peek inside: plain names for each choice and each reason a choice is blocked.
 const ACTS = {
-  EXPLORE: ['WALK', 'Wander'], OBSERVE: ['EYE', 'Watch you'], SEEK_FOOD: ['FEED', 'Eat'], EAT: ['FEED', 'Eat'], REST: ['WAIT', 'Nap'],
-  GROOM: ['WASH', 'Wash'], APPROACH: ['PET', 'Come to you'], PLAY: ['PLAY', 'Play'], CONTACT: ['PET', 'Be petted'],
-  RETREAT: ['BACK', 'Back off'], SOCIAL: ['LITTER', 'Play with'], HUNT: ['BUG', 'Hunt'], GIFT: ['GIFT', 'Find you a gift'],
+  EXPLORE: 'Wander', OBSERVE: 'Watch you', SEEK_FOOD: 'Eat', EAT: 'Eat', REST: 'Nap', GROOM: 'Wash',
+  APPROACH: 'Come to you', PLAY: 'Play', CONTACT: 'Be stroked', RETREAT: 'Back off', SOCIAL: 'Join a sibling',
+  HUNT: 'Hunt', GIFT: 'Find you a gift', TRICK: 'A trick',
 };
 const WHY_NOT = {
   NEED_REST: 'too tired', PRESSURE_HIGH: 'too tense', TOO_FULL: 'full', HUNGRY_FIRST: 'hungry first', NOT_READY: 'not ready yet',
   PLAY_PAUSE: 'catching its breath', tool: 'not offered', input: "can't see you", far: 'too far', no_invitation: 'not invited',
   intent: 'waiting for a calm hand', break: 'short break', dwell: 'almost', no_food: 'no food', cooldown: 'just did that',
-  alone: 'no sibling nearby', NOT_CLOSE_YET: 'not close enough yet', FRIENDS: "they're friends", too_young: 'too young yet', none: 'nothing to chase', trust: 'needs more trust', calm: 'feels safe',
+  alone: 'no sibling nearby', NOT_CLOSE_YET: 'not close enough yet', FRIENDS: "they're friends", too_young: 'too young', none: 'nothing to chase', trust: 'needs more trust', calm: 'feels safe',
 };
-const TOYS = [['yarn', 'PLAY', 'Yarn'], ['feather', 'FEATHER', 'Feather'], ['ball', 'BALL', 'Ball']];
-const TOY_HINTS = {
-  yarn: 'Your hand is a yarn ball. See if it wants to play',
-  feather: 'A feather on a string. Slow swishes are easier to catch',
-  ball: 'Click or pinch to throw the ball. It fetches on its own',
-};
-const HISS_WHY = { SIB_FOOD: 'it was eating', SIB_REST: 'it was napping', SIB_TENSE: 'it felt tense', SIB_STANDOFF: 'you asked, and it agreed' };
-const NAMES = Object.fromEntries(KITTENS.map((k) => [k.id, k.name]));
-const CARE = {
-  FEED: 'Drop a fish where it can reach it. A full kitten will say so.',
-  PLAY: 'Your hand becomes a yarn ball. It may chase, or ask for a pause.',
-  PET: 'Rest a calm hand nearby. It comes closer when it is ready.',
-  WAIT: 'Step back. Giving space is a way of caring too.',
-  TRICK: 'Teach a trick: show a move of your own three times. It learns it on this device, and does the trick when you make the move again.',
-  LITTER: 'Ask your kitten to make friends, cuddle, play-fight or hiss with a sibling. With the camera, hold a hand shape over the sibling.',
-};
+const READING = { gentle_approach: 'slow approach', stable_contact: 'resting, steady', fast_approach: 'fast approach', neutral_motion: 'moving about', unknown: 'not clear yet', lost: 'not in view' };
+
+const HOW = [
+  ['ai/sees-you', 'Come in slowly', 'A slow, steady hand shrinks the ring around it. A fast one makes it back off.', 'Move your hand towards it, then stop.'],
+  ['mood/affectionate', 'Stroke it', 'Rest your hand on it and move gently. Watch its tail: a flick means stop.', 'Keep the pointer on it and move slowly.'],
+  ['inventory/treat', 'Offer a treat', 'Take one from the pouch, then drop it near the kitten. From your open hand needs trust.', 'Pick the treat, then click where it should land.'],
+  ['inventory/wand', 'Play with the feather', 'Take the feather from the pouch. Dart, then pause, like something alive.', 'Pick the feather; your pointer moves it.'],
+  ['mood/relaxed', 'Step back', 'When it is tired or tense, move your hand away. It notices, and it comes back.', 'Move the pointer to the edge, or off the window.'],
+];
+
 const T = {
   calibLoading: 'Starting the camera…',
   calibLooking: 'Looking for your hand…',
   calibHold: 'There you are. Hold still for a moment…',
   pausedReasons: { user: 'Take your time.', hidden: 'The page went into the background.', idle: 'It seemed nobody was here.', system: 'Something needs a moment.' },
-  reflectTitles: { grown: 'Grown, together', time_limit: 'Until next time', idle: 'It noticed you left', user: 'Thank you for visiting', pause_timeout: 'Thank you for visiting', staff: 'Thank you for visiting' },
-  next: (s) => `Next visitor · ${s}s`,
-  status: { mouse: 'Mouse', keyboard: 'Keyboard', valid: 'Hand found', uncertain: 'Hold still', lost: 'Finding your hand' },
+  titles: { user: 'Until next time', time_limit: 'Until next time', idle: 'It noticed you left', pause_timeout: 'Until next time', staff: 'Until next time', grown: 'Grown, together', asleep: '{name} fell asleep beside you' },
+  status: { valid: 'Hand found', uncertain: 'Hold still', lost: 'Finding your hand' },
   offerEnd: 'Whenever you are ready, you can end your visit here.',
   options: {
-    camera: ['HAND', 'Your hand', 'One open hand in front of the camera.'],
-    mouse: ['MOUSE', 'Mouse', 'Move to offer, click to drop food.'],
-    keyboard: ['KEYS', 'Keyboard', 'Arrow keys to move, Space to offer.'],
+    camera: ['system/camera-gesture', 'Your hand', 'Hold your hand up to the camera. Closest to meeting a real kitten.', 'Recommended'],
+    mouse: ['system/mouse', 'Mouse or touch', 'Your pointer becomes your hand. Works on any device.', ''],
   },
 };
-const $ = (id) => document.getElementById(id);
-const swatchCss = (k) => `radial-gradient(circle at 35% 30%, ${k.coat.light}, ${k.coat.base} 55%, ${k.coat.mark})`;
 
 export class UI {
-  constructor({ dispatch, onChooseInput, onToggleSound, keepsakes }) {
+  constructor({ dispatch, onChooseInput, onToggleSound, onHelp, keepsakes }) {
     this.dispatch = dispatch;
     this.keep = keepsakes;
     this.album = [];
     this.albumSession = null;
     this.copy = COPY.en;
-    this.tab = 'litter';
     this.lastState = null;
     this.tags = new Map();
+    this.hover = null;
+    this.mindOn = false;
+    this.pulse = null;
 
-    // field guide
-    for (const b of document.querySelectorAll('.tabs [data-tab]')) b.onclick = () => this.setTab(b.dataset.tab);
-    $('kittenCards').innerHTML = KITTENS.map((k, i) => `
-      <button class="kitten" data-kitten="${k.id}" aria-pressed="false">
-        <span class="swatch" style="background:${swatchCss(k)}"></span>
-        <span><span class="name">${k.name}</span><span class="temper">${k.temperament}</span><span class="blurb" style="display:block">${k.blurb}</span>${keepsakes?.badge(k.id) ? `<span class="memory">${keepsakes.badge(k.id)}</span>` : ''}</span>
-        <kbd class="glyph">${i + 1}</kbd>
-      </button>`).join('');
-    for (const b of document.querySelectorAll('[data-kitten]')) b.onclick = () => dispatch({ type: 'choose_kitten', kitten: b.dataset.kitten });
-    $('careRows').innerHTML = TOOLS.map((t, i) => `
-      <div class="row"><span class="tile">${svg(t, 24)}</span><span><span class="t">${this.copy.tools[t]}</span><span class="d" style="display:block">${CARE[t]}</span></span><kbd class="glyph">${i + 1}</kbd></div>`).join('');
-    $('habitatRows').innerHTML = Object.entries(CHAPTERS).map(([, c], i) => `
-      <div class="row"><span class="thumb ${c.thumb}"></span><span><span class="t">${ROMAN[i]} · ${c.name}</span><span class="d" style="display:block">${c.line}</span></span><span class="tile" style="width:34px;height:34px">${svg(c.icon, 18)}</span></div>`).join('');
-    this.setTab('litter');
+    // entry
     $('btnStart').onclick = () => dispatch({ type: 'start' });
-    if (keepsakes?.enabled) {
-      $('memoryRule').innerHTML = '<b>Remembered only here.</b> On this website your kitten can remember you in this browser: how often you met, how far it grew, the gifts it found. Nothing is uploaded. In the exhibition, everything is cleared for the next visitor.';
-      $('btnForget').hidden = false;
-      $('btnForget').onclick = () => { keepsakes.forget(); for (const m of document.querySelectorAll('.kitten .memory')) m.remove(); $('btnForget').textContent = 'Forgotten. Every kitten will meet you fresh.'; };
-    }
-    $('btnPostcard').innerHTML = `${svg('CAMERA', 18)}Save a postcard`;
-    $('btnPostcard').onclick = () => this.savePostcard();
-    $('wheel').innerHTML = ASKS.map(([act, icon, label, shape], i) => `<button data-act="${act}"><kbd class="glyph">${i + 1}</kbd>${svg(icon, 22)}<span class="t">${label}</span><span class="d">${shape}</span></button>`).join('');
-    for (const b of $('wheel').children) b.addEventListener('click', (e) => { e.stopPropagation(); this.ask(b.dataset.act); });
-    $('toyTray').innerHTML = TOYS.map(([id, icon, label]) => `<button data-toy="${id}" aria-pressed="false">${svg(icon, 18)}${label}</button>`).join('');
-    for (const b of $('toyTray').children) b.addEventListener('click', (e) => { e.stopPropagation(); dispatch({ type: 'select_toy', toy: b.dataset.toy }); });
+    $('btnHow').onclick = () => this.showHow(true);
+    $('btnHowClose').onclick = () => this.showHow(false);
+    $('how').addEventListener('click', (e) => { if (e.target === $('how')) this.showHow(false); });
 
-    // approach
-    for (const [id, src] of [['btnCamera', 'camera'], ['btnMouse', 'mouse'], ['btnKeyboard', 'keyboard']]) {
-      const [icon, t, d] = T.options[src];
-      $(id).innerHTML = `${svg(icon, 34)}<span class="t">${t}</span><span class="d">${d}</span>`;
+    // input
+    for (const [id, src] of [['btnCamera', 'camera'], ['btnMouse', 'mouse']]) {
+      const [icon, t, d, pill] = T.options[src];
+      $(id).innerHTML = `${kit(icon, 30)}<b>${t}</b><span class="d">${d}</span>${pill ? `<span class="pill">${pill}</span>` : ''}`;
       $(id).onclick = () => onChooseInput(src);
     }
-    $('btnCamera').classList.add('recommended');
+    $('btnKeyboard').onclick = () => onChooseInput('keyboard');
     $('btnCalibMouse').onclick = () => onChooseInput('mouse');
     $('btnCancel').onclick = () => dispatch({ type: 'end' });
 
-    // HUD
-    this.toolbar = $('toolbar');
-    TOOLS.forEach((tool, i) => {
-      const b = document.createElement('button');
-      b.className = `slot${tool === 'WAIT' ? ' wait' : ''}${tool === 'LITTER' ? ' litter' : ''}${tool === 'TRICK' ? ' trick' : ''}`;
-      b.dataset.tool = tool;
-      b.innerHTML = `<kbd class="glyph">${i + 1}</kbd><span class="well">${svg(tool, 28)}</span><span class="label">${this.copy.tools[tool]}</span>`;
-      b.addEventListener('click', (e) => { e.stopPropagation(); dispatch({ type: 'select_tool', tool }); });
-      this.toolbar.appendChild(b);
-    });
-    $('btnEnd').onclick = (e) => { e.stopPropagation(); dispatch({ type: 'end' }); };
-    this.mindOn = false;
+    // heads-up display
+    $('btnMind').innerHTML = kit('ai/sees-you', 22);
     $('btnMind').onclick = (e) => { e.stopPropagation(); this.toggleMind(); };
-    $('gpSteps').innerHTML = Object.values(CHAPTERS).map((c, i) => `<span class="step" data-i="${i}">${svg(c.icon, 14)}<b>${ROMAN[i]}</b></span>`).join('<i></i>');
-    $('gpNeeds').innerHTML = NEEDS.map(([k, icon, label]) => `<span class="need" data-need="${k}"><span class="ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15"/><circle class="lvl" cx="18" cy="18" r="15"/></svg>${svg(icon, 16)}</span><span class="nl">${label}</span></span>`).join('');
-    this.lastProgress = null;
-    this.celebrateUntil = 0;
+    $('btnHelp').innerHTML = kit('system/help', 22);
+    $('btnHelp').onclick = (e) => { e.stopPropagation(); (onHelp ?? (() => this.showHow(true)))(); };
+    $('btnEnd').innerHTML = kit('system/end', 22);
+    $('btnEnd').onclick = (e) => { e.stopPropagation(); dispatch({ type: 'end' }); };
     $('btnSound').onclick = (e) => { e.stopPropagation(); onToggleSound(); };
+    for (const b of document.querySelectorAll('#pouch .slot')) {
+      b.querySelector('.w').innerHTML = kit(`inventory/${b.dataset.item}`, 28);
+      b.addEventListener('click', (e) => { e.stopPropagation(); this.take(b.dataset.item); });
+      b.addEventListener('pointerdown', (e) => e.stopPropagation());
+    }
     $('still').textContent = this.copy.stillThere;
-    $('still').onclick = () => dispatch({ type: 'select_tool', tool: this.activeTool ?? 'FEED' });
     $('offerEnd').textContent = T.offerEnd;
     $('btnResume').onclick = () => dispatch({ type: 'resume' });
     $('btnSwitch').onclick = () => onChooseInput('mouse');
     $('btnPausedEnd').onclick = () => dispatch({ type: 'end' });
     $('btnNext').onclick = () => dispatch({ type: 'next' });
+    $('btnPostcard').innerHTML = `${kit('journal/download', 20)}Save a postcard`;
+    $('btnPostcard').onclick = () => this.savePostcard();
   }
+
+  // Take something from the pouch, or put it back if it is already in hand.
+  take(item) { this.dispatch({ type: 'hold', item: this.held === item ? null : item }); }
+
+  showHow(on, cam = this.lastSource === 'camera') {
+    if (on) $('howGrid').innerHTML = HOW.map(([icon, t, d, mouse]) => `<div class="how-item">${kit(icon, 26)}<b>${t}</b><span>${cam ? d : `${d} ${mouse}`}</span></div>`).join('');
+    $('howTitle').textContent = `${HOW.length === 5 ? 'Five' : HOW.length} things you can do`;
+    this.show('how', on);
+    if (on) setTimeout(() => $('btnHowClose').focus({ preventScroll: true }), 0);
+  }
+  get howOpen() { return !$('how').hidden; }
 
   toggleMind() { this.mindOn = !this.mindOn; }
 
-  // The ask wheel opens over a sibling; the kitten still decides.
-  // The menu is pinned where it opened, so it never runs away from the pointer.
-  openWheel(kitten) { this.wheelFor = kitten; this.wheelAt = null; this.show('wheel', true); }
-  closeWheel() { this.wheelFor = null; this.wheelAt = null; this.show('wheel', false); }
-  ask(act) { if (this.wheelFor) this.dispatch({ type: 'social_request', kitten: this.wheelFor, act }); this.closeWheel(); }
-  get wheelOpen() { return !!this.wheelFor; }
-
-  setTab(tab) {
-    this.tab = tab;
-    for (const b of document.querySelectorAll('.tabs [data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
-    for (const p of document.querySelectorAll('[data-pane]')) p.hidden = p.dataset.pane !== tab;
+  // Pointer over the clearing on the entry screen: which kitten is under it.
+  hoverAt(px, py) { this.hoverPoint = px === null ? null : { x: px, y: py }; }
+  kittenAt(px, py, x) {
+    if (!x) return null;
+    const all = [{ kitten: this.chosen, ...x.catPx }, ...x.litterPx];
+    let best = null, bd = Infinity;
+    for (const l of all) { const d = Math.hypot(l.x - px, l.y - py); if (d < (l.r ?? 60) * 1.4 && d < bd) { bd = d; best = l.kitten; } }
+    return best;
   }
 
-  // The Tricks panel: what has been learned, teaching progress, and what the model saw.
-  tricks(snap) {
-    const on = snap.activeTool === 'TRICK';
-    this.show('tricksPanel', on);
-    if (!on) return;
-    const T = snap.tricks, name = snap.kitten.name;
-    const rows = Object.entries(TRICK_INFO).map(([id, [icon, label]]) => {
-      const learned = T.learned.includes(id), teaching = T.teaching === id;
-      const dots = teaching ? `<span class="dots">${Array.from({ length: T.need }, (_, i) => `<i class="${i < T.count ? 'on' : ''}"></i>`).join('')}</span>` : '';
-      return `<div class="tr-row ${learned ? 'learned' : ''} ${teaching ? 'teaching' : ''}">${svg(icon, 20)}<span class="tl">${label}</span>${dots}
-        ${teaching ? '<button class="mini ghosty" data-cancel="1">Cancel</button>' : `<button class="mini" data-teach="${id}">${learned ? 'Re-teach' : 'Teach'}</button>`}</div>`;
-    }).join('');
-    const tr = T.teaching ? TRICK_INFO[T.teaching][1].toLowerCase() : null;
-    const status = T.teaching ? `Show ${name} your move for <b>${tr}</b>: ${T.count} of ${T.need}. Move, then pause.`
-      : T.learned.length ? `Make a move you taught, and ${name} may do the trick.` : `Pick a trick, then show ${name} a move of your own three times.`;
-    const cons = T.teaching && T.count >= 2 && T.consistency !== null && T.consistency !== undefined ? `<div class="tr-cons"><span>Your examples are alike</span><span class="bar"><i style="width:${Math.round(T.consistency * 100)}%"></i></span><b>${Math.round(T.consistency * 100)}%</b></div>` : '';
-    const res = !T.teaching && T.lastResult ? `<div class="tr-res ${T.lastResult.trick === 'unknown' ? 'unk' : ''}">${T.lastTrace ? traceSvg(T.lastTrace) : ''}${T.lastResult.trick === 'unknown' ? 'Last move: not recognised' : `Last move: ${TRICK_INFO[T.lastResult.trick][1].toLowerCase()} (distance ${T.lastResult.distance.toFixed(2)})`}</div>` : '';
-    const html = `<div class="tr-head">${svg('TRICK', 18)}<span>Tricks</span></div>${rows}<p class="tr-status">${status}</p>${cons}${res}
-      <div class="tr-foot">Learned on this device from your examples (nearest neighbour). Forgotten when you leave.</div>`;
-    const el = $('tricksPanel');
-    if (this.trHtml !== html) { // compare with what we wrote, not with the browser's re-serialised markup
-      this.trHtml = html;
-      el.innerHTML = html;
-      for (const b of el.querySelectorAll('[data-teach]')) b.onclick = (e) => { e.stopPropagation(); this.dispatch({ type: 'teach_start', trick: b.dataset.teach }); };
-      for (const b of el.querySelectorAll('[data-cancel]')) b.onclick = (e) => { e.stopPropagation(); this.dispatch({ type: 'teach_cancel' }); };
-    }
-  }
-
-  // Asleep, the kitten dreams of real moments from this visit: the album's own photos.
-  dream(snap, x) {
-    const c = snap.creature;
-    const dreams = this.album.filter((p) => p.caption !== 'Hss!');
-    const on = c.behaviour === 'REST' && !c.socialMode && dreams.length > 0;
-    this.show('dream', on);
-    if (!on) { this.dreamIdx = null; return; }
-    const now = performance.now();
-    if (this.dreamIdx === null || this.dreamIdx === undefined || now - this.dreamAt > 3500) {
-      this.dreamIdx = ((this.dreamIdx ?? -1) + 1) % dreams.length;
-      this.dreamAt = now;
-      const p = dreams[this.dreamIdx];
-      $('dreamImg').src = p.url; $('dreamCap').textContent = `Dreaming of: ${p.caption.toLowerCase()}`;
-      const cl = document.querySelector('.dream-cloud'); cl.classList.remove('in'); void cl.offsetWidth; cl.classList.add('in');
-    }
-    const d = $('dream');
-    d.style.left = `${Math.max(120, Math.min(x.width - 120, x.catPx.x + 40))}px`;
-    d.style.top = `${Math.max(250, x.catPx.y - x.catPx.r - 10)}px`;
-  }
-
-  // Photos taken automatically at moments that matter (first meal, a catch, a new chapter…).
+  // Photos taken automatically at moments that matter.
   addPhoto(canvas, caption) {
     if (this.album.some((p) => p.caption === caption)) return;
-    this.album.push({ canvas, caption, url: canvas.toDataURL('image/jpeg', 0.85) });
+    this.album.push({ canvas, caption, url: canvas.toDataURL('image/jpeg', 0.85), at: this.activeSec ?? 0 });
     if (this.album.length > 9) this.album.splice(1, 1); // keep the first photo, drop the oldest after it
   }
 
   savePostcard() {
     const r = this.lastRecap;
     if (!r) return;
-    const { snap, k } = r, c = snap.creature;
-    const chapter = Math.min(2, Math.floor(c.ageProgress)), grown = c.ageProgress >= 3;
-    const rec = this.keepRecord ?? { visits: 1, best: grown ? 3 : chapter, gifts: (snap.gifts ?? []).map((g) => g.item), last: new Date().toISOString().slice(0, 10) };
+    const { snap, k } = r;
+    const rec = this.keepRecord ?? { visits: 1, best: 0, gifts: [], last: new Date().toISOString().slice(0, 10) };
     const card = drawPostcard({
       kitten: k.id,
-      title: grown ? `${k.name}, all grown up` : `${k.name} and me`,
-      sub: `${k.temperament} · Chapter ${ROMAN[chapter]}, ${CHAPTERS[c.phase].name}`,
+      title: `${k.name} and me`,
+      sub: `${k.temperament} · ${this.copy.relation[snap.creature.relation].toLowerCase()}`,
       lines: snap.recap.lines.map((l) => l.text),
-      photos: this.album.length > 3 ? [this.album[0], ...this.album.slice(-2)] : this.album,
-      chapter, grown,
+      photos: this.pickPhotos(),
+      chapter: 0, grown: false,
       link: this.keep ? this.keep.linkFor(k.id, rec) : null,
     });
     const a = document.createElement('a');
@@ -241,28 +163,31 @@ export class UI {
     a.click();
   }
 
-  stepTab(dir) { const i = TABS.indexOf(this.tab); this.setTab(TABS[(i + dir + TABS.length) % TABS.length]); }
+  pickPhotos() { return this.album.length > 3 ? [this.album[0], this.album[Math.floor(this.album.length / 2)], this.album[this.album.length - 1]] : this.album; }
 
   show(id, on) { $(id).hidden = !on; }
 
-  // x: { camera, soundOn, width, height, catPx, cursorPx, litterPx: [{ kitten, x, y }] }
+  // x: { camera, soundOn, width, height, catPx, cursorPx, litterPx: [{ kitten, x, y, r }] }
   update(snap, x) {
     const st = snap.sessionState;
+    this.chosen = snap.kitten.id;
+    this.lastSource = snap.input.source;
+    this.x = x;
     if (st !== this.lastState) {
       this.lastState = st;
-      this.show('guide', st === 'ATTRACT');
+      this.show('entry', st === 'ATTRACT');
       this.show('consent', st === 'CONSENT');
       this.show('calibrate', st === 'CALIBRATING');
       this.show('paused', st === 'PAUSED');
       this.show('reflection', st === 'REFLECTION');
       this.show('ui', st === 'ACTIVE');
-      if (st !== 'ACTIVE') this.show('celebrate', false);
+      if (st !== 'ATTRACT' && st !== 'ACTIVE') this.showHow(false);
+      document.body.dataset.state = st.toLowerCase();
       const focus = { ATTRACT: 'btnStart', CONSENT: 'btnCamera', PAUSED: 'btnResume', REFLECTION: 'btnNext' }[st];
       if (focus) setTimeout(() => $(focus)?.focus({ preventScroll: true }), 0);
     }
     this.nameTags(snap, x);
-    this.celebration(snap);
-    if (st === 'ATTRACT') for (const b of document.querySelectorAll('[data-kitten]')) b.setAttribute('aria-pressed', String(b.dataset.kitten === snap.kitten.id));
+    if (st === 'ATTRACT') this.entry(snap);
     if (st === 'CONSENT') this.consent(x.camera);
     if (st === 'CALIBRATING') this.calibrating(snap, x.camera);
     if (st === 'PAUSED') $('pausedReason').textContent = T.pausedReasons[snap.pauseReason] ?? '';
@@ -270,50 +195,44 @@ export class UI {
     if (st === 'ACTIVE') this.active(snap, x);
   }
 
-  // Name tags over the litter on the field guide; hidden during a visit.
+  entry(snap) {
+    const k = KITTENS.find((q) => q.id === snap.kitten.id);
+    $('btnStart').textContent = `Meet ${k.name}`;
+    $('entryNote').textContent = this.hover && this.hover !== k.id ? `Click to choose ${NAMES[this.hover]}.` : 'Point at a kitten, or click one to choose it.';
+  }
+
+  // Names over the litter on the entry screen. The chosen or pointed-at kitten shows its
+  // temperament; clicking a tag chooses that kitten.
   nameTags(snap, x) {
     const root = $('tags');
-    const st = snap.sessionState;
-    const on = st === 'ATTRACT';
-    const litter = st === 'ACTIVE' && snap.activeTool === 'LITTER';
-    const list = on ? [{ kitten: snap.kitten.id, ...x.catPx, chosen: true }, ...x.litterPx]
-      : litter ? x.litterPx.filter((l) => !l.wrestling && !l.fleeing).map((l) => ({ ...l, invite: true })) : [];
+    const on = snap.sessionState === 'ATTRACT' && !this.howOpen;
+    const list = on ? [{ kitten: snap.kitten.id, ...x.catPx }, ...x.litterPx] : [];
+    this.hover = on && this.hoverPoint ? this.kittenAt(this.hoverPoint.x, this.hoverPoint.y, x) : null;
     const keep = new Set(list.map((l) => l.kitten));
     for (const [k, el] of this.tags) if (!keep.has(k)) { el.remove(); this.tags.delete(k); }
     for (const l of list) {
       let el = this.tags.get(l.kitten);
       if (!el) {
         const k = KITTENS.find((q) => q.id === l.kitten);
-        el = document.createElement('div');
-        el.className = 'tag';
-        el.innerHTML = `<span class="n">${k.name}</span><span class="k">${k.temperament}</span>`;
+        el = document.createElement('button');
+        el.className = 'tag glass';
+        el.innerHTML = `<b>${k.name}</b><span>${k.temperament[0].toUpperCase()}${k.temperament.slice(1)}. ${k.blurb}</span>${this.keep?.badge(k.id) ? `<em>${this.keep.badge(k.id)}</em>` : ''}`;
+        el.onclick = (e) => { e.stopPropagation(); this.dispatch({ type: 'choose_kitten', kitten: k.id }); };
         root.appendChild(el);
         this.tags.set(l.kitten, el);
       }
-      el.classList.toggle('chosen', !!l.chosen);
-      if (el.classList.contains('invite') !== !!l.invite) {
-        el.classList.toggle('invite', !!l.invite);
-        const k = KITTENS.find((q) => q.id === l.kitten);
-        el.innerHTML = l.invite ? `<span class="n">${k.name}</span><span class="bond"></span>` : `<span class="n">${k.name}</span><span class="k">${k.temperament}</span>`;
-        el.onclick = l.invite ? (e) => { e.stopPropagation(); this.openWheel(l.kitten); } : null;
-      }
-      if (l.invite) { // how close your kitten feels to this sibling
-        const b = Math.max(0, Math.min(1, l.bond ?? 0.25)), n = b >= 0.6 ? 3 : b >= 0.35 ? 2 : b >= 0.15 ? 1 : 0;
-        const word = ['Wary', 'Getting along', 'Friends', 'Best friends'][n];
-        const html = `${'<i class="on"></i>'.repeat(n)}${'<i></i>'.repeat(3 - n)}<em>${word}</em>`;
-        const bel = el.querySelector('.bond');
-        if (bel && bel.innerHTML !== html) bel.innerHTML = html;
-      }
-      el.classList.toggle('invited', !!l.invited);
-      el.style.left = `${l.x}px`;
-      el.style.top = `${l.y - (l.r ?? 60) - 6}px`;
+      el.classList.toggle('chosen', l.kitten === snap.kitten.id);
+      el.classList.toggle('open', l.kitten === (this.hover ?? snap.kitten.id));
+      // keep the tag on screen, even when the kitten is near an edge
+      const half = el.offsetWidth / 2 + 8;
+      el.style.left = `${Math.max(half, Math.min(x.width - half, l.x))}px`;
+      el.style.top = `${Math.max(el.offsetHeight + 12, l.y - (l.r ?? 60) * 0.9)}px`;
     }
   }
 
   consent(cam) {
     const err = $('cameraError');
-    if (cam.status === 'failed') { err.hidden = false; err.textContent = CAMERA_ERRORS.en[cam.error] ?? ''; }
-    else err.hidden = true;
+    if (cam.status === 'failed') { err.hidden = false; err.textContent = CAMERA_ERRORS.en[cam.error] ?? ''; } else err.hidden = true;
   }
 
   calibrating(snap, cam) {
@@ -325,178 +244,102 @@ export class UI {
   reflection(snap) {
     const r = snap.recap;
     if (!r) return;
-    const c = snap.creature, k = KITTENS.find((q) => q.id === snap.kitten.id);
-    $('seal').style.background = swatchCss(k);
-    $('sealNumeral').textContent = ROMAN[Math.min(2, Math.floor(c.ageProgress))];
-    $('reflectTitle').textContent = T.reflectTitles[snap.endReason] ?? T.reflectTitles.user;
-    $('reflectSub').textContent = `${k.name}, ${k.temperament} · Chapter ${ROMAN[Math.min(2, Math.floor(c.ageProgress))]}, ${CHAPTERS[c.phase].name}`;
+    const k = KITTENS.find((q) => q.id === snap.kitten.id);
+    const mins = Math.max(1, Math.round((snap.timers.active ?? 0) / 60));
+    $('reflectEyebrow').textContent = `A first meeting · ${mins} minute${mins > 1 ? 's' : ''}`;
+    $('reflectTitle').textContent = (T.titles[snap.endReason] ?? T.titles.user).replace('{name}', k.name);
+    $('reflectSub').textContent = `${k.name}, ${k.temperament}. ${this.copy.relation[snap.creature.relation]}.`;
     const html = r.lines.map((l) => `<li>${l.text}<span class="ev">${l.evidence.join(', ') || 'no events'}</span></li>`).join('');
     if ($('recap').innerHTML !== html) $('recap').innerHTML = html;
-    const n = r.counts;
-    const extra = [n.wrestles ? `<span>${svg('LITTER', 16)}${n.wrestles} tumble${n.wrestles > 1 ? 's' : ''}</span>` : '', n.hunts ? `<span>${svg('BUG', 16)}${n.hunts} hunt${n.hunts > 1 ? 's' : ''}</span>` : '', n.gifts ? `<span>${svg('GIFT', 16)}${n.gifts} gift${n.gifts > 1 ? 's' : ''}</span>` : ''].join('');
-    $('recapCounts').innerHTML = `<span>${svg('FEED', 16)}${n.fed} fish</span><span>${svg('PLAY', 16)}${n.pounces} catches</span><span>${svg('PET', 16)}${n.contactSec}s of contact</span>${extra}`;
-    const albumHtml = (this.album.length > 5 ? [this.album[0], ...this.album.slice(-4)] : this.album).map((p, i) => `<figure class="polaroid" style="--r:${[-4, 3, -2, 4, -3, 2][i]}deg"><img src="${p.url}" alt="${p.caption}"><span>${p.caption}</span></figure>`).join('');
+    const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    const albumHtml = this.pickPhotos().map((p) => `<figure class="pol"><img src="${p.url}" alt="${p.caption}"><b>${p.caption}</b><span>${fmt(p.at)}</span></figure>`).join('');
     if (this.albumShown !== albumHtml) { this.albumShown = albumHtml; $('album').innerHTML = albumHtml; }
+    $('album').hidden = !this.album.length;
     this.lastRecap = { snap, k };
     if (this.keep?.enabled && !this.saved) {
       this.saved = true;
-      this.keepRecord = this.keep.record(k.id, { chapter: Math.min(2, Math.floor(c.ageProgress)), grown: c.ageProgress >= 3, gifts: (snap.gifts ?? []).map((g) => g.item) });
+      this.keepRecord = this.keep.record(k.id, { chapter: 0, grown: false, gifts: (snap.gifts ?? []).map((g) => g.item) });
     }
     $('keepNote').textContent = this.keep?.enabled
-      ? `${k.name} will remember you in this browser${this.keepRecord ? ` (visit ${this.keepRecord.visits})` : ''}. The postcard's code lets you visit again from another device.`
-      : 'This relationship lives only in this visit. The next visitor meets a kitten that has never met anyone.';
-    const g = snap.growth;
-    $('journalSteps').innerHTML = Object.values(CHAPTERS).map((ch, i) => `<span class="step ${i <= g.chapter || g.grown ? 'done' : ''}">${svg(ch.icon, 16)}<b>${ROMAN[i]}</b><em>${ch.short}</em></span>`).join('<i></i>');
-    $('btnNext').textContent = T.next(Math.ceil(snap.timers.reflectionLeft ?? 0));
+      ? `${k.name} will remember you in this browser${this.keepRecord ? ` (visit ${this.keepRecord.visits})` : ''}. Nothing is uploaded.`
+      : 'Forgotten when you leave. Nothing is uploaded.';
+    const left = snap.timers.reflectionLeft;
+    $('btnNext').textContent = left !== null && left !== undefined && snap.timed ? `Next visitor · ${Math.ceil(left)}s` : `Meet another kitten`;
   }
 
-  // The growth meter: how far to the next chapter, what holds it back, what comes next.
-  growth(snap) {
-    const g = snap.growth;
-    const pct = g.grown ? 100 : Math.floor(g.progress * 100);
-    const next = g.next ? CHAPTERS[g.next] : null;
-    $('gpTitle').textContent = g.grown ? 'Fully grown' : g.next ? `Growing up · to Chapter ${ROMAN[g.chapter + 1]}` : 'Growing up · to fully grown';
-    $('gpPct').textContent = `${pct}%`;
-    $('gpFill').style.width = `${g.grown ? 100 : g.progress * 100}%`;
-    const panel = $('growthPanel');
-    panel.classList.toggle('paused', !g.ok && !g.grown);
-    panel.classList.toggle('growing', g.growing);
-    for (const el of $('gpSteps').querySelectorAll('.step')) el.classList.toggle('done', Number(el.dataset.i) < g.chapter || g.grown || Number(el.dataset.i) === g.chapter);
-    for (const [k] of NEEDS) {
-      const el = $('gpNeeds').querySelector(`[data-need="${k}"]`);
-      const lvl = Math.max(0, Math.min(1, g.levels[k]));
-      el.querySelector('.lvl').style.strokeDashoffset = String(94.2 * (1 - lvl));
-      el.classList.toggle('low', !g.checks[k]);
-    }
-    $('gpStatus').textContent = g.grown ? 'Grown, together.' : g.ok ? (g.growing ? 'Growing. Every kind of care helps.' : 'Ready to grow.') : `Growth paused: ${BLOCKED[g.blockedBy] ?? 'it needs care'}.`;
-    $('gpNext').innerHTML = next ? `<span class="lbl">Next · ${next.short}</span>${g.unlocks.map((u) => `<span class="unlock">${svg(UNLOCK_COPY[u][0], 14)}${UNLOCK_COPY[u][1]}</span>`).join('')}`
-      : g.grown ? '' : `<span class="lbl">Next</span><span class="unlock">${svg('SPARK', 14)}Fully grown</span>`;
-    // a "+n%" pop when a burst lands
-    const b = snap.creature.lastBurst;
-    if (b && b.time !== this.lastBurstAt) {
-      this.lastBurstAt = b.time;
-      const pop = $('gpPop');
-      pop.textContent = `+${Math.round(b.amount * 100)}%`;
-      pop.classList.remove('show'); void pop.offsetWidth; pop.classList.add('show');
-    }
-  }
-
-  // Peek inside: the decision trace in plain words, next to the kitten.
-  mind(snap, x) {
+  // Peek inside: what the kitten notices and what it is weighing, in plain words.
+  mind(snap) {
     const el = $('mind');
     this.show('mind', this.mindOn);
+    document.body.classList.toggle('mind-on', this.mindOn);
+    $('btnMind').setAttribute('aria-pressed', String(this.mindOn));
     if (!this.mindOn) return;
-    const c = snap.creature, d = snap.diagnostics;
-    const actWord = { befriend: 'Make friends with', cuddle: 'Cuddle up with', fight: 'Play-fight with', hiss: 'Hiss at' };
-    const label = (name) => (name === 'SOCIAL' && c.socialTarget ? `${actWord[c.socialAct] ?? 'Play with'} ${NAMES[c.socialTarget]}` : ACTS[name]?.[1] ?? name);
+    const c = snap.creature, d = snap.diagnostics, name = snap.kitten.name;
+    const label = (n) => (n === 'SOCIAL' && c.socialTarget ? `Join ${NAMES[c.socialTarget]}` : ACTS[n] ?? n);
     const rows = d.candidates.filter((q) => q.available || /^[A-Z_]+$/.test(q.blocked ?? '') || ['too_young', 'trust', 'alone'].includes(q.blocked))
       .slice(0, 5).map((q) => {
         const chosen = q.name === d.chosen || (d.chosen === 'EAT' && q.name === 'SEEK_FOOD');
-        const why = q.available ? (q.request ? 'you offered this' : '') : WHY_NOT[q.blocked] ?? q.blocked;
-        return `<div class="m-row ${chosen ? 'chosen' : ''} ${q.available ? '' : 'blocked'}">${svg(ACTS[q.name]?.[0] ?? 'EYE', 16)}<span class="m-name">${label(q.name)}</span><span class="m-bar"><i style="width:${Math.round(Math.min(1, q.score) * 100)}%"></i></span><span class="m-why">${chosen ? 'chosen' : why}</span></div>`;
+        const why = q.available ? (q.request ? 'you offered this' : q.score.toFixed(2)) : WHY_NOT[q.blocked] ?? q.blocked;
+        return `<div class="m-row ${chosen ? 'chosen' : ''} ${q.available ? '' : 'blocked'}"><span>${label(q.name)}</span><i style="--v:${Math.round(Math.min(1, q.score) * 100)}%"></i><em>${chosen ? 'chosen' : why}</em></div>`;
       }).join('');
-    const now = d.forced ? `${label(d.chosen)}: ${d.forced}` : `${label(d.chosen)}: ${d.why}`;
-    const react = c.reaction?.type === 'hiss' ? `<div class="m-react">Hissed at ${NAMES[c.reaction.sibling] ?? 'a sibling'}: ${HISS_WHY[c.reaction.reasonCode] ?? ''}.</div>` : '';
-    const html = `<div class="m-head">${svg('THINK', 18)}<span>What ${snap.kitten.name} is weighing</span></div>${react}${rows}<div class="m-now">${now}</div><div class="m-foot">Safety rules first, then hand-written scores. Not a learned model.</div>`;
+    const q = snap.input.source === 'camera' ? snap.input.quality : 'valid';
+    const seen = snap.input.source === 'camera' ? (q === 'valid' ? 'seen clearly' : q === 'uncertain' ? 'not sure' : 'not in view') : `${snap.input.source}, exact`;
+    const intent = READING[snap.intent.label] ?? snap.intent.label;
+    const trust = this.copy.relation[c.relation].toLowerCase();
+    const html = `<h3>${kit('ai/sees-you', 20)}What ${name} notices</h3>
+      <div class="m-fact"><span>Your hand</span><em>${seen}</em></div>
+      <div class="m-fact"><span>Movement</span><em>${intent}${snap.intent.score ? ` · ${snap.intent.score.toFixed(2)}` : ''}</em></div>
+      <div class="m-fact"><span>Bond</span><em>${trust}</em></div>
+      <h3>${kit('ai/thinking', 20)}What it is weighing</h3>${rows}
+      <p class="m-foot">Safety rules first, then hand-written scores. Not a learned model. Nothing here is recorded.</p>`;
     if (this.mindHtml !== html) { this.mindHtml = html; el.innerHTML = html; }
-
-  }
-
-  // A short title card when the kitten reaches a new chapter, listing what changed.
-  celebration(snap) {
-    const now = performance.now();
-    const c = snap.creature;
-    const key = c.ageProgress >= 3 ? 'grown' : c.phase;
-    if (this.celebratedFor === undefined) this.celebratedFor = key;
-    if (snap.sessionState === 'ATTRACT') { this.celebratedFor = 'kitten'; return; }
-    if (key !== this.celebratedFor && snap.sessionState === 'ACTIVE') {
-      this.celebratedFor = key;
-      const idx = { kitten: 0, juvenile: 1, adult: 2, grown: 2 }[key];
-      const ch = CHAPTERS[key === 'grown' ? 'adult' : key];
-      $('celEyebrow').textContent = key === 'grown' ? 'Fully grown' : `Chapter ${ROMAN[idx]}`;
-      $('celTitle').textContent = key === 'grown' ? `${snap.kitten.name} is all grown up` : ch.name;
-      $('celSub').textContent = key === 'grown' ? 'You raised it with balanced, patient care.' : `${snap.kitten.name} grew up a little.`;
-      const fresh = key === 'grown' ? [] : ({ juvenile: ['hunting'], adult: ['gifts'] }[key] ?? []);
-      $('celList').innerHTML = [...(key === 'grown' ? ['Every chapter complete'] : ch.looks).map((t) => `<li>${svg('SPARK', 16)}${t}</li>`),
-        ...fresh.map((u) => `<li class="new">${svg(UNLOCK_COPY[u][0], 16)}New: ${UNLOCK_COPY[u][1]}</li>`)].join('');
-      this.celebrateUntil = now + 3800;
-      this.show('celebrate', true);
-      const card = document.querySelector('.cel-card');
-      card.classList.remove('reveal'); void card.offsetWidth; card.classList.add('reveal');
-    }
-    if (this.celebrateUntil && now > this.celebrateUntil) { this.celebrateUntil = 0; this.show('celebrate', false); }
   }
 
   active(snap, x) {
     const c = snap.creature;
-    const idx = Math.min(2, Math.floor(c.ageProgress));
-    $('numeral').innerHTML = `<span>${ROMAN[idx]}</span>`;
-    $('chapter').textContent = `Chapter ${ROMAN[idx]} · ${CHAPTERS[c.phase].name}`;
+    const k = KITTENS.find((q) => q.id === snap.kitten.id);
+    this.activeSec = snap.timers.active ?? 0;
+    $('face').style.background = swatchCss(k);
     $('kname').textContent = snap.kitten.name;
-    $('temper').textContent = snap.kitten.temperament;
     $('relation').textContent = this.copy.relation[c.relation];
-    [...$('pips').children].forEach((el, i) => el.classList.toggle('on', i <= c.relation));
-    this.growth(snap);
-    this.mind(snap, x);
-    this.tricks(snap);
-    this.dream(snap, x);
-    const gifts = c.stats.gifts ?? 0;
-    this.show('treasures', gifts > 0);
-    if (gifts) $('treasures').innerHTML = `${svg('GIFT', 16)}${gifts} gift${gifts > 1 ? 's' : ''} found`;
+    [...$('hearts').children].forEach((el, i) => el.classList.toggle('on', i <= c.relation));
+    this.mind(snap);
+    $('btnSound').innerHTML = kit(x.soundOn ? 'system/sound-on' : 'system/sound-off', 22);
+    $('btnSound').setAttribute('aria-pressed', String(x.soundOn));
 
-    const src = snap.input.source;
-    const q = src === 'camera' ? snap.input.quality : 'valid';
-    const status = $('inputStatus');
-    status.className = `chip ${q}`;
-    status.innerHTML = `<span class="dot"></span>${src === 'camera' ? T.status[q] : T.status[src]}`;
-    $('btnSound').innerHTML = `${svg(x.soundOn ? 'SOUND' : 'MUTE', 16)}${x.soundOn ? 'Sound' : 'Muted'}`;
-    $('btnMind').innerHTML = `${svg('THINK', 16)}Peek inside<kbd class="glyph">T</kbd>`;
-    $('btnMind').setAttribute('aria-pressed', String(this.mindOn));
-
-    this.activeTool = snap.activeTool;
-    for (const b of this.toolbar.children) b.setAttribute('aria-pressed', String(b.dataset.tool === snap.activeTool));
-    const play = snap.activeTool === 'PLAY';
-    this.show('toyTray', play);
-    if (this.wheelFor) {
-      const at = x.litterPx.find((l) => l.kitten === this.wheelFor);
-      if (!at || snap.activeTool !== 'LITTER') this.closeWheel();
-      else if (!this.wheelAt) {
-        this.wheelAt = { x: Math.max(170, Math.min(x.width - 170, at.x)), y: Math.max(150, at.y - at.r - 20) };
-        const w = $('wheel'); w.style.left = `${this.wheelAt.x}px`; w.style.top = `${this.wheelAt.y}px`;
-      }
+    const cam = snap.input.source === 'camera';
+    this.show('inputStatus', cam);
+    if (cam) {
+      const q = snap.input.quality;
+      $('inputStatus').className = `glass ${q}`;
+      $('inputStatus').innerHTML = `${kit(q === 'lost' ? 'ai/hand-lost' : 'ai/hand-found', 18)}${T.status[q]}`;
     }
-    if (play) for (const b of $('toyTray').children) b.setAttribute('aria-pressed', String(b.dataset.toy === snap.toy?.kind));
-    $('toolHint').textContent = play ? TOY_HINTS[snap.toy?.kind ?? 'yarn']
-      : snap.activeTool === 'LITTER' && snap.input.source === 'camera' ? 'Hold an open hand, two fingers, a fist or a claw over a sibling'
-      : snap.activeTool === 'LITTER' ? 'Click a sibling, then choose what to ask' : this.copy.toolHints[snap.activeTool];
+
+    this.held = snap.held;
+    for (const b of document.querySelectorAll('#pouch .slot')) {
+      b.setAttribute('aria-pressed', String(b.dataset.item === snap.held));
+      b.classList.toggle('pulse', this.pulse === b.dataset.item && snap.held !== b.dataset.item);
+    }
     if (snap.sessionId !== this.albumSession) { this.albumSession = snap.sessionId; this.album = []; this.saved = false; }
     this.show('still', snap.stillThere);
     this.show('offerEnd', snap.offerEnd && !snap.stillThere);
 
+    // the kitten's reply: a pictogram above it; the system's own messages: words by the hand
     const h = snap.displayHint;
     const bubble = $('bubble'), sys = $('sysHint');
-    if (h && (h.owner === 'creature' || h.owner === 'result')) {
-      bubble.textContent = this.copy[h.code] ?? h.code;
-      bubble.className = `show ${h.owner}`;
-      bubble.style.left = `${clampX(x.catPx.x, x.width)}px`;
-      bubble.style.top = `${Math.max(150, x.catPx.y - x.catPx.r)}px`;
-    } else bubble.className = '';
+    if (h && (h.owner === 'creature' || h.owner === 'result') && PICTO[h.code]) {
+      if (this.bubbleCode !== h.code) { this.bubbleCode = h.code; bubble.innerHTML = kit(PICTO[h.code], 30, this.copy[h.code] ?? h.code); }
+      bubble.className = `glass show ${WARN.has(h.code) ? 'warn' : ''}`;
+      bubble.title = this.copy[h.code] ?? '';
+      bubble.style.left = `${x.catPx.x}px`;
+      bubble.style.top = `${Math.max(110, x.catPx.y - x.catPx.r * 0.95)}px`;
+    } else { bubble.className = 'glass'; this.bubbleCode = null; }
     if (h && h.owner === 'system') {
-      sys.innerHTML = `${svg('EYE', 18)}<span>${this.copy[h.code] ?? h.code}</span>`;
-      sys.className = 'show';
+      sys.innerHTML = `${kit(h.code === 'TRACKING_LOST' ? 'ai/hand-lost' : 'ai/motion-unclear', 20)}<span>${this.copy[h.code] ?? h.code}</span>`;
+      sys.className = 'glass show';
       const at = x.cursorPx ?? { x: x.width / 2, y: x.height * 0.3 };
-      sys.style.left = `${clampX(at.x, x.width)}px`;
-      sys.style.top = `${Math.max(150, at.y - 34)}px`;
-    } else sys.className = '';
+      sys.style.left = `${Math.max(180, Math.min(x.width - 180, at.x))}px`;
+      sys.style.top = `${Math.max(120, at.y - 40)}px`;
+    } else sys.className = 'glass';
   }
-}
-
-function clampX(v, w) { return Math.max(190, Math.min(w - 190, v)); }
-
-// A small drawing of the last move, as the model saw it.
-function traceSvg(pts) {
-  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
-  const x0 = Math.min(...xs), y0 = Math.min(...ys), s = Math.max(Math.max(...xs) - x0, Math.max(...ys) - y0, 1e-6);
-  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${(8 + ((p.x - x0) / s) * 64).toFixed(1)} ${(8 + ((p.y - y0) / s) * 64).toFixed(1)}`).join(' ');
-  return `<svg class="tr-trace" viewBox="0 0 80 80"><path d="${d}"/></svg>`;
 }
