@@ -14,6 +14,8 @@ export class InputTrack {
   constructor(world, params = PARAMS) {
     this.p = params.quality;
     this.world = world;
+    const { recentMs, maxMs } = params.intent?.touchSwipe ?? PARAMS.intent.touchSwipe;
+    this.touchWindowMs = recentMs + maxMs;
     this.reset('mouse');
   }
 
@@ -32,6 +34,7 @@ export class InputTrack {
     this.validCount = 0;
     this.totalCount = 0;
     this.lastSeq = -1;
+    this.touchPoints = [];
   }
 
   setWorld(world) { this.world = world; }
@@ -44,12 +47,19 @@ export class InputTrack {
       this.lastSeq = s.seq;
     }
     this.totalCount++;
+    if (s.pointerType !== 'touch' || s.touchPhase === 'start' || s.touchPhase === 'cancel') this.touchPoints.length = 0;
+    if (s.touchPhase === 'start') this.stableSince = null;
     this.lastSample = s;
     this.present = !!s.present;
     const ok = this.isValid(s);
     if (!ok) { this.stableSince = null; return false; }
 
     const wx = s.x * this.world.w, wy = s.y * this.world.h;
+    if (s.touchPhase === 'start' || s.touchPhase === 'move') {
+      const t = s.touchTime ?? s.t;
+      this.touchPoints.push({ t, x: wx, y: wy });
+      while (t - this.touchPoints[0].t > this.touchWindowMs) this.touchPoints.shift();
+    }
     const prev = this.lastValid;
     // A teleport inside one sample interval is a tracking error, not a fast hand.
     if (prev && this.source === 'camera') {

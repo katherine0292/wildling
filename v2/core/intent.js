@@ -92,6 +92,28 @@ export function scoreWindow(f, p = PARAMS, fastScale = 1) {
   return { scores, label: ranked[0], score: scores[ranked[0]], margin: scores[ranked[0]] - scores[ranked[1]], wave: waveNear * waving > near * fast };
 }
 
+// Touch moves can begin and end between two classification cycles. Measure the
+// actual touch events, including a path that passes the kitten before the finger lifts.
+function swipedNear(points, cat, now, ip) {
+  const swipe = ip.touchSwipe ?? PARAMS.intent.touchSwipe;
+  const near = cat.bodyRadius + ip.waveNearS;
+  for (let i = points.length - 1; i > 0; i--) {
+    const b = points[i];
+    if (now - b.t > swipe.recentMs) break;
+    for (let j = i - 1; j >= 0; j--) {
+      const a = points[j], dt = b.t - a.t;
+      if (dt > swipe.maxMs) break;
+      if (dt < swipe.minMs) continue;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance < swipe.travel || distance * 1000 / dt < swipe.speed) continue;
+      const along = clamp(((cat.x - a.x) * dx + (cat.y - a.y) * dy) / distance ** 2);
+      if (Math.hypot(cat.x - a.x - dx * along, cat.y - a.y - dy * along) < near) return true;
+    }
+  }
+  return false;
+}
+
 // Gate + temporal confirmation. Holds state across 100 ms cycles.
 export class IntentClassifier {
   constructor(params = PARAMS) {
@@ -126,11 +148,19 @@ export class IntentClassifier {
       if (d < cat.contactRadius) return out('stable_contact', { coverage: 1 });
     }
 
+    const touch = track.lastSample?.pointerType === 'touch';
+    if (touch) {
+      this.pending = null;
+      this.pendingCount = 0;
+      if (swipedNear(track.touchPoints, cat, now, ip)) return out('fast_approach', { wave: true });
+    }
+
     const { points, coverage } = track.window(now, ip.windowMs, ip.sampleHz);
     if (isCamera && coverage < ip.minCoverage) { this.pendingCount = 0; return out('unknown', { coverage }); }
     const f = extractFeatures(points, cat, this.p);
     if (!f) return out(isCamera ? 'unknown' : 'neutral_motion', { coverage });
     const r = scoreWindow(f, this.p, isCamera ? 1 : ip.pointerFastScale ?? 1);
+    if (touch && r.label === 'fast_approach') return out('neutral_motion', { coverage, scores: r.scores });
 
     // Camera evidence must clear the rejection thresholds; mouse/keyboard are exact positions.
     const confident = !isCamera || (r.score >= ip.topScore && r.margin >= ip.margin);

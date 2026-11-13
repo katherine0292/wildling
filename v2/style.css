@@ -37,7 +37,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; }
 kbd { font: 700 11px var(--body); padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); background: rgba(255, 255, 255, .08); color: var(--muted); }
 .kit { flex: none; display: block; }
 
-#stage { position: fixed; inset: 0; }
+#stage { position: fixed; inset: 0; touch-action: none; }
 .glass { background: var(--surface); -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .screen { position: fixed; inset: 0; z-index: 10; }
 .screen.dim { display: grid; place-items: center; padding: 16px; background: rgba(14, 18, 12, .35); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }

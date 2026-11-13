@@ -44,3 +44,62 @@ test('a startled kitten backs off but stays inside the frame', () => {
   }
   assert.ok(d.cat.stats.startles >= 1, 'the rushes did register');
 });
+
+const touchAt = (x, y, touchPhase) => ({ ...mouseAt(x, y), pointerType: 'touch', touchPhase });
+
+function phoneVisit() {
+  const d = new Driver({ toolless: true, growth: false, world: { w: 1, h: 2 } });
+  d.startMouse();
+  const c = d.cat;
+  c.x = 0.5;
+  c.y = 1;
+  c.behaviour = 'OBSERVE';
+  c.boutUntil = 3;
+  Object.assign(c.needs, { stress: 0.05, energy: 0.9, fullness: 0.6, trust: 0.4 });
+  for (const o of d.sim.siblings) { o.x = 0.84; o.y = 1.4; }
+  return d;
+}
+
+test('a touch parked on the back stays eligible for contact after the last move', () => {
+  const d = phoneVisit();
+  const p = d.catAt();
+  d.tick(touchAt(p.x, p.y, 'start'));
+  d.run(0.85, () => touchAt(p.x, p.y));
+  assert.equal(d.cat.acceptedContact, true);
+  assert.equal(d.events('contact_started').length, 1);
+});
+
+test('one short touch swipe past the kitten starts a retreat even after the swipe ends', () => {
+  const d = phoneVisit();
+  const p = d.catAt();
+  d.tick(touchAt(p.x - 0.32, p.y - 0.055, 'start'));
+  for (let i = 1; i <= 4; i++) d.tick(touchAt(p.x - 0.32 + i * 0.16, p.y - 0.055, 'move'));
+  d.run(0.4, () => touchAt(p.x + 0.32, p.y - 0.055));
+  assert.equal(d.events('startle').length, 1);
+  assert.equal(d.cat.behaviour, 'RETREAT');
+});
+
+test('a fresh touch, a gentle stroke, and a fast swipe far from the kitten do not startle it', () => {
+  const d = phoneVisit();
+  const p = d.catAt();
+  d.tick(touchAt(p.x - 0.32, p.y - 0.05, 'start'));
+  d.tick(touchAt(p.x + 0.32, p.y - 0.05, 'start'));
+  d.run(0.3, () => touchAt(p.x + 0.32, p.y - 0.05));
+  d.tick(touchAt(p.x - 0.05, p.y, 'start'));
+  d.run(0.5, (t) => touchAt(p.x - 0.05 + t * 0.2, p.y, 'move'));
+  d.tick(touchAt(p.x - 0.32, p.y - 0.24, 'start'));
+  for (let i = 1; i <= 4; i++) d.tick(touchAt(p.x - 0.32 + i * 0.16, p.y - 0.24, 'move'));
+  d.run(0.4, () => touchAt(p.x + 0.32, p.y - 0.24));
+  assert.equal(d.events('startle').length, 0);
+});
+
+test('a quick touch swing with a feather still counts as play', () => {
+  const d = phoneVisit();
+  const p = d.catAt();
+  d.cmd('hold', { item: 'wand' });
+  d.tick(touchAt(p.x - 0.32, p.y - 0.055, 'start'));
+  for (let i = 1; i <= 4; i++) d.tick(touchAt(p.x - 0.32 + i * 0.16, p.y - 0.055, 'move'));
+  d.run(0.4, () => touchAt(p.x + 0.32, p.y - 0.055));
+  assert.equal(d.events('startle').length, 0);
+  assert.equal(d.sim.held, 'wand');
+});

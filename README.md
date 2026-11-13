@@ -76,6 +76,8 @@ Every habitat has the same pouch: **Fish**, **Feather**, **Ball** (a snowball in
 | **Change habitat** | Hold your hand on an edge arrow until its ring fills | Click an arrow, or <kbd>[</kbd> <kbd>]</kbd> | |
 | **Any button** | Pinch it (pause, help, the journal) | Click | |
 
+On a phone, choose **Use the mouse** to control the hand by touch. Rest a finger on a kitten’s back to stroke it, or swipe quickly nearby to startle it. The hand stays where you lift your finger. Hold on open ground before dragging to lead a kitten.
+
 ## The AI you can see
 
 **The MIND panel is always on screen.** It follows whichever kitten is nearest your hand and turns that kitten's colour when it switches. It shows what the kitten is doing, a line of what it is thinking, its five needs as numbers, how it reads your move, and the desires it is weighing, with the winner highlighted and a reason next to every blocked option. Hold <kbd>V</kbd> to see the same judgement drawn in the scene.

@@ -46,7 +46,7 @@ let cmdSeq = 0;
 
 const sketch = (p) => {
   let sim, renderer, ui, staff, sound, camera, keyboard;
-  const mouse = { x: 0.5, y: 0.5, inside: false, seq: 0 };
+  const mouse = { x: 0.5, y: 0.5, inside: false, seq: 0, type: 'mouse', touchId: null };
   let soundOn = true;
 
   const worldFor = () => {
@@ -132,29 +132,78 @@ const sketch = (p) => {
     }
 
     const stage = document.getElementById('stage');
-    // pointer positions are on screen; the core works in world coordinates behind the camera
-    const toWorld = (e) => { const w = renderer.screenToWorldN(e.clientX / p.width, e.clientY / p.height); mouse.x = w.x; mouse.y = w.y; };
+    // Keep the hand at the last touch position so lifting a finger does not end a stroke.
+    // Only a new finger down starts a new touch trajectory.
+    const placePointer = (e, touchPhase) => {
+      mouse.sx = e.clientX / p.width; mouse.sy = e.clientY / p.height;
+      Object.assign(mouse, renderer.screenToWorldN(mouse.sx, mouse.sy), {
+        inside: true, type: e.pointerType,
+      });
+      if (touchPhase) sendPointer(performance.now(), touchPhase, e.timeStamp);
+    };
+    const onKitten = () => {
+      const w = sim.world;
+      return [sim.cat, ...sim.siblings].some((cat) =>
+        Math.hypot(mouse.x * w.w - cat.x, mouse.y * w.h - cat.y) < sim.p.creature.contactRadius);
+    };
+    // A deliberate hold on open ground invites a kitten to follow. A touch on its back pets it.
+    let followTimer = null, following = false, followStart = null;
+    const endFollow = () => {
+      clearTimeout(followTimer); followTimer = null; followStart = null;
+      if (following) { following = false; dispatch({ type: 'follow', on: false }); }
+    };
     stage.addEventListener('pointermove', (e) => {
-      mouse.sx = e.clientX / p.width; mouse.sy = e.clientY / p.height; toWorld(e); mouse.inside = true;
+      if (e.pointerType === 'touch') {
+        if (e.pointerId !== mouse.touchId) return;
+        for (const point of e.getCoalescedEvents?.() || []) placePointer(point, 'move');
+        placePointer(e, 'move');
+        if (followStart && Math.hypot(e.clientX - followStart.x, e.clientY - followStart.y) > 10) endFollow();
+      } else {
+        if (mouse.touchId !== null) return;
+        placePointer(e);
+      }
       if (sim.session.state === 'ATTRACT') ui.hoverAt(e.clientX, e.clientY);
     });
-    stage.addEventListener('pointerleave', () => { mouse.inside = false; ui.hoverAt(null); endFollow(); });
-    // the mouse's pointing finger: press and hold on open ground with nothing in hand, and the
-    // nearest kitten follows the pointer until the button is released
-    let followTimer = null, following = false;
-    const endFollow = () => { clearTimeout(followTimer); followTimer = null; if (following) { following = false; dispatch({ type: 'follow', on: false }); } };
-    stage.addEventListener('pointerdown', () => {
-      if (sim.session.state !== 'ACTIVE' || sim.track.source !== 'mouse' || sim.held) return;
-      followTimer = setTimeout(() => { following = true; dispatch({ type: 'follow', on: true }); }, 220);
+    stage.addEventListener('pointerleave', (e) => {
+      if (e.pointerType === 'touch') return;
+      mouse.inside = false; ui.hoverAt(null); endFollow();
     });
-    window.addEventListener('pointerup', endFollow);
     stage.addEventListener('pointerdown', (e) => {
+      if (sim.session.state !== 'ACTIVE' || sim.track.source !== 'mouse' || !e.isPrimary || e.button !== 0) return;
       sound.start();
-      mouse.sx = e.clientX / p.width; mouse.sy = e.clientY / p.height; toWorld(e); mouse.inside = true;
-      // on the entry screen the litter is the menu: clicking a kitten chooses it
-      if (sim.session.state === 'ATTRACT') return; // the cover is entered with its two buttons
-      if (sim.track.source === 'mouse') dispatch({ type: 'confirm', x: mouse.x, y: mouse.y });
+      const touch = e.pointerType === 'touch';
+      if (touch) {
+        mouse.touchId = e.pointerId;
+        stage.setPointerCapture(e.pointerId);
+      }
+      placePointer(e, touch ? 'start' : undefined);
+      dispatch({ type: 'confirm', x: mouse.x, y: mouse.y });
+      if (sim.held || (touch && onKitten())) return;
+      if (touch) followStart = { x: e.clientX, y: e.clientY };
+      followTimer = setTimeout(() => {
+        if (touch && onKitten()) return;
+        followStart = null;
+        following = true;
+        dispatch({ type: 'follow', on: true });
+      }, 220);
     });
+    const finishPointer = (e) => {
+      if (e.pointerType === 'touch') {
+        if (e.pointerId !== mouse.touchId) return;
+        if (e.type === 'pointerup' && (e.clientX / p.width !== mouse.sx || e.clientY / p.height !== mouse.sy)) {
+          placePointer(e, 'move');
+        }
+        mouse.touchId = null;
+        if (e.type !== 'pointerup') {
+          mouse.inside = false;
+          sendPointer(performance.now(), 'cancel', e.timeStamp);
+        }
+      }
+      endFollow();
+    };
+    window.addEventListener('pointerup', finishPointer);
+    window.addEventListener('pointercancel', finishPointer);
+    stage.addEventListener('lostpointercapture', finishPointer);
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) dispatch({ type: 'pause', reason: 'hidden' });
     });
@@ -162,7 +211,7 @@ const sketch = (p) => {
     // every button press makes a small click, whether it came from the mouse, a key or a pinch
     document.addEventListener('click', (e) => { if (e.target.closest?.('button') && soundOn) { sound.start(); sound.click(); } }, true);
     window.addEventListener('keyup', (e) => { keyboard.up(e.key); if (e.key === 'v' || e.key === 'V') ui.holdMind(false); });
-    window.addEventListener('blur', () => ui.holdMind(false));
+    window.addEventListener('blur', () => { ui.holdMind(false); endFollow(); mouse.touchId = null; mouse.inside = false; });
   };
 
   function onKeyDown(e) {
@@ -193,6 +242,14 @@ const sketch = (p) => {
     } else if (k === ' ' && st === 'ATTRACT') dispatch({ type: 'start' });
   }
 
+  function sendPointer(t, touchPhase, touchTime) {
+    if (sim.track.source !== 'mouse') return;
+    if (touchPhase === 'move' && touchTime <= mouse.touchTime) return;
+    if (touchPhase) mouse.touchTime = touchTime;
+    sim.ingest({ t, seq: ++mouse.seq, source: 'mouse', present: mouse.inside,
+      x: mouse.x, y: mouse.y, pointerType: mouse.type, touchPhase, touchTime });
+  }
+
   p.draw = () => {
     const dt = Math.min(p.deltaTime, 100) / 1000;
     const now = performance.now();
@@ -220,7 +277,7 @@ const sketch = (p) => {
     } else {
       // re-project the resting pointer as the camera drifts, so it stays under the real cursor
       if (mouse.sx !== undefined) { const w = renderer.screenToWorldN(mouse.sx, mouse.sy); mouse.x = w.x; mouse.y = w.y; }
-      sim.ingest({ t: now, seq: ++mouse.seq, source: 'mouse', present: mouse.inside, x: mouse.x, y: mouse.y });
+      sendPointer(now);
     }
 
     sim.update(dt, now, { trackingAvailable: src !== 'camera' || camera.status === 'ready' });
