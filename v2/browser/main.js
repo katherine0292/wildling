@@ -21,7 +21,7 @@ import { KeyboardHand } from './keyboard.js';
 import { KITTENS } from '../core/config.js';
 import { Keepsakes } from './keepsake.js';
 import { PassersBy } from './presence.js';
-import { Tutorial } from './tutorial.js';
+import { Coach } from './coach.js';
 
 // Moments worth a photo for the album: [event test, caption, delay in seconds].
 const NAMES = Object.fromEntries(KITTENS.map((k) => [k.id, k.name]));
@@ -52,7 +52,7 @@ const sketch = (p) => {
     return { w: p.width / S, h: p.height / S };
   };
 
-  let keepsakes, presence = null, lastMode = null, tutorial;
+  let keepsakes, presence = null, lastMode = null, coach;
   const photoQueue = [];
   // The core only learns about a returning visitor from this browser's own keepsake.
   const tellReturning = () => {
@@ -89,6 +89,8 @@ const sketch = (p) => {
       seed: Number(params.get('seed')) || Math.floor(Math.random() * 1e9),
       adaptation: params.get('adapt') !== '0',
       timed: params.get('kiosk') === '1', // only the exhibition moves visitors on
+      toolless: true, // experience spec V3: the hand and what it holds, never a tool to pick
+      growth: false,  // the bond is the progress; the kitten stays a kitten
     });
     keepsakes = new Keepsakes({ kiosk: params.get('kiosk') === '1' });
     const adopted = keepsakes.importFrom(params.get('adopt'));
@@ -106,9 +108,10 @@ const sketch = (p) => {
       keepsakes,
       onChooseInput: chooseInput,
       onToggleSound: () => { soundOn = !soundOn; sound.setOn(soundOn); },
+      onHelp: () => ui.showHow(true),
     });
     staff = new StaffPanel({ dispatch });
-    tutorial = new Tutorial({ dispatch, kiosk: params.get('kiosk') === '1' });
+    coach = new Coach({ ui, renderer, kiosk: params.get('kiosk') === '1' });
     if (params.get('kitten')) sim.command({ id: 'init_kitten', type: 'choose_kitten', kitten: params.get('kitten') });
     if (params.get('staff') === '1') staff.toggle();
     const direct = params.get('input');
@@ -122,17 +125,16 @@ const sketch = (p) => {
     const stage = document.getElementById('stage');
     // pointer positions are on screen; the core works in world coordinates behind the camera
     const toWorld = (e) => { const w = renderer.screenToWorldN(e.clientX / p.width, e.clientY / p.height); mouse.x = w.x; mouse.y = w.y; };
-    stage.addEventListener('pointermove', (e) => { mouse.sx = e.clientX / p.width; mouse.sy = e.clientY / p.height; toWorld(e); mouse.inside = true; });
-    stage.addEventListener('pointerleave', () => { mouse.inside = false; });
+    stage.addEventListener('pointermove', (e) => {
+      mouse.sx = e.clientX / p.width; mouse.sy = e.clientY / p.height; toWorld(e); mouse.inside = true;
+      if (sim.session.state === 'ATTRACT') ui.hoverAt(e.clientX, e.clientY);
+    });
+    stage.addEventListener('pointerleave', () => { mouse.inside = false; ui.hoverAt(null); });
     stage.addEventListener('pointerdown', (e) => {
       sound.start();
       mouse.sx = e.clientX / p.width; mouse.sy = e.clientY / p.height; toWorld(e); mouse.inside = true;
-      if (sim.session.state === 'ATTRACT') { dispatch({ type: 'start' }); return; }
-      if (sim.session.state === 'ACTIVE' && sim.tool === 'LITTER') {
-        const sib = sim.siblingAt(mouse.x, mouse.y, 0.14);
-        if (sib) ui.openWheel(sib.kitten.id); else ui.closeWheel();
-        return;
-      }
+      // on the entry screen the litter is the menu: clicking a kitten chooses it
+      if (sim.session.state === 'ATTRACT') { const k = ui.kittenAt(e.clientX, e.clientY, ui.x); if (k) dispatch({ type: 'choose_kitten', kitten: k }); return; }
       if (sim.track.source === 'mouse') dispatch({ type: 'confirm', x: mouse.x, y: mouse.y });
     });
     document.addEventListener('visibilitychange', () => {
@@ -150,28 +152,17 @@ const sketch = (p) => {
     sound.start();
     const st = sim.session.state;
     if (k === 'd' || k === 'D') { staff.toggle(); return; }
+    if (k === 'Escape' && ui.howOpen) { ui.showHow(false); return; }
     if (st === 'ATTRACT') {
-      if (k === 'q' || k === 'Q') { ui.stepTab(-1); return; }
-      if (k === 'e' || k === 'E') { ui.stepTab(1); return; }
-      if (['1', '2', '3'].includes(k)) { ui.setTab('litter'); dispatch({ type: 'choose_kitten', kitten: KITTENS[Number(k) - 1].id }); return; }
+      if (['1', '2', '3'].includes(k)) { dispatch({ type: 'choose_kitten', kitten: KITTENS[Number(k) - 1].id }); return; }
       if (k === 'Enter' && !typing) { dispatch({ type: 'start' }); return; }
     }
     if ((k === 't' || k === 'T') && st === 'ACTIVE') { ui.toggleMind(); return; }
     if (k === 'm' || k === 'M') { soundOn = !soundOn; sound.setOn(soundOn); return; }
-    if (k === 'Escape' && ui.wheelOpen) { ui.closeWheel(); return; }
+    // the pouch: 1 a treat, 2 the feather; Esc puts it back before it pauses the visit
+    if (st === 'ACTIVE' && (k === '1' || k === '2')) { ui.take(k === '1' ? 'treat' : 'wand'); return; }
+    if (k === 'Escape' && st === 'ACTIVE' && sim.held) { dispatch({ type: 'hold', item: null }); return; }
     if (k === 'Escape') { if (st === 'ACTIVE') dispatch({ type: 'pause', reason: 'user' }); else if (st === 'PAUSED') dispatch({ type: 'resume' }); return; }
-    if (k === '2' && st === 'ACTIVE' && sim.tool === 'PLAY') { // press Play again to switch toy
-      const toys = ['yarn', 'feather', 'ball'];
-      dispatch({ type: 'select_toy', toy: toys[(toys.indexOf(sim.toy.kind) + 1) % toys.length] });
-      return;
-    }
-    if (ui.wheelOpen && ['1', '2', '3', '4'].includes(k)) { ui.ask(['befriend', 'cuddle', 'fight', 'hiss'][Number(k) - 1]); return; }
-    if (['1', '2', '3', '4', '5', '6'].includes(k)) { dispatch({ type: 'select_tool', tool: ['FEED', 'PLAY', 'PET', 'WAIT', 'LITTER', 'TRICK'][Number(k) - 1] }); return; }
-    if (keyboard.active && k === ' ' && st === 'ACTIVE' && sim.tool === 'LITTER') {
-      const sib = sim.siblingAt(keyboard.x, keyboard.y, 0.16);
-      if (sib) ui.openWheel(sib.kitten.id);
-      return;
-    }
     if (keyboard.active) {
       const confirm = keyboard.down(k, e.repeat);
       if (confirm && st === 'ACTIVE') dispatch({ type: 'confirm', x: keyboard.x, y: keyboard.y });
@@ -217,7 +208,7 @@ const sketch = (p) => {
     if (mode && mode !== lastMode && partner && (mode === 'greet' || mode === 'cuddle')) photoQueue.push({ at: now + (mode === 'cuddle' ? 1800 : 1000), caption: mode === 'cuddle' ? `Cosy with ${NAMES[partner]}` : `Friends with ${NAMES[partner]}` });
     lastMode = mode;
     presence?.update(snap, now);
-    tutorial.update(snap, events, now);
+    coach.update(snap, events, now);
     while (photoQueue.length && photoQueue[0].at <= now) {
       const ph = photoQueue.shift();
       if (snap.sessionState === 'ACTIVE') ui.addPhoto(renderer.capture(snap), ph.caption);
@@ -237,7 +228,7 @@ const sketch = (p) => {
       cursorPx: snap.input.position ? scr(snap.input.position) : null,
     });
     staff.render(snap, camera);
-    window.__wildling = { snapshot: () => snap, sim, renderer, camera, tutorial, sound }; // for automated smoke tests
+    window.__wildling = { snapshot: () => snap, sim, renderer, camera, coach, ui, sound }; // for automated smoke tests
   };
 
   p.windowResized = () => {
