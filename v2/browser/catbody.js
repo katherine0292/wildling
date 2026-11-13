@@ -19,7 +19,8 @@ const TAU = Math.PI * 2;
 //   juvenile — lanky legs, oversized ears, coat pattern coming in, eyes changing colour
 //   adult    — full size, sharp pattern, adult eye colour, chest ruff, ear tufts, long whiskers
 const MORPH = [
-  { size: 0.56, head: 1.5, body: 0.72, leg: 0.76, tail: 0.6, eye: 1.55, chub: 1.28, fluff: 1.0, pattern: 0.3, ear: 0.96, ruff: 0, tuft: 0, whisker: 0.7 },
+  // the kitten row is Prototype A's own: a slimmer head and smaller eyes read as a real kitten
+  { size: 0.5, head: 1.42, body: 0.76, leg: 0.8, tail: 0.7, eye: 1.45, chub: 1.22, fluff: 1.0, pattern: 0.42, ear: 1.0, ruff: 0, tuft: 0, whisker: 0.8 },
   { size: 0.8, head: 1.1, body: 0.98, leg: 1.12, tail: 0.96, eye: 1.15, chub: 0.9, fluff: 0.45, pattern: 0.72, ear: 1.22, ruff: 0.45, tuft: 0.3, whisker: 0.9 },
   { size: 1.0, head: 1.0, body: 1.06, leg: 1.04, tail: 1.1, eye: 1.0, chub: 1.0, fluff: 0.2, pattern: 1.0, ear: 1.04, ruff: 1, tuft: 1, whisker: 1.2 },
   { size: 1.0, head: 1.0, body: 1.06, leg: 1.04, tail: 1.1, eye: 1.0, chub: 1.0, fluff: 0.2, pattern: 1.0, ear: 1.04, ruff: 1, tuft: 1, whisker: 1.2 },
@@ -425,8 +426,8 @@ export class CatBody {
       const lower = this.g.socks ? c.sock : shade(c.base, 0.9);
       const wU = this.hw * (G.front ? 0.4 : 0.52), wL = this.hw * 0.3, edge = Math.max(1, 1.4 * this.U * this.size);
       const a = angTo(G.knee, G.foot), pr = this.hw * 0.22 * (1 + G.lift * 0.3);
-      ctx.strokeStyle = 'rgba(34,64,90,0.6)';
-      ctx.fillStyle = 'rgba(34,64,90,0.6)';
+      ctx.strokeStyle = rgba(shade(upper, 0.55), 0.55); // Prototype A: the leg's own shade, not ink
+      ctx.fillStyle = rgba(shade(upper, 0.55), 0.55);
       ctx.lineWidth = wU + edge * 2;
       ctx.beginPath(); ctx.moveTo(G.hip.x, G.hip.y); ctx.lineTo(G.knee.x, G.knee.y); ctx.stroke();
       ctx.lineWidth = wL + edge * 2;
@@ -500,7 +501,6 @@ export class CatBody {
     }
     ctx.restore();
     this.strokeEdge(ctx, path, c);
-    if (this.m.fluff > 0.5) this.drawFuzz(ctx, c);
     if (this.m.ruff > 0.05) this.drawRuff(ctx, c);
     if (this.pose.puff > 0.35) this.drawBristle(ctx, c);
     if ((this.wrestle || this.trickName === 'rollover') && Math.sin(this.roll) > 0) this.drawBelly(ctx, c, Math.sin(this.roll));
@@ -509,7 +509,7 @@ export class CatBody {
   // Bristling fur: spikes stand up all along the back and flanks when it puffs up.
   drawBristle(ctx, c) {
     const k = (this.pose.puff - 0.35) / 0.65, out = this.bodyOutline();
-    ctx.fillStyle = rgba(c.base); ctx.strokeStyle = 'rgba(34,64,90,0.6)'; ctx.lineWidth = Math.max(1, 1.6 * this.U); ctx.lineJoin = 'round';
+    ctx.fillStyle = rgba(c.base); ctx.strokeStyle = rgba(shade(c.base, 0.5), 0.45); ctx.lineWidth = Math.max(1, 1.4 * this.U); ctx.lineJoin = 'round';
     for (let i = 1; i < out.length - 1; i++) {
       const a = out[i], b = out[(i + 1) % out.length];
       const m = lerpP(a, b, 0.5), nrm = angTo(a, b) - Math.PI / 2;
@@ -527,23 +527,6 @@ export class CatBody {
     ctx.beginPath(); ctx.ellipse(mid.x, mid.y, this.bodyLen * 0.34, this.hw * 0.6, a, 0, TAU); ctx.fill();
   }
 
-  // Kitten fuzz: soft tufts all around the outline, fading out as it grows.
-  drawFuzz(ctx, c) {
-    const k = (this.m.fluff - 0.5) * 2;
-    const out = this.bodyOutline();
-    ctx.strokeStyle = rgba(mix(c.base, c.light, 0.4), 0.85 * k);
-    ctx.lineWidth = Math.max(1, 1.6 * this.U);
-    ctx.lineCap = 'round';
-    for (let i = 0; i < out.length; i++) {
-      const a = out[i], b = out[(i + 1) % out.length], m = lerpP(a, b, 0.5);
-      const n = angTo(a, b) - Math.PI / 2, len = this.hw * 0.16 * k;
-      for (const q of [a, m]) {
-        const e = add(q, polar(n + Math.sin(i * 3.1 + this.time * 2) * 0.3, len));
-        ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(e.x, e.y); ctx.stroke();
-      }
-    }
-  }
-
   // Chest ruff: a pale fluffy crescent behind the head, fuller on adults.
   drawRuff(ctx, c) {
     const r = this.m.ruff, sp = this.spine, a = this._fwd[1];
@@ -559,10 +542,11 @@ export class CatBody {
     ctx.closePath(); ctx.fill();
   }
 
-  // Storybook ink outline, so every coat reads clearly against bright ground.
+  // Prototype A's contour: a faint edge in the coat's own darker shade, plus a light rim on
+  // dark coats so they never sink into the jungle floor.
   strokeEdge(ctx, path, c) {
-    ctx.strokeStyle = 'rgba(34,64,90,0.62)';
-    ctx.lineWidth = Math.max(1.4, 2.4 * this.U * this.size);
+    ctx.strokeStyle = rgba(shade(c.base, 0.5), 0.35);
+    ctx.lineWidth = Math.max(0.8, 1.1 * this.U * this.size);
     ctx.lineJoin = 'round';
     ctx.stroke(path);
     if (lum(c.base) < 0.42) {
@@ -632,7 +616,7 @@ export class CatBody {
       ctx.fillStyle = rgba(c.mark, 0.75);
       ctx.beginPath(); ctx.arc(tip.x, tip.y, earLen * 0.22, 0, TAU); ctx.fill();
       ctx.restore();
-      ctx.strokeStyle = 'rgba(34,64,90,0.62)'; ctx.lineWidth = Math.max(1.2, 2 * this.U * this.size); ctx.stroke(ear);
+      ctx.strokeStyle = rgba(shade(c.base, 0.5), 0.35); ctx.lineWidth = Math.max(0.8, 1.1 * this.U * this.size); ctx.stroke(ear);
       if (this.m.tuft > 0.05) { // lynx-like ear tufts on older cats
         ctx.strokeStyle = rgba(c.markFull, 0.9 * this.m.tuft); ctx.lineWidth = Math.max(1, 1.8 * this.U); ctx.lineCap = 'round';
         const e = add(tip, polar(dir, earLen * 0.32 * this.m.tuft));
@@ -685,11 +669,6 @@ export class CatBody {
     ctx.fillStyle = rgba(c.nose);
     ctx.beginPath(); ctx.moveTo(0.49 * L, 0); ctx.lineTo(0.42 * L, 0.09 * W); ctx.lineTo(0.42 * L, -0.09 * W); ctx.closePath(); ctx.fill();
     if (this.carrying) drawGift(ctx, this.carrying, 0.66 * L, 0, W * 0.55, this.U);
-    if (this.m.fluff > 0.7) { // a little tuft on a kitten's crown
-      ctx.strokeStyle = rgba(c.base); ctx.lineWidth = Math.max(1.2, 2.2 * this.U); ctx.lineCap = 'round';
-      for (const k of [-1, 0, 1]) { ctx.beginPath(); ctx.moveTo(-0.3 * L, k * 0.08 * W); ctx.quadraticCurveTo(-0.5 * L, k * 0.12 * W, -0.56 * L, k * 0.2 * W + 0.05 * W); ctx.stroke(); }
-    }
-
     const open = Math.min(p.eye, 1 - this.blink);
     const er = W * 0.2 * this.m.eye;
     const rel = this.lookPoint ? angDiff(angTo(hc, this.lookPoint), this.headAngle()) : 0;
