@@ -116,6 +116,13 @@ export class SoundAdapter {
       case 'teach_example': this.tone(880 + (e.count ?? 1) * 220, 900 + (e.count ?? 1) * 220, 0.12, 0.08, 0); break;
       case 'returned': this.meow(1.2); this.trill(1, 0.5); break;
       case 'toy_thrown': this.whoosh(0.5); break;
+      // V3: the litter around the kitten you meet
+      case 'food_standoff': this.hiss(1); this.hiss(0.7, 0.4); break;
+      case 'sibling_ate': this.burst('bandpass', 1700, 0.35, 0.09, 0); this.burst('bandpass', 1500, 0.3, 0.09, 0.2); break;
+      case 'litter_faceoff': this.hiss(0.6); break;
+      case 'focus_changed': this.chirp(); break;
+      case 'scene_changed': this.whoosh(0.7); this.chord([523, 659, 784], 0.06); break;
+      case 'bowl_placed': this.plop(); break;
       case 'need_started': if (e.kind === 'play') this.trill(0.9); else if (e.kind !== 'rest') this.meow(e.kind === 'food' ? 1.05 : 0.95); break;
       case 'need_met': if (e.kind !== 'rest') this.trill(1.05); break;
       case 'session': if (e.to === 'REFLECTION') this.chord([392, 523, 659], 0.08); break;
@@ -212,6 +219,9 @@ export class SoundAdapter {
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
     s.connect(f).connect(g).connect(this.out); s.start(t); s.stop(t + 1);
   }
+
+  // a short, soft tick so every press is heard, from the mouse or from a pinch
+  click() { if (!this.ready) return; this.tone(1800, 1400, 0.04, 0.05, 0); this.tone(900, 700, 0.05, 0.03, 0); }
 
   chime() { [1319, 1760, 2093].forEach((f, i) => this.tone(f, f, 0.6, 0.05, i * 0.08)); }
 
