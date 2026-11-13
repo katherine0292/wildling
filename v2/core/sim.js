@@ -9,6 +9,7 @@
 import { PARAMS, REASONS, HINT_PRIORITY, KITTENS, DEFAULT_KITTEN, COPY } from './config.js';
 import { InputTrack, PinchDetector } from './input.js';
 import { IntentClassifier } from './intent.js';
+import { NeedCycle } from './needs.js';
 import { SessionController } from './session.js';
 import { CreatureCore, BEHAVIOURS } from './creature.js';
 import { RelationshipMemory } from './memory.js';
@@ -64,6 +65,7 @@ export class Simulation {
     this.held = null;
     // With growth off the kitten stays a kitten; the bond is the progress instead.
     this.growthOn = growth;
+    this.needs = new NeedCycle();
     this.track = new InputTrack(world, params);
     this.pinch = new PinchDetector(params);
     this.intentClf = new IntentClassifier(params);
@@ -544,7 +546,14 @@ export class Simulation {
   collect(ctx) {
     const s = this.session;
     const accepting = s.state === 'ACTIVE';
-    for (const e of this.cat.drainEvents()) {
+    const fresh = this.cat.drainEvents();
+    // the need cycle reads the same events; its episodes join the session log
+    if (accepting && this.toolless) {
+      for (const n of this.needs.step(this.cat, fresh, ctx.time, this.p.sim.step)) {
+        fresh.push({ id: `need_${this.needs.episodes.length}_${n.type}`, simulationTime: ctx.time, source: ctx.hand.source, validity: 'valid', measurement: { kind: n.kind, sec: n.sec ?? null }, ...n });
+      }
+    }
+    for (const e of fresh) {
       e.sessionId = s.sessionId;
       this.react(e);
       this.log.push(e);
@@ -653,6 +662,7 @@ export class Simulation {
     }
     this.simTime = 0;
     this.memory.reset();
+    this.needs.reset();
     this.log = [];
     this.recap = null;
     this.tool = this.toolless ? 'PET' : 'FEED';
@@ -670,6 +680,7 @@ export class Simulation {
     for (const c of this.litter) { c.goal = null; c.held = null; c.setRegion(ATTRACT_REGION); }
     this.resetLife();
     this.memory.reset();
+    this.needs.reset();
     this.log = [];
     this.recap = null;
     this.simTime = 0;
@@ -796,6 +807,7 @@ export class Simulation {
       intent: { ...this.intent },
       activeTool: this.tool,
       toolless: this.toolless,
+      need: this.toolless && this.cat ? this.needs.view(this.simTime) : null,
       held: this.held,
       displayHint: hint ? { code: hint.code, owner: hint.owner } : null,
       reasonCode: hint?.code ?? null,
