@@ -177,7 +177,9 @@ export class Renderer {
       const reaction = s.standoff ? (s.kitten === 'saffron' ? 'hiss' : 'cower') : s.fleeing ? 'cower' : null;
       this.body(ctx, s.kitten, s, s.lookAt ? this.px(s.lookAt) : null, dt, 1, { wrestling: s.wrestling, socialMode: s.mode === 'wrestle' ? null : s.mode, reaction });
     }
-    const look = ['OBSERVE', 'APPROACH', 'CONTACT', 'PLAY', 'GIFT'].includes(c.behaviour) ? hand : null;
+    let look = ['OBSERVE', 'APPROACH', 'CONTACT', 'PLAY', 'GIFT'].includes(c.behaviour) ? hand : null;
+    // a hungry kitten keeps glancing at the pouch: the body asks before any pictogram does
+    if (interactive && snap.need?.kind === 'food' && this.pouchAt && !c.acceptedContact && Math.sin(t * 1.3) > -0.2) look = this.toWorld(this.pouchAt.x, this.pouchAt.y);
     seen.add(c.kitten);
     this.body(ctx, c.kitten, c, look ?? (c.lookAt ? this.px(c.lookAt) : null), dt, 1, { wrestling: c.wrestling, socialMode: c.socialMode, reaction: c.reaction?.type, carrying: c.carrying, trick: c.trick?.name });
     if (c.trick) this.trickSparkle(ctx, main, t, c.trick);

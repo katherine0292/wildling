@@ -200,6 +200,8 @@ const sketch = (p) => {
     }
     sound.update(snap);
 
+    const pouch = document.getElementById('pouch');
+    if (pouch && pouch.offsetParent) { const r = pouch.getBoundingClientRect(); renderer.pouchAt = { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
     const bar = document.getElementById('gpTrack');
     if (bar && bar.offsetParent) { const r = bar.getBoundingClientRect(); renderer.hudTarget = { x: r.left + r.width * 0.9, y: r.top + r.height / 2 }; }
     renderer.draw(snap, { keypoints: camera.keypoints, showSkeleton: staff.open }, dt);
