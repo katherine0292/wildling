@@ -175,14 +175,30 @@ kbd { font: 700 11px var(--body); padding: 1px 6px; border-radius: 6px; border: 
 /* ---------- see what it sees (T) ---------- */
 body.mind-on #stage { filter: saturate(.4) brightness(.78); transition: filter .3s; }
 #stage { transition: filter .3s; }
-#mind { position: absolute; right: 20px; top: 122px; width: 276px; padding: 16px 18px 14px; border-radius: 18px; background: rgba(18, 26, 24, .82); pointer-events: none; }
-#mind h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 18px; }
-#mind h3 .kit { color: var(--accent); }
-#mind h3 + .m-fact { border-top: 0; }
-#mind h3:not(:first-child) { margin-top: 14px; }
-.m-fact { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); font: 700 14px var(--body); }
-.m-fact em { font-style: normal; color: var(--muted); text-align: right; }
-.m-foot { margin: 10px 0 0; font: 600 12.5px/1.5 var(--body); color: var(--muted); }
+body.mind-on #coach { display: none; }
+#mind { position: absolute; left: 20px; bottom: 20px; width: 300px; padding: 14px 18px 12px; border-radius: 18px; background: rgba(14, 22, 14, .72); pointer-events: none; }
+.m-head { display: flex; justify-content: space-between; align-items: baseline; }
+.m-head .eyebrow { font-size: 11px; color: var(--muted); }
+.m-head.sub { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line); }
+.m-state { font: 700 15px var(--body); color: var(--accent); }
+.m-note { font: 600 11.5px var(--body); color: var(--muted); }
+.m-thought { margin: 4px 0 10px; font: italic 600 16px var(--display); font-family: Georgia, 'Times New Roman', serif; color: var(--ink); }
+.m-need { display: grid; grid-template-columns: 70px 1fr 26px; gap: 10px; align-items: center; padding: 2px 0; font: 700 13px var(--body); }
+.m-need i { position: relative; height: 5px; border-radius: 3px; background: rgba(248, 234, 208, .12); overflow: hidden; }
+.m-need i::after { content: ''; position: absolute; inset: 0; width: var(--v); border-radius: 3px; background: var(--muted); transition: width .4s; }
+.m-need b { font: 700 12px var(--body); color: var(--muted); text-align: right; }
+.m-need.energy i::after { background: #f2cf6b; } .m-need.full i::after { background: #9fd07f; } .m-need.fun i::after { background: #8cc7e8; }
+.m-need.trust i::after { background: #f19aa6; } .m-need.stress i::after { background: #e0775f; }
+.m-hand { display: flex; justify-content: space-between; margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--line); font: 700 13px var(--body); }
+.m-hand em { font-style: normal; color: var(--muted); }
+.m-hand.cool em { color: var(--cool); } .m-hand.warn em { color: var(--warn); }
+.m-row { display: grid; grid-template-columns: 90px 1fr 70px; gap: 10px; align-items: center; padding: 3px 0; font: 700 13px var(--body); }
+.m-row i { position: relative; height: 5px; border-radius: 3px; background: rgba(248, 234, 208, .12); overflow: hidden; }
+.m-row i::after { content: ''; position: absolute; inset: 0; width: var(--v); border-radius: 3px; background: var(--muted); transition: width .4s; }
+.m-row em { font: 700 11.5px var(--body); font-style: normal; color: var(--muted); text-align: right; }
+.m-row.chosen { color: var(--accent); } .m-row.chosen i::after { background: var(--accent); }
+.m-row.blocked { opacity: .55; }
+.m-foot { margin: 8px 0 0; font: 600 12.5px/1.5 var(--body); color: var(--muted); }
 
 /* ---------- journal ---------- */
 .journal { width: min(860px, 100%); max-height: calc(100vh - 32px); overflow: auto; }
@@ -194,6 +210,15 @@ body.mind-on #stage { filter: saturate(.4) brightness(.78); transition: filter .
 .pol img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 3px; }
 .pol b { display: block; margin: 9px 2px 2px; font: 600 16px var(--display); }
 .pol span { margin: 0 2px; font: 600 13px var(--body); color: #6a6455; }
+.learn { margin: 0 0 4px; padding: 16px 18px; border-radius: 16px; border: 1px solid var(--line); background: rgba(255, 255, 255, .04); }
+.learn h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 17px; }
+.learn h3 .kit { color: var(--accent); }
+.learn ul { margin: 0; padding: 0; list-style: none; }
+.learn li { position: relative; padding: 4px 0 4px 18px; font: 700 15.5px/1.5 var(--body); }
+.learn li::before { content: ''; position: absolute; left: 2px; top: .8em; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.learn li span { font-weight: 600; color: var(--muted); }
+.learn li .ev { display: none; font: 600 11px var(--body); color: var(--cool); }
+body.staff .learn li .ev { display: block; }
 #recap { margin: 0; padding: 16px 18px; list-style: none; border-radius: 16px; border: 1px solid var(--line); background: rgba(255, 255, 255, .04); }
 #recap li { position: relative; padding: 4px 0 4px 18px; font: 700 15.5px/1.5 var(--body); }
 #recap li::before { content: ''; position: absolute; left: 2px; top: .8em; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
@@ -237,8 +262,10 @@ body.staff #recap li .ev { display: block; }
   #sysHint { top: 120px; }
   #pouch { right: 12px; bottom: max(14px, env(safe-area-inset-bottom)); padding: 9px; }
   .slot { width: 54px; } .slot .w { width: 50px; height: 50px; } .slot kbd { display: none; }
-  #coach { left: 12px; right: 12px; bottom: 124px; top: auto; transform: none; justify-content: space-between; white-space: normal; font-size: 15px; padding: 8px 8px 8px 16px; }
-  #mind { left: 12px; right: 12px; top: auto; bottom: 124px; width: auto; padding: 10px 14px; }
+  #coach { left: 12px; right: 12px; bottom: 150px; top: auto; transform: none; justify-content: space-between; white-space: normal; font-size: 15px; padding: 8px 8px 8px 16px; }
+  #mind { left: 12px; bottom: 12px; width: 190px; padding: 10px 12px; }
+  #mind .m-thought, #mind .m-hand, #mind .m-head.sub, #mind .m-row, #mind .m-foot { display: none; }
+  .m-need { grid-template-columns: 56px 1fr 22px; gap: 6px; font-size: 11.5px; }
   .mind-on #coach { visibility: hidden; }
   .album { gap: 10px; }
   .pol b { font-size: 13px; } .pol span { display: none; }

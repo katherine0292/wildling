@@ -38,6 +38,24 @@ const REPLY = {
   HUNGRY_FIRST: 'Wants food first', NOT_READY: 'Is still deciding',
   PRESSURE_HIGH: 'Needs more space',
 };
+// The AI panel's words (Prototype A's MIND layout): plain names for each choice, why a choice
+// is blocked, and a line of inner voice per behaviour.
+const ACTS = {
+  EXPLORE: 'Wander', OBSERVE: 'Watch you', SEEK_FOOD: 'Eat', EAT: 'Eat', REST: 'Nap', GROOM: 'Wash',
+  APPROACH: 'Come to you', PLAY: 'Play', CONTACT: 'Be stroked', RETREAT: 'Back off', SOCIAL: 'Join a sibling',
+  HUNT: 'Hunt', GIFT: 'Find you a gift', TRICK: 'A trick',
+};
+const WHY_NOT = {
+  NEED_REST: 'too tired', PRESSURE_HIGH: 'too tense', TOO_FULL: 'full', HUNGRY_FIRST: 'hungry first', NOT_READY: 'not ready yet',
+  PLAY_PAUSE: 'catching its breath', tool: 'not offered', input: "can't see you", far: 'too far', no_invitation: 'not invited',
+  intent: 'waiting for a calm hand', break: 'short break', dwell: 'almost', no_food: 'no food', cooldown: 'just did that',
+  alone: 'no sibling nearby', NOT_CLOSE_YET: 'not close enough yet', FRIENDS: "they're friends", too_young: 'too young', none: 'nothing to chase', trust: 'needs more trust', calm: 'feels safe',
+};
+const THOUGHT = {
+  EXPLORE: 'just looking around.', OBSERVE: 'who are you?', APPROACH: 'you seem gentle…', CONTACT: 'mm. that’s nice.',
+  REST: 'zzz…', EAT: 'nom.', GROOM: 'tidy, tidy.', PLAY: 'got it, got it!', RETREAT: 'too close!', SOCIAL: 'hey, you!',
+  TRICK: 'like this?', HISS: 'hss!',
+};
 
 const HOW = [
   ['ai/sees-you', 'Come in slowly', 'A slow, steady hand shrinks the ring around it. A fast one makes it back off.', 'Move your hand towards it, then stop.'],
@@ -267,8 +285,15 @@ export class UI {
     $('reflectEyebrow').textContent = `A first meeting · ${mins} minute${mins > 1 ? 's' : ''}`;
     $('reflectTitle').textContent = (T.titles[snap.endReason] ?? T.titles.user).replace('{name}', k.name);
     $('reflectSub').textContent = `${k.name}, ${k.temperament}. ${this.copy.relation[snap.creature.relation]}.`;
+    // what it learned about you comes first; the event diary stands in when there is nothing to say yet
+    const learned = r.learned ?? [];
+    this.show('learned', learned.length > 0);
+    $('learnedTitle').innerHTML = `${kit('ai/remembered', 20)}What ${k.name} learned about you`;
+    const lhtml = learned.map((l) => `<li>${l.text} <span>${l.detail}</span><span class="ev">${l.evidence.join(', ')}</span></li>`).join('');
+    if ($('learnedList').innerHTML !== lhtml) $('learnedList').innerHTML = lhtml;
     const html = r.lines.map((l) => `<li>${l.text}<span class="ev">${l.evidence.join(', ') || 'no events'}</span></li>`).join('');
     if ($('recap').innerHTML !== html) $('recap').innerHTML = html;
+    this.show('recap', learned.length === 0);
     const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
     const albumHtml = this.pickPhotos().map((p) => `<figure class="pol"><img src="${p.url}" alt="${p.caption}"><b>${p.caption}</b><span>${fmt(p.at)}</span></figure>`).join('');
     if (this.albumShown !== albumHtml) { this.albumShown = albumHtml; $('album').innerHTML = albumHtml; }
@@ -285,29 +310,39 @@ export class UI {
     $('btnNext').textContent = left !== null && left !== undefined && snap.timed ? `Next visitor · ${Math.ceil(left)}s` : `Meet another kitten`;
   }
 
-  // Explain the current moment. The staff panel retains scores and candidate actions.
+  // The AI panel stays on screen for the whole visit, in Prototype A's MIND layout: what the
+  // kitten is doing and thinking, its needs as numbers, how it reads your move, and the desires
+  // it is weighing, with one line of guidance when the visitor can help. Holding V (or the eye
+  // button) dims the scene and shows the same judgement on the ring and the tracked hand.
   mind(snap) {
-    const on = this.mindVisible;
-    this.show('mind', on);
-    document.body.classList.toggle('mind-on', on);
+    const scene = this.mindVisible;
+    this.show('mind', true);
+    document.body.classList.toggle('mind-on', scene);
     $('btnMind').setAttribute('aria-pressed', String(this.mindOn));
-    if (!on) return;
-    const c = snap.creature, input = snap.input;
-    const seen = input.quality === 'lost' ? (input.source === 'camera' ? 'Hand out of view' : 'Move into the clearing')
+    const c = snap.creature, d = snap.diagnostics, n = c.needs ?? {}, input = snap.input;
+    const doing = d.chosen === 'SEEK_FOOD' || d.chosen === 'EAT' ? 'EAT' : d.chosen;
+    const label = (k) => (k === 'SOCIAL' && c.socialTarget ? `Join ${NAMES[c.socialTarget]}` : ACTS[k] ?? k);
+    const setAside = snap.toolless ? ['HUNT', 'GIFT', 'TRICK'] : [];
+    const rows = d.candidates.filter((q) => !setAside.includes(q.name)).filter((q) => q.available || /^[A-Z_]+$/.test(q.blocked ?? '') || ['too_young', 'trust', 'alone'].includes(q.blocked))
+      .slice(0, 6).map((q) => {
+        const chosen = q.name === d.chosen || (d.chosen === 'EAT' && q.name === 'SEEK_FOOD');
+        const why = q.available ? (q.request ? 'you offered' : Math.round(q.score * 100)) : WHY_NOT[q.blocked] ?? q.blocked;
+        return `<div class="m-row ${chosen ? 'chosen' : ''} ${q.available ? '' : 'blocked'}"><span>${label(q.name)}</span><i style="--v:${Math.round(Math.min(1, q.score) * 100)}%"></i><em>${why}</em></div>`;
+      }).join('');
+    const needs = [['Energy', n.energy, 'energy'], ['Fullness', n.fullness, 'full'], ['Fun', n.fun, 'fun'], ['Trust', n.trust, 'trust'], ['Stress', n.stress, 'stress']]
+      .map(([k, v, cls]) => `<div class="m-need ${cls}"><span>${k}</span><i style="--v:${Math.round((v ?? 0) * 100)}%"></i><b>${Math.round((v ?? 0) * 100)}</b></div>`).join('');
+    const move = input.quality === 'lost' ? (input.source === 'camera' ? 'Hand out of view' : 'Move into the clearing')
       : input.quality === 'uncertain' ? 'Finding a steady hand'
-      : input.source === 'camera' ? 'Hand tracked' : 'Pointer tracked';
-    const action = input.quality !== 'valid' ? 'Waiting for input'
       : input.overUI ? 'Selecting a control' : READING[snap.intent.label] ?? 'Watching';
-    const reply = c.acceptedContact ? 'Welcomes your touch' : c.behaviour === 'EAT' ? 'Is eating your treat'
-      : c.behaviour === 'APPROACH' ? 'Is coming to sniff' : REPLY[snap.reasonCode]
-      ?? (c.behaviour === 'REST' ? 'Is resting' : c.behaviour === 'PLAY' ? 'Is following the feather' : 'Is watching the clearing');
     const guidance = input.quality !== 'valid' ? (input.source === 'camera' ? 'Bring your hand back into view.' : 'Move your pointer into the clearing.')
       : c.inviting && !c.acceptedContact && snap.activeTool === 'PET' ? 'Hold still to let it come to you.'
-      : c.behaviour === 'RETREAT' ? 'Move a little farther away.' : '';
-    const html = `<h3>${kit('ai/sees-you', 20)}${snap.kitten.name}’s view</h3>
-      <div class="m-fact"><span>Input</span><em>${seen}</em></div>
-      <div class="m-fact"><span>Your move</span><em>${action}</em></div>
-      <div class="m-fact"><span>${snap.kitten.name}</span><em>${reply}</em></div>
+      : c.behaviour === 'RETREAT' ? 'Move a little farther away.' : REPLY[snap.reasonCode] ? `${snap.kitten.name} ${REPLY[snap.reasonCode].toLowerCase()}.` : '';
+    const tone = input.quality !== 'valid' || snap.intent.label === 'unknown' ? 'cool' : snap.intent.label === 'fast_approach' ? 'warn' : '';
+    const html = `<div class="m-head"><span class="eyebrow">Mind</span><span class="m-state">${label(doing)}</span></div>
+      <p class="m-thought">“${THOUGHT[c.reaction?.type === 'hiss' ? 'HISS' : doing] ?? '…'}”</p>
+      ${needs}
+      <div class="m-hand ${tone}"><span>Your move</span><em>${move}</em></div>
+      <div class="m-head sub"><span class="eyebrow">Desires</span><span class="m-note">highest score wins</span></div>${rows}
       ${guidance ? `<p class="m-foot">${guidance}</p>` : ''}`;
     if (this.mindHtml !== html) { this.mindHtml = html; $('mind').innerHTML = html; }
   }

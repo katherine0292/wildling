@@ -70,7 +70,7 @@
       <span class="who-text"><b id="kname"></b><span class="bond"><span class="hearts" id="hearts" aria-hidden="true"><i></i><i></i><i></i></span><span id="relation"></span></span></span>
     </header>
     <nav id="sys" aria-label="Visit controls">
-      <button class="ib glass" id="btnMind" aria-pressed="false" aria-label="See what it sees. Hold V, or press to keep it open" title="See what it sees · hold V"></button>
+      <button class="ib glass" id="btnMind" aria-pressed="false" aria-label="Show what it sees in the scene. Hold V, or press to keep it on" title="Show it in the scene · hold V"></button>
       <button class="ib glass" id="btnSound" aria-label="Sound"></button>
       <button class="ib glass" id="btnHelp" aria-label="How it works"></button>
       <button class="ib glass" id="btnEnd" aria-label="End the visit" title="End the visit"></button>
@@ -79,7 +79,7 @@
     <span id="trackingText" role="status"></span>
     <button class="textlink" id="btnRecoverMouse" hidden>Use mouse</button>
   </div>
-    <aside id="mind" class="glass" hidden aria-live="off"></aside>
+    <aside id="mind" class="glass" aria-label="What the kitten is thinking" aria-live="off"></aside>
     <div id="bubble" class="glass" role="status" aria-live="polite"></div>
     <div id="sysHint" class="glass" role="status" aria-live="assertive"></div>
     <div id="coach" class="glass" role="status" aria-live="polite" hidden></div>
@@ -112,6 +112,7 @@
       <h2 id="reflectTitle"></h2>
       <p class="sub" id="reflectSub"></p>
       <div class="album" id="album"></div>
+      <section class="learn" id="learned" hidden><h3 id="learnedTitle"></h3><ul id="learnedList"></ul></section>
       <ol id="recap"></ol>
       <div class="journal-actions">
         <span class="fine" id="keepNote"></span>
