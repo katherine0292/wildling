@@ -39,7 +39,7 @@ test('in the snow a snowball is thrown with a pinch or a click, and rolls on its
   d.cmd('hold', { item: 'snowball' });
   d.run(0.3, () => mouseAt(0.3, 0.4));
   d.cmd('confirm', { x: 0.3, y: 0.4 });
-  assert.equal(d.sim.snapshot().held, null);
+  assert.equal(d.sim.snapshot().held, 'snowball', 'another snowball is ready in hand');
   assert.equal(d.sim.toy.live, true);
   const x0 = d.sim.toy.x;
   d.run(0.5, () => mouseAt(0.3, 0.4));

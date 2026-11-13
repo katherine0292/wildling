@@ -15,7 +15,7 @@ test('an empty hand resting by the kitten is petting, with nothing selected', ()
   assert.ok(t >= 0, 'contact was accepted');
 });
 
-test('a treat from the pouch drops where the visitor clicks, then the hand is empty again', () => {
+test('a treat from the pouch drops where the visitor clicks, and the basket stays in hand until put down', () => {
   const d = toolless();
   d.startMouse();
   d.run(0.5, () => mouseAt(0.3, 0.3));
@@ -24,6 +24,9 @@ test('a treat from the pouch drops where the visitor clicks, then the hand is em
   const p = d.catAt(0.1, 0);
   d.cmd('confirm', { x: p.x, y: p.y });
   assert.equal(d.cat.foods.length, 1);
+  assert.equal(d.sim.snapshot().held, 'treat');
+  assert.equal(d.sim.tool, 'FEED');
+  d.cmd('hold', { item: null });
   assert.equal(d.sim.snapshot().held, null);
   assert.equal(d.sim.tool, 'PET');
 });

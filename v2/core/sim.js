@@ -192,9 +192,10 @@ export class Simulation {
         if (s.state !== 'ACTIVE') break;
         // siblings are asked with the Siblings tool (social_request), never by a stray click
         if (this.toolless) {
-          if (this.held === 'treat' && this.dropFood(cmd.x, cmd.y)) this.hold(null);
-          else if (this.held === 'snowball') { this.throwBall(cmd.x, cmd.y); this.hold(null); }
-          else if (this.held === 'bowl') { this.placeBowl(cmd.x, cmd.y); this.hold(null); }
+          // what the hand holds stays in it until the visitor takes something else from the pouch
+          if (this.held === 'treat') this.dropFood(cmd.x, cmd.y);
+          else if (this.held === 'snowball') this.throwBall(cmd.x, cmd.y);
+          else if (this.held === 'bowl') this.placeBowl(cmd.x, cmd.y);
           break;
         }
         if (this.tool === 'FEED') this.dropFood(cmd.x, cmd.y);
@@ -847,6 +848,16 @@ export class Simulation {
   // How the world answers the kitten's own acts.
   react(e) {
     const m = e.measurement ?? {};
+    // A hand that frightens one kitten frightens the ones beside it: they scatter from the hand.
+    if (e.type === 'startle' && this.toolless && this.track.valid) {
+      const hx = this.track.x, hy = this.track.y;
+      for (const sib of this.siblings) {
+        if (Math.hypot(sib.x - hx, sib.y - hy) > 0.4 || sib.held?.flee) continue;
+        this.endVisit?.(sib.id);
+        sib.goal = null;
+        sib.held = { behaviour: 'RETREAT', until: this.demoTime + 1.8, flee: { x: hx, y: hy } };
+      }
+    }
     if (e.type === 'hiss') {
       const sib = this.litter.find((o) => o.kitten.id === m.sibling);
       if (sib && this.cat) {

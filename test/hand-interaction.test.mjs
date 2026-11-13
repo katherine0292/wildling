@@ -42,7 +42,7 @@ test('one camera confirmation is offered for target routing without dropping the
   assert.equal(d.sim.held, 'treat');
   d.sim.command(confirmations[0]);
   assert.equal(d.cat.foods.length, 1);
-  assert.equal(d.sim.held, null);
+  assert.equal(d.sim.held, 'treat', 'the basket stays in hand for the next fish');
 });
 
 test('calibration timeout returns to input choice and requests camera release', () => {
