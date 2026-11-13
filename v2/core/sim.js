@@ -94,6 +94,7 @@ export class Simulation {
     this.foodSeq = 0;
     this.revision = 0;
     this.recap = null;
+    this.quietRest = 0;
     this.lostSince = null;
     this.uncertainSince = null;
     this.errors = { duplicates: 0, rejected: 0 };
@@ -130,13 +131,17 @@ export class Simulation {
   ingest(sample) {
     if (!sample || typeof sample.t !== 'number') { this.errors.rejected++; return; }
     if (sample.source === 'keyboard') this.keyboardHold = !!sample.hold;
-    this.track.ingest(sample);
-    if (sample.source === 'camera') this.readPose(sample);
-    if (sample.source === 'camera' && Number.isFinite(sample.pinchRatio)) {
-      const fired = this.pinch.update(sample.pinchRatio, this.track.valid, sample.t);
-      if (fired && this.track.x !== null) {
-        this.command({ id: `pinch_${sample.t}`, type: 'confirm', x: this.track.x / this.world.w, y: this.track.y / this.world.h, via: 'pinch' });
-      }
+    const accepted = this.track.ingest(sample);
+    if (sample.source !== 'camera') return;
+    this.track.update(sample.t);
+    if (accepted) this.readPose(sample);
+    const valid = accepted && this.track.valid && this.session.state === 'ACTIVE';
+    if (!valid && this.pinch.closedSince !== null) this.pinch.requireRelease();
+    if (this.pinch.update(sample.pinchRatio, valid, sample.t)) {
+      const confirmation = { id: `pinch_${sample.seq ?? sample.t}`, type: 'confirm',
+        x: this.track.x / this.world.w, y: this.track.y / this.world.h, via: 'pinch' };
+      if (this.toolless) return confirmation; // The browser resolves HUD targets before world actions.
+      this.command(confirmation);
     }
   }
 
@@ -158,10 +163,13 @@ export class Simulation {
         this.track.reset(cmd.source);
         this.pinch.reset();
         this.intentClf.reset();
+        this.intent = this.intentClf.current;
+        this.hints.resolve('TRACKING_LOST');
+        this.hints.resolve('INTENT_UNCERTAIN');
         s.chooseInput(cmd.source);
         break;
       case 'calibration_failed': s.backToConsent(cmd.reason ?? 'camera_failed'); break;
-      case 'hold': this.hold(cmd.item ?? null); break;
+      case 'hold': if (s.state === 'ACTIVE') this.hold(cmd.item ?? null); break;
       case 'select_tool':
         if (this.toolless) break;
         if (['FEED', 'PLAY', 'PET', 'WAIT', 'LITTER', 'TRICK'].includes(cmd.tool)) { this.tool = cmd.tool; s.noteActivity(); if (cmd.tool !== 'TRICK') this.learner.cancel(); }
@@ -446,28 +454,29 @@ export class Simulation {
   }
 
   // ---------------------------------------------------------------- time
-  update(dtSec, now) {
+  update(dtSec, now, { trackingAvailable = true } = {}) {
     this.clock = now;
     const step = this.p.sim.step;
     // Long gaps (hidden tab, debugger) are a pause, never a giant dt that drains energy.
     this.acc = Math.min(this.acc + dtSec, step * this.p.sim.maxSubsteps);
-    while (this.acc >= step - 1e-9) { this.acc -= step; this.stepOnce(step); }
+    while (this.acc >= step - 1e-9) { this.acc -= step; this.stepOnce(step, trackingAvailable); }
   }
 
   ctx() {
     const t = this.track;
+    const overUI = !!t.lastSample?.overUI;
     return {
       time: this.cat && this.session.state !== 'ATTRACT' ? this.simTime : this.demoTime,
       active: this.session.state === 'ACTIVE',
       frozen: this.session.state !== 'ACTIVE',
-      hand: { valid: t.valid, present: t.present, quality: t.quality, x: t.x, y: t.y, speed: t.speed, source: t.source },
+      hand: { valid: t.valid && !overUI, present: t.present, quality: t.quality, x: t.x, y: t.y, speed: t.speed, source: t.source },
       intent: this.intent,
       tool: this.tool,
       prefs: this.memory.prefs,
     };
   }
 
-  stepOnce(dt) {
+  stepOnce(dt, trackingAvailable) {
     const s = this.session;
     const nowS = this.clock / 1000;
     this.track.update(this.clock);
@@ -482,7 +491,7 @@ export class Simulation {
     }
 
     // a fully grown kitten gets its celebration before the visit ends
-    s.tick(dt, { trackingValid: this.track.valid, grown: this.cat ? this.cat.ageProgress >= 3 && this.simTime >= this.cat.transitionUntil : false });
+    s.tick(dt, { trackingAvailable, trackingValid: this.track.valid, grown: this.cat ? this.cat.ageProgress >= 3 && this.simTime >= this.cat.transitionUntil : false });
     this.processTransitions();
 
     this.demoTime += dt;
@@ -503,6 +512,7 @@ export class Simulation {
       ctx.growth = this.growthOn;
       this.cat.step(dt, ctx);
       this.collect(ctx);
+      this.settleByHand(ctx, dt);
       this.systemHints(nowS);
       if (s.state === 'ACTIVE' && this.track.valid
           && (this.track.speed > 0.05 || ['stable_contact', 'gentle_approach'].includes(this.intent.label))) {
@@ -510,6 +520,21 @@ export class Simulation {
       }
     }
     this.revision++;
+  }
+
+  // A bonded kitten can end the visit when it has already settled to rest beside a steady hand.
+  settleByHand(ctx, dt) {
+    const c = this.cat;
+    const h = ctx.hand;
+    const eligible = ctx.active && this.toolless && !this.growthOn && c.relation === 2
+      && c.behaviour === 'REST' && this.held === null && h.valid && h.speed < 0.06
+      && c.needs.stress < 0.3 && Math.hypot(c.x - h.x, c.y - h.y) < this.p.creature.contactRadius * 1.6;
+    this.quietRest = eligible ? this.quietRest + dt : 0;
+    if (this.quietRest < 5) return;
+    c.emit('slept_beside_hand', ctx);
+    this.collect(ctx);
+    this.session.end('asleep');
+    this.processTransitions();
   }
 
   // Someone walking past the exhibition screen (ADR-020): every kitten looks, and the
@@ -554,6 +579,10 @@ export class Simulation {
       }
     }
     for (const e of fresh) {
+      if (e.type === 'contact_started') {
+        for (const code of ['NOT_READY', 'NEED_REST', 'HUNGRY_FIRST', 'PRESSURE_HIGH']) this.hints.resolve(code);
+      }
+      if (e.type === 'eat_completed') this.hints.resolve('TOO_FULL');
       e.sessionId = s.sessionId;
       this.react(e);
       this.log.push(e);
@@ -619,7 +648,10 @@ export class Simulation {
     if (engaged && this.intent.label === 'unknown' && this.track.quality !== 'lost') {
       this.uncertainSince ??= nowS;
       if (nowS - this.uncertainSince > 1.2) this.hints.offer('INTENT_UNCERTAIN', nowS);
-    } else this.uncertainSince = null;
+    } else {
+      this.uncertainSince = null;
+      this.hints.resolve('INTENT_UNCERTAIN');
+    }
   }
 
   processTransitions() {
@@ -631,7 +663,9 @@ export class Simulation {
         this.cat.contact.active = false;
         this.cat.acceptedContact = false;
       }
+      if (t.from === 'CALIBRATING' && t.to === 'CONSENT') this.out.push({ type: 'release_camera', reason: t.reason });
       if (t.to === 'REFLECTION') {
+        if (s.inputSource === 'camera') this.out.push({ type: 'release_camera' });
         this.memory.freeze();
         if (this.cat) { this.cat.contact.active = false; this.cat.acceptedContact = false; }
         this.recap = buildRecap(this.log, this.lang);
@@ -665,6 +699,7 @@ export class Simulation {
     this.needs.reset();
     this.log = [];
     this.recap = null;
+    this.quietRest = 0;
     this.tool = this.toolless ? 'PET' : 'FEED';
     this.held = null;
     this.hints.clear();
@@ -683,6 +718,7 @@ export class Simulation {
     this.needs.reset();
     this.log = [];
     this.recap = null;
+    this.quietRest = 0;
     this.simTime = 0;
     this.tool = 'FEED';
     this.keyboardHold = false;
@@ -740,7 +776,7 @@ export class Simulation {
       endReason: s.endReason,
       timers: {
         active: s.activeTime, idle: s.idle, reflectionLeft: s.reflectionLeft,
-        calibration: s.state === 'CALIBRATING' ? s.stateTime : null,
+        calibration: s.state === 'CALIBRATING' ? s.calibElapsed : null,
         calibStable: s.calibStable,
       },
       stillThere: s.stillThere,
@@ -782,6 +818,7 @@ export class Simulation {
         relation: c.relation,
         acceptedContact: c.acceptedContact,
         inviting: c.inviting,
+        contactProgress: c.inviting ? Math.min(1, c.dwell / this.memory.prefs.contactDwell) : 0,
         growing: c.growing,
         growthBlockedBy: c.growthBlockedBy,
         transition: this.simTime < c.transitionUntil,
@@ -798,7 +835,7 @@ export class Simulation {
       },
       foods: c.foods.map((f) => ({ id: f.id, x: f.x / W, y: f.y / H, age: this.simTime - f.born })),
       input: {
-        source: this.track.source, quality: this.track.quality, present: this.track.present,
+        source: this.track.source, quality: this.track.quality, present: this.track.present, overUI: !!this.track.lastSample?.overUI,
         position: this.track.x === null ? null : { x: this.track.x / W, y: this.track.y / H },
         speedSPerSecond: this.track.speed,
         validRatio: this.track.validRatio(),

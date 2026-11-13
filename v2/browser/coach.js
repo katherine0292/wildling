@@ -20,10 +20,10 @@ const STEPS = [
     text: { camera: 'Stroke it gently. Watch the tail', pointer: 'Stroke it gently. Watch the tail' },
     hold: (s) => s.creature.acceptedContact, needMs: 2500 },
   { id: 'treat', pulse: 'treat',
-    text: { camera: 'Take a treat from the pouch, pinch to drop it', pointer: 'Take a treat from the pouch, click to drop it' },
+    text: { camera: 'Pinch the treat slot, open your hand, then pinch to drop', pointer: 'Take a treat from the pouch, click to drop it' },
     done: (s, e) => e.some((x) => x.type === 'eat_completed') },
   { id: 'feather', pulse: 'wand',
-    text: { camera: 'Now the feather. Dart, then pause', pointer: 'Now the feather. Dart, then pause' },
+    text: { camera: 'Pinch the feather slot. Dart, then pause', pointer: 'Now the feather. Dart, then pause' },
     done: (s, e) => e.some((x) => x.type === 'pounce_success') },
 ];
 
@@ -69,12 +69,14 @@ export class Coach {
   }
 
   // Called every frame with the snapshot and the events drained this frame.
-  update(snap, events, now) {
+  update(snap, events, now, dt) {
     if (snap.sessionState !== 'ACTIVE') {
       if (this.active && snap.sessionState !== 'PAUSED') this.close();
       return;
     }
-    this.cam = snap.input.source === 'camera';
+    const camera = snap.input.source === 'camera';
+    if (this.active && camera !== this.cam) { this.cam = camera; this.render(this.stuck); }
+    this.cam = camera;
     if (snap.sessionId !== this.session) { // a new visit
       this.session = snap.sessionId;
       if (this.kiosk || !this.seen) setTimeout(() => { if (this.session === snap.sessionId) this.begin(); }, 900);
@@ -83,7 +85,7 @@ export class Coach {
     const s = STEPS[this.i];
     if (this.doneAt) { if (now - this.doneAt > 900) this.advance(); return; }
     let ok = s.done ? s.done(snap, events) : false;
-    if (s.hold) { this.heldMs = s.hold(snap) ? this.heldMs + 16.7 : Math.max(0, this.heldMs - 8); ok = ok || this.heldMs >= s.needMs; }
+    if (s.hold) { this.heldMs = s.hold(snap) ? this.heldMs + dt * 1000 : Math.max(0, this.heldMs - dt * 500); ok = ok || this.heldMs >= s.needMs; }
     // the demonstration hand only shows while the visitor's hand is still far from the kitten
     if (s.demo) this.renderer.demo = snap.creature.behaviour === 'APPROACH' || snap.creature.acceptedContact ? null : s.demo;
     if (ok) { this.doneAt = now; this.el.classList.add('ok'); this.renderer.demo = null; return; }

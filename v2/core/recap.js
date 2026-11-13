@@ -8,7 +8,12 @@ const T = {
     space: () => 'You gave me space when I needed it.',
     contactLong: (s) => `Your hand felt gentle. We shared ${s} seconds of quiet contact.`,
     contactOne: () => 'You found a gentle way to say hello.',
-    adapted: () => 'I got used to your rhythm.',
+    adapted: (key, closer) => ({
+      approachRadius: closer ? 'I started coming a little closer to your hand.' : 'I started leaving a little more room when I came over.',
+      contactDwell: closer ? 'I started settling into your touch a little sooner.' : 'I started waiting a little longer before settling into your touch.',
+      playTempoScale: closer ? 'I started chasing the toy a little more slowly.' : 'I started chasing the toy a little faster.',
+    }[key] ?? 'I got used to your rhythm.'),
+    asleep: () => 'I fell asleep beside your hand.',
     play: (n) => `We played. I made ${n} catch${n === 1 ? '' : 'es'}.`,
     fed: (n) => `You fed me ${n} time${n === 1 ? '' : 's'}.`,
     recovered: () => 'We had a startled moment, and found our way back.',
@@ -36,6 +41,7 @@ export function buildRecap(log, lang = 'en') {
   const contacts = of('contact_ended');
   const contactSec = Math.round(contacts.reduce((s, e) => s + (e.measurement?.duration ?? 0), 0));
   const adapted = of('rhythm_adapted');
+  const asleep = of('slept_beside_hand');
   const pounces = of('pounce_success');
   const fed = of('eat_completed');
   const startles = log.filter((e) => e.type === 'startle');
@@ -47,6 +53,12 @@ export function buildRecap(log, lang = 'en') {
   const cuddles = of('sibling_cuddle');
   const NAMES = { ember: 'Ember', juniper: 'Juniper', saffron: 'Saffron' };
 
+  push(t.asleep(), ids(asleep, 1));
+  const adjustment = adapted.at(-1);
+  if (adjustment) {
+    const { key, from, to } = adjustment.measurement ?? {};
+    push(t.adapted(key, to < from), [adjustment.id]);
+  }
   const taught = of('trick_learned');
   if (taught.length) push(t.trick(taught[0].measurement.trick, taught[0].measurement.examples), ids(taught, 1));
   const back = of('returned');
@@ -55,7 +67,6 @@ export function buildRecap(log, lang = 'en') {
   push(t.space(), ids(space));
   if (contacts.length >= 2 && contactSec >= 3) push(t.contactLong(contactSec), ids(contacts));
   else if (contacts.length === 1) push(t.contactOne(), ids(contacts));
-  push(t.adapted(), ids(adapted));
   if (pounces.length >= 2) push(t.play(pounces.length), ids(pounces));
   if (cuddles.length) push(t.cuddle(NAMES[cuddles[0].measurement.sibling] ?? 'a sibling'), ids(cuddles, 1));
   else if (friends.length) push(t.befriend(NAMES[friends[0].measurement.sibling] ?? 'a sibling'), ids(friends, 1));

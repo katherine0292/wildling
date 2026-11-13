@@ -104,6 +104,7 @@ export class SoundAdapter {
       case 'phase_changed': this.chord([523, 659, 784, 1047], 0.12); this.meow(1); break;
       case 'fully_grown': this.chord([392, 523, 659, 784, 1047], 0.14); break;
       case 'food_dropped': this.plop(); break;
+      case 'held': if (e.item) this.tone(760, 880, 0.08, 0.045, 0); break;
       case 'growth_burst': this.sparkle(m.amount ?? 0.05); break;
       case 'sibling_play': if (m.endedBy === 'done') this.trill(1.1); break;
       case 'sibling_befriend': this.chord([784, 988, 1175], 0.05); break;

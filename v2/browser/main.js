@@ -67,16 +67,19 @@ const sketch = (p) => {
     return res;
   };
 
-  const chooseInput = async (source) => {
+  const chooseInput = (source) => {
     sound.start();
-    presence?.stop(); // free the camera for the visitor's own hand
+    presence?.stop();
     if (source !== 'camera') camera.stop();
     keyboard.active = source === 'keyboard';
+    if (source === 'mouse') mouse.inside = false;
     dispatch({ type: 'choose_input', source });
-    if (source === 'camera') {
-      await camera.start();
-      if (camera.status === 'failed') dispatch({ type: 'calibration_failed', reason: camera.error });
-    }
+    if (source === 'camera') camera.start();
+  };
+
+  const useMouse = () => {
+    if (sim.session.state === 'ACTIVE') dispatch({ type: 'pause', reason: 'system' });
+    chooseInput('mouse');
   };
 
   p.setup = () => {
@@ -107,6 +110,7 @@ const sketch = (p) => {
       dispatch,
       keepsakes,
       onChooseInput: chooseInput,
+      onRecoverMouse: useMouse,
       onToggleSound: () => { soundOn = !soundOn; sound.setOn(soundOn); },
       onHelp: () => ui.showHow(true),
     });
@@ -176,12 +180,22 @@ const sketch = (p) => {
     const dt = Math.min(p.deltaTime, 100) / 1000;
     const now = performance.now();
 
-    // one source at a time; switching source resets the track
+    if (sim.session.state === 'CALIBRATING' && camera.status === 'failed') {
+      dispatch({ type: 'calibration_failed', reason: camera.error });
+    }
+    // One source at a time; switching source resets the track.
     const src = sim.track.source;
     if (src === 'camera') {
       const s = camera.take();
-      if (s && Number.isFinite(s.x)) { const w = renderer.screenToWorldN(s.x, s.y); s.x = w.x; s.y = w.y; }
-      if (s) sim.ingest(s);
+      if (s && Number.isFinite(s.x)) {
+        s.overUI = ui.blocksSceneAt(s.x * p.width, s.y * p.height);
+        Object.assign(s, renderer.screenToWorldN(s.x, s.y));
+      }
+      const confirm = s ? sim.ingest(s) : null;
+      if (confirm) {
+        const at = renderer.worldNToScreen(confirm);
+        if (!ui.activateAt(at.x, at.y)) sim.command(confirm);
+      }
     } else if (keyboard.active) {
       sim.ingest(keyboard.sample(dt, now, p.width / p.height, keyboard.keys.size && p.keyIsDown(p.SHIFT)));
     } else {
@@ -190,11 +204,14 @@ const sketch = (p) => {
       sim.ingest({ t: now, seq: ++mouse.seq, source: 'mouse', present: mouse.inside, x: mouse.x, y: mouse.y });
     }
 
-    sim.update(dt, now);
+    sim.update(dt, now, { trackingAvailable: src !== 'camera' || camera.status === 'ready' });
     const events = sim.drainEvents();
     const snap = sim.snapshot();
     for (const e of events) {
-      if (e.type === 'release_camera') camera.stop();
+      if (e.type === 'release_camera') {
+        if (e.reason === 'calibration_timeout') camera.fail('timeout');
+        else if (camera.status !== 'failed') camera.stop();
+      }
       if (soundOn) sound.play(e);
       staff.log(e);
       renderer.onEvent(e, snap);
@@ -213,7 +230,7 @@ const sketch = (p) => {
     if (mode && mode !== lastMode && partner && (mode === 'greet' || mode === 'cuddle')) photoQueue.push({ at: now + (mode === 'cuddle' ? 1800 : 1000), caption: mode === 'cuddle' ? `Cosy with ${NAMES[partner]}` : `Friends with ${NAMES[partner]}` });
     lastMode = mode;
     presence?.update(snap, now);
-    coach.update(snap, events, now);
+    coach.update(snap, events, now, dt);
     while (photoQueue.length && photoQueue[0].at <= now) {
       const ph = photoQueue.shift();
       if (snap.sessionState === 'ACTIVE') ui.addPhoto(renderer.capture(snap), ph.caption);
@@ -231,7 +248,6 @@ const sketch = (p) => {
       catPx: { ...scr(c.position), r: (0.06 + 0.025 * c.ageProgress) * S * z },
       litterPx: snap.litter.map((l) => ({ kitten: l.kitten, ...scr(l.position), r: (0.06 + 0.025 * l.ageProgress) * S * z, wrestling: l.wrestling, fleeing: l.fleeing, invited: l.invited })),
       cursorPx: snap.input.position ? scr(snap.input.position) : null,
-      ring: renderer.ringR ? { ry: renderer.ringR * 0.84 * z, trend: renderer.ringTrend ?? 0 } : null,
     });
     staff.render(snap, camera);
     window.__wildling = { snapshot: () => snap, sim, renderer, camera, coach, ui, sound }; // for automated smoke tests

@@ -1,133 +1,160 @@
-// Camera input adapter (PRD V2 F2-01, F2-02).
-//  • the camera is requested only after the visitor chooses hand tracking, video only
-//  • every failure has its own actionable message and an immediate mouse fallback
-//  • 12 s without a usable video or model counts as a failure
-//  • stop() ends every MediaStream track and the detection loop
-//  • mirroring happens here, once; nothing downstream mirrors again
-// Video frames stay in memory in this tab. Nothing is recorded or uploaded — but the
-// browser still asks for camera permission, and the copy says so.
-
-const ML5_URL = 'https://unpkg.com/ml5@1.4.0/dist/ml5.min.js';
-const TIMEOUT_MS = 12000;
+// Video frames are transferred to a local worker and never recorded or uploaded.
+const START_TIMEOUT_MS = 25000;
 const PALM = [0, 5, 9, 13, 17];
 const TIPS = [8, 12, 16, 20];
-const CROP = 0.1; // use the middle 80 % of the frame so edges are reachable
-
-function loadScript(src) {
-  if (window.ml5) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('library'));
-    document.head.appendChild(s);
-  });
-}
-
-const d2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const CROP = 0.1;
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const centroid = (points) => ({
+  x: PALM.reduce((sum, i) => sum + points[i].x, 0) / PALM.length,
+  y: PALM.reduce((sum, i) => sum + points[i].y, 0) / PALM.length,
+});
 
 export class CameraInput {
   constructor() {
-    this.status = 'off';      // off · loading · ready · failed
-    this.error = null;        // denied · no_device · in_use · library · timeout · insecure
-    this.sample = null;
-    this.keypoints = null;    // normalised, for the optional skeleton overlay
-    this.multiHand = false;
+    this.run = 0;
     this.seq = 0;
-    this.prev = null;
+    this.stop();
   }
 
   async start() {
+    this.stop();
+    const run = this.run;
     this.status = 'loading';
-    this.error = null;
     if (!window.isSecureContext) return this.fail('insecure');
-    const timer = setTimeout(() => { if (this.status === 'loading') this.fail('timeout'); }, TIMEOUT_MS);
+    if (!navigator.mediaDevices?.getUserMedia) return this.fail('no_device');
+    let stream;
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
-    } catch (e) {
-      clearTimeout(timer);
-      const kind = e.name === 'NotAllowedError' || e.name === 'SecurityError' ? 'denied'
-        : e.name === 'NotFoundError' || e.name === 'OverconstrainedError' ? 'no_device'
-        : e.name === 'NotReadableError' ? 'in_use' : 'denied';
-      return this.fail(kind);
-    }
-    if (this.status !== 'loading') { this.stopTracks(); return; }
-    this.video = document.createElement('video');
-    this.video.playsInline = true; this.video.muted = true;
-    this.video.width = 640; this.video.height = 480;
-    this.video.srcObject = this.stream;
-    try {
-      await this.video.play();
-      await loadScript(ML5_URL);
-      this.model = await new Promise((resolve, reject) => {
-        const m = window.ml5.handPose({ maxHands: 2, flipped: false }, () => resolve(m));
-        setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS);
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: false,
       });
     } catch (e) {
-      clearTimeout(timer);
-      return this.fail(e.message === 'timeout' ? 'timeout' : 'library');
+      if (run !== this.run) return;
+      return this.fail(e.name === 'NotReadableError' ? 'in_use'
+        : e.name === 'NotFoundError' || e.name === 'OverconstrainedError' ? 'no_device' : 'denied');
     }
-    clearTimeout(timer);
-    if (this.status !== 'loading') { this.stop(); return; }
-    this.status = 'ready';
-    this.model.detectStart(this.video, (r) => this.onHands(r));
+    if (run !== this.run) {
+      for (const track of stream.getTracks()) track.stop();
+      return;
+    }
+    this.stream = stream;
+    this.timer = setTimeout(() => this.fail('library'), START_TIMEOUT_MS);
+    stream.getVideoTracks()[0]?.addEventListener('ended', () => {
+      if (run === this.run) this.fail('disconnected');
+    });
+    const video = document.createElement('video');
+    video.playsInline = true;
+    video.muted = true;
+    video.srcObject = stream;
+    this.video = video;
+    try {
+      await video.play();
+      if (run !== this.run) return;
+      const worker = new Worker(new URL('./hand-worker.js', import.meta.url));
+      this.worker = worker;
+      worker.onmessage = ({ data }) => {
+        if (run !== this.run) return;
+        if (data.type === 'error') return this.fail('library');
+        if (data.type === 'ready') {
+          clearTimeout(this.timer);
+          this.status = 'ready';
+        } else {
+          this.onHands(data);
+        }
+        this.nextFrame(run);
+      };
+      worker.onerror = () => { if (run === this.run) this.fail('library'); };
+      worker.postMessage({ type: 'start' });
+    } catch {
+      if (run === this.run) this.fail('library');
+    }
   }
 
-  fail(kind) { this.status = 'failed'; this.error = kind; this.stopTracks(); }
-
-  onHands(results) {
-    const t = performance.now();
-    if (!results || !results.length) { this.sample = { t, seq: ++this.seq, source: 'camera', present: false }; this.keypoints = null; return; }
-    // keep following the same hand; never jump to a bystander's hand
-    const norm = results.map((h) => h.keypoints.map((k) => ({
-      x: (1 - k.x / 640 - CROP) / (1 - 2 * CROP),
-      y: (k.y / 480 - CROP) / (1 - 2 * CROP),
-    })));
-    const centre = (kp) => ({ x: PALM.reduce((s, i) => s + kp[i].x, 0) / PALM.length, y: PALM.reduce((s, i) => s + kp[i].y, 0) / PALM.length });
-    let pick = 0;
-    this.multiHand = norm.length > 1;
-    if (norm.length > 1 && this.prev) {
-      const ds = norm.map((kp) => d2(centre(kp), this.prev));
-      pick = ds[0] <= ds[1] ? 0 : 1;
-      if (Math.abs(ds[0] - ds[1]) < 0.05) { this.sample = { t, seq: ++this.seq, source: 'camera', present: true, x: NaN, y: NaN }; return; }
-    }
-    const kp = norm[pick];
-    const c = centre(kp);
-    this.prev = c;
-    const raw = results[pick].keypoints;
-    const px = (i) => ({ x: raw[i].x, y: raw[i].y });
-    const palmPx = d2(px(0), px(9));
-    const shortSidePx = 480 * (1 - 2 * CROP);
-    const handScale = palmPx / shortSidePx;
-    const tips = TIPS.reduce((s, i) => s + d2(px(i), { x: PALM.reduce((a, j) => a + raw[j].x, 0) / 5, y: PALM.reduce((a, j) => a + raw[j].y, 0) / 5 }), 0) / TIPS.length;
-    const open = Math.max(0, Math.min(1, (tips / Math.max(palmPx, 1) - 0.9) / 0.7));
-    const finite = raw.length === 21 && raw.every((k) => Number.isFinite(k.x) && Number.isFinite(k.y));
-    this.keypoints = kp;
-    this.sample = {
-      t, seq: ++this.seq, source: 'camera', present: true,
-      x: c.x, y: c.y,
-      handScale, open,
-      pinchRatio: d2(px(4), px(8)) / Math.max(palmPx, 1),
-      keypointCount: finite ? 21 : 0,
-      keypoints: finite ? kp : null, // screen-normalised; hand shapes are read from these (core/pose.js)
-      keypoints3D: finite && Array.isArray(results[pick].keypoints3D) && results[pick].keypoints3D.length === 21 ? results[pick].keypoints3D.map((k) => ({ x: k.x, y: k.y, z: k.z })) : null,
+  nextFrame(run) {
+    const video = this.video;
+    const send = async (time) => {
+      if (run !== this.run) return;
+      try {
+        const frame = await createImageBitmap(video);
+        if (run !== this.run) return frame.close();
+        this.worker.postMessage({ type: 'frame', frame, time }, [frame]);
+      } catch {
+        if (run === this.run) this.fail('library');
+      }
     };
+    if (video.requestVideoFrameCallback && !document.hidden) video.requestVideoFrameCallback(send);
+    else requestAnimationFrame(send);
   }
 
-  // Returns the newest sample once; the track ages it out if the model stalls.
-  take() { const s = this.sample; this.sample = null; return s; }
+  onHands({ landmarks, worldLandmarks, width, height, time }) {
+    const hands = landmarks.map((points, i) => ({ points, world: worldLandmarks?.[i] }))
+      .filter(({ points }) => points.length === 21 && points.every((k) => Number.isFinite(k.x) && Number.isFinite(k.y)));
+    this.multiHand = hands.length > 1;
+    const sample = { t: time, seq: ++this.seq, source: 'camera', present: hands.length > 0 };
+    if (!hands.length) {
+      this.sample = sample;
+      this.keypoints = null;
+      this.visualTime = null;
+      return;
+    }
 
-  stopTracks() {
-    if (this.stream) for (const tr of this.stream.getTracks()) tr.stop();
-    this.stream = null;
+    // Keep the nearest previously tracked palm. Two equally plausible hands are uncertain.
+    for (const hand of hands) hand.center = centroid(hand.points);
+    if (this.prev && time - this.prev.time > 500) this.prev = null;
+    if (this.prev) hands.sort((a, b) => dist(a.center, this.prev) - dist(b.center, this.prev));
+    const [hand, other] = hands;
+    if (other && (!this.prev || Math.abs(dist(hand.center, this.prev) - dist(other.center, this.prev)) < 0.05)) {
+      this.sample = sample;
+      this.keypoints = null;
+      this.visualTime = null;
+      return;
+    }
+    this.prev = { ...hand.center, time };
+    const raw = hand.points.map((k) => ({ x: k.x * width, y: k.y * height }));
+    const palm = dist(raw[0], raw[9]);
+    const center = centroid(raw);
+    const spread = TIPS.reduce((sum, i) => sum + dist(raw[i], center), 0) / TIPS.length;
+    const normal = hand.points.map((k) => ({
+      x: (1 - k.x - CROP) / (1 - 2 * CROP),
+      y: (k.y - CROP) / (1 - 2 * CROP),
+    }));
+    const c = centroid(normal);
+    // Smooth the drawn hand more when it is still. The recognizer receives the actual sample.
+    const previous = this.keypoints;
+    const dt = Math.max((time - (this.visualTime ?? time)) / 1000, 1 / 120);
+    const movement = previous ? dist(c, centroid(previous)) : 0;
+    const alpha = !previous || dt > 0.2 || movement > 0.25 ? 1
+      : 1 - Math.exp(-2 * Math.PI * (4 + Math.min(22, 4 * movement / dt)) * dt);
+    this.keypoints = normal.map((point, i) => previous ? ({
+      x: previous[i].x + alpha * (point.x - previous[i].x),
+      y: previous[i].y + alpha * (point.y - previous[i].y),
+    }) : point);
+    this.visualTime = time;
+    this.sample = { ...sample, x: c.x, y: c.y, handScale: palm / (Math.min(width, height) * (1 - 2 * CROP)),
+      open: Math.max(0, Math.min(1, (spread / Math.max(palm, 1) - 0.9) / 0.7)),
+      pinchRatio: dist(raw[4], raw[8]) / Math.max(palm, 1), keypointCount: 21,
+      keypoints: normal, keypoints3D: hand.world ?? null };
   }
+
+  take() { const sample = this.sample; this.sample = null; return sample; }
+
+  fail(kind) { this.stop(); this.status = 'failed'; this.error = kind; }
 
   stop() {
-    try { this.model?.detectStop(); } catch { /* model may not have started */ }
-    this.stopTracks();
-    if (this.video) { this.video.srcObject = null; this.video = null; }
+    this.run++;
+    clearTimeout(this.timer);
+    this.worker?.terminate();
+    this.worker = null;
+    for (const track of this.stream?.getTracks() ?? []) track.stop();
+    this.stream = null;
+    if (this.video) this.video.srcObject = null;
+    this.video = null;
     this.status = 'off';
+    this.error = null;
     this.sample = null;
     this.keypoints = null;
+    this.visualTime = null;
     this.prev = null;
+    this.multiHand = false;
   }
 }
 
@@ -136,8 +163,9 @@ export const CAMERA_ERRORS = {
     denied: 'Camera permission was declined. You can carry on with the mouse.',
     no_device: 'No camera was found. You can carry on with the mouse.',
     in_use: 'The camera is busy in another app. You can carry on with the mouse.',
-    library: 'Hand tracking could not load. You can carry on with the mouse.',
-    timeout: 'Hand tracking is taking too long. You can carry on with the mouse.',
-    insecure: 'The camera needs https or localhost. You can carry on with the mouse.',
+    library: 'Hand tracking could not load. Try again or use the mouse.',
+    timeout: 'No steady hand was found in time. Try again or use the mouse.',
+    insecure: 'Hand tracking needs a secure page. You can carry on with the mouse.',
+    disconnected: 'The camera disconnected. You can carry on with the mouse.',
   },
 };

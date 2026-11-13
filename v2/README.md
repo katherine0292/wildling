@@ -15,21 +15,19 @@ What is a model, a rule or a statistic, and what is planned or verified, is in
 python3 -m http.server 8790     # from the repository root
 ```
 
-Open <http://localhost:8790/v2/> in Chrome. The camera needs `localhost` or `https`. p5.js and all fonts ship in the folder, so the mouse and keyboard paths work offline.
+Open <http://localhost:8790/v2/> in Chrome. Camera mode needs localhost or HTTPS. The hand model, p5.js and fonts ship with the app. Camera frames stay on the device.
+
+Choose **Your hand** and keep one hand in view until the ring fills. Move slowly towards the kitten and pause to let it come closer. Pinch over a pouch slot to pick up an item. Open your fingers before the next pinch. To feed the kitten, pinch again over clear ground nearby. To play, move the feather in short bursts with pauses. If tracking is lost, bring one open hand back into view or choose **Use mouse**.
 
 | Key | Action |
 |---|---|
-| `Q` `E` · `1` `2` `3` · `Enter` | Field guide: switch tabs · choose a kitten · say hello |
-| `1` … `6` | Feed · Play · Pet · Give space · Siblings · Tricks |
-| Tricks | Pick a trick and press Teach, then make your own move three times (move, then pause). Make it again later to ask for the trick |
-| Siblings: click a sibling (or `Space` on it) | Ask: `1` make friends · `2` cuddle up · `3` play-fight · `4` hiss. With the camera: hold an open hand, two fingers, a fist or a claw over the sibling |
-| Arrows + `Space` | Keyboard hand: move · offer, or hold to pet |
-| Click a sibling with Play | Invite it over (a request; your kitten may decline) |
-| `T` | Peek inside: what the kitten is weighing, and why |
-| `2` again | With Play selected: switch toy (yarn, feather, ball) |
-| `Esc` | Pause or continue |
-| `D` | Staff diagnostics: observed input, needs, decision trace, adaptation |
-| `M` | Sound on or off |
+| `1`–`3` · `Enter` on the entry screen | Pick a kitten with `1`–`3`, then start the visit with `Enter` |
+| `1` `2` during the visit | Take or put back a treat or feather |
+| Arrow keys + `Space` | Move and confirm with the keyboard hand |
+| Hold `V` or press `T` | View what the kitten sees. The eye button also toggles this view |
+| `Esc` | Put the held item back, or pause or resume the visit |
+| `D` | Staff diagnostics |
+| `M` | Toggle sound |
 
 URL options: `?input=mouse|keyboard` (skip the approach screen), `?kitten=ember|juniper|saffron`, `?staff=1`, `?adapt=0`, `?seed=42`, `?kiosk=1` (exhibition: no keepsakes), `?adopt=…` (a postcard's code), `?watch=1` with `?kiosk=1` (notice passers-by with the camera) or `?watch=demo` (a demo passer-by).
 
@@ -55,7 +53,8 @@ v2/browser/     everything that touches the page
   render.js       painted habitats, follow camera, light, feedback layers and cursor (reads the snapshot only)
   ui.js           field guide, approach choice, HUD and journal
   staff.js        diagnostics panel
-  camera.js       getUserMedia + ml5 HandPose, error kinds, single-hand lock, clean release
+  camera.js       getUserMedia, hand tracking lifecycle and single-hand lock
+  hand-worker.js  local MediaPipe Hand Landmarker and frame processing
   keyboard.js     keyboard virtual hand
   presence.js     exhibition only: people walking past, as positions (ml5 BodyPose)
   keepsake.js     keepsakes in the visitor's own browser, and the take-home postcard
@@ -63,7 +62,7 @@ v2/browser/     everything that touches the page
   icons.js        one icon set for the interface and the canvas
   main.js         wiring
 v2/assets/      crest and bundled fonts (OFL)
-v2/vendor/      pinned p5.js for offline use
+v2/vendor/      pinned p5.js and MediaPipe for offline use
 ```
 
 `sim.snapshot()` already uses the field names of the PRD V2 §19 protocol (`protocolVersion`, `sessionState`,

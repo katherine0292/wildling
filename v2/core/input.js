@@ -40,14 +40,14 @@ export class InputTrack {
   ingest(s) {
     if (s.source !== this.source) this.reset(s.source);
     if (typeof s.seq === 'number') {
-      if (s.seq <= this.lastSeq) { this.rejects++; return; } // stale or replayed packet
+      if (s.seq <= this.lastSeq) { this.rejects++; return false; } // stale or replayed packet
       this.lastSeq = s.seq;
     }
     this.totalCount++;
     this.lastSample = s;
     this.present = !!s.present;
     const ok = this.isValid(s);
-    if (!ok) { this.stableSince = null; return; }
+    if (!ok) { this.stableSince = null; return false; }
 
     const wx = s.x * this.world.w, wy = s.y * this.world.h;
     const prev = this.lastValid;
@@ -60,12 +60,12 @@ export class InputTrack {
         this.stableSince = null;
         this.samples = [];
         this.lastValid = { t: s.t, x: wx, y: wy, open: s.open ?? 1 };
-        return;
+        return false;
       }
     }
 
     // First valid sample after a gap: speed starts at 0, never a spike.
-    const resumed = !prev || s.t - prev.t > this.p.lostAfterMs;
+    const resumed = !prev || this.stableSince === null || s.t - prev.t > this.p.maxSampleAgeMs;
     if (resumed) { this.samples = []; this.speed = 0; this.stableSince = s.t; }
     if (this.stableSince === null) this.stableSince = s.t;
 
@@ -83,6 +83,7 @@ export class InputTrack {
     this.validCount++;
     const keep = s.t - 1200;
     while (this.samples.length && this.samples[0].t < keep) this.samples.shift();
+    return true;
   }
 
   isValid(s) {
@@ -158,6 +159,8 @@ export class PinchDetector {
     this.latched = false;
     this.lastFire = -Infinity;
   }
+
+  requireRelease() { this.latched = true; this.closedSince = null; }
 
   // ratio = thumb–index distance / palm scale. Returns true on the frame a confirm fires.
   update(ratio, valid, now) {

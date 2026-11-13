@@ -29,25 +29,21 @@ const NEED_WORDS = { food: 'It is hungry', play: 'It wants to play', touch: 'It 
 const NEED_ITEM = { food: 'treat', play: 'wand' };
 const WARN = new Set(['PRESSURE_HIGH', 'NOT_CLOSE_YET', 'SIB_STANDOFF', 'SIB_TENSE', 'SIB_FOOD']);
 
-// Peek inside: plain names for each choice and each reason a choice is blocked.
-const ACTS = {
-  EXPLORE: 'Wander', OBSERVE: 'Watch you', SEEK_FOOD: 'Eat', EAT: 'Eat', REST: 'Nap', GROOM: 'Wash',
-  APPROACH: 'Come to you', PLAY: 'Play', CONTACT: 'Be stroked', RETREAT: 'Back off', SOCIAL: 'Join a sibling',
-  HUNT: 'Hunt', GIFT: 'Find you a gift', TRICK: 'A trick',
+const READING = {
+  gentle_approach: 'Slow approach', stable_contact: 'Steady hand', fast_approach: 'Fast approach',
+  neutral_motion: 'Moving nearby', unknown: 'Hold still a moment', lost: 'Move into the clearing',
 };
-const WHY_NOT = {
-  NEED_REST: 'too tired', PRESSURE_HIGH: 'too tense', TOO_FULL: 'full', HUNGRY_FIRST: 'hungry first', NOT_READY: 'not ready yet',
-  PLAY_PAUSE: 'catching its breath', tool: 'not offered', input: "can't see you", far: 'too far', no_invitation: 'not invited',
-  intent: 'waiting for a calm hand', break: 'short break', dwell: 'almost', no_food: 'no food', cooldown: 'just did that',
-  alone: 'no sibling nearby', NOT_CLOSE_YET: 'not close enough yet', FRIENDS: "they're friends", too_young: 'too young', none: 'nothing to chase', trust: 'needs more trust', calm: 'feels safe',
+const REPLY = {
+  NEED_REST: 'Needs a quiet moment', PLAY_PAUSE: 'Taking a break', TOO_FULL: 'Is full',
+  HUNGRY_FIRST: 'Wants food first', NOT_READY: 'Is still deciding',
+  PRESSURE_HIGH: 'Needs more space',
 };
-const READING = { gentle_approach: 'slow approach', stable_contact: 'resting, steady', fast_approach: 'fast approach', neutral_motion: 'moving about', unknown: 'not clear yet', lost: 'not in view' };
 
 const HOW = [
   ['ai/sees-you', 'Come in slowly', 'A slow, steady hand shrinks the ring around it. A fast one makes it back off.', 'Move your hand towards it, then stop.'],
   ['mood/affectionate', 'Stroke it', 'Rest your hand on it and move gently. Watch its tail: a flick means stop.', 'Keep the pointer on it and move slowly.'],
-  ['inventory/treat', 'Offer a treat', 'Take one from the pouch, then drop it near the kitten. From your open hand needs trust.', 'Pick the treat, then click where it should land.'],
-  ['inventory/wand', 'Play with the feather', 'Take the feather from the pouch. Dart, then pause, like something alive.', 'Pick the feather; your pointer moves it.'],
+  ['inventory/treat', 'Offer a treat', 'Pinch over the treat to pick it up. Open your fingers, then pinch again near the kitten to drop it.', 'Pick the treat, then click where it should land.'],
+  ['inventory/wand', 'Play with the feather', 'Pinch over the feather to pick it up. Dart, then pause.', 'Pick the feather; your pointer moves it.'],
   ['mood/relaxed', 'Step back', 'When it is tired or tense, move your hand away. It notices, and it comes back.', 'Move the pointer to the edge, or off the window.'],
 ];
 
@@ -57,7 +53,7 @@ const T = {
   calibHold: 'There you are. Hold still for a moment…',
   pausedReasons: { user: 'Take your time.', hidden: 'The page went into the background.', idle: 'It seemed nobody was here.', system: 'Something needs a moment.' },
   titles: { user: 'Until next time', time_limit: 'Until next time', idle: 'It noticed you left', pause_timeout: 'Until next time', staff: 'Until next time', grown: 'Grown, together', asleep: '{name} fell asleep beside you' },
-  status: { valid: 'Hand found', uncertain: 'Hold still', lost: 'Finding your hand' },
+  status: { valid: 'Hand tracked', uncertain: 'Show one hand and hold still', lost: 'Show your open hand to continue' },
   offerEnd: 'Whenever you are ready, you can end your visit here.',
   options: {
     camera: ['system/camera-gesture', 'Your hand', 'Hold your hand up to the camera. Closest to meeting a real kitten.', 'Recommended'],
@@ -66,7 +62,7 @@ const T = {
 };
 
 export class UI {
-  constructor({ dispatch, onChooseInput, onToggleSound, onHelp, keepsakes }) {
+  constructor({ dispatch, onChooseInput, onRecoverMouse, onToggleSound, onHelp, keepsakes }) {
     this.dispatch = dispatch;
     this.keep = keepsakes;
     this.album = [];
@@ -91,6 +87,7 @@ export class UI {
       $(id).onclick = () => onChooseInput(src);
     }
     $('btnKeyboard').onclick = () => onChooseInput('keyboard');
+    $('btnRecoverMouse').onclick = onRecoverMouse;
     $('btnCalibMouse').onclick = () => onChooseInput('mouse');
     $('btnCancel').onclick = () => dispatch({ type: 'end' });
 
@@ -117,11 +114,25 @@ export class UI {
     $('btnPostcard').onclick = () => this.savePostcard();
   }
 
+  blocksSceneAt(x, y) {
+    return !!document.elementFromPoint(x, y)?.closest('button, [role="dialog"], #pouch, #coach');
+  }
+
+  activateAt(x, y) {
+    const target = document.elementFromPoint(x, y);
+    const button = target?.closest('button');
+    if (button && !button.disabled) {
+      button.click();
+      return true;
+    }
+    return this.blocksSceneAt(x, y);
+  }
+
   // Take something from the pouch, or put it back if it is already in hand.
   take(item) { this.dispatch({ type: 'hold', item: this.held === item ? null : item }); }
 
   showHow(on, cam = this.lastSource === 'camera') {
-    if (on) $('howGrid').innerHTML = HOW.map(([icon, t, d, mouse]) => `<div class="how-item">${kit(icon, 26)}<b>${t}</b><span>${cam ? d : `${d} ${mouse}`}</span></div>`).join('');
+    if (on) $('howGrid').innerHTML = HOW.map(([icon, t, d, mouse]) => `<div class="how-item">${kit(icon, 26)}<b>${t}</b><span>${cam ? d : mouse}</span></div>`).join('');
     $('howTitle').textContent = `${HOW.length === 5 ? 'Five' : HOW.length} things you can do`;
     this.show('how', on);
     if (on) setTimeout(() => $('btnHowClose').focus({ preventScroll: true }), 0);
@@ -274,73 +285,31 @@ export class UI {
     $('btnNext').textContent = left !== null && left !== undefined && snap.timed ? `Next visitor · ${Math.ceil(left)}s` : `Meet another kitten`;
   }
 
-  // Peek inside: what the kitten notices and what it is weighing, in plain words.
-  mind(snap, x) {
-    const el = $('mind');
+  // Explain the current moment. The staff panel retains scores and candidate actions.
+  mind(snap) {
     const on = this.mindVisible;
     this.show('mind', on);
     document.body.classList.toggle('mind-on', on);
     $('btnMind').setAttribute('aria-pressed', String(this.mindOn));
-    this.show('mindKey', !!this.mindHeld && !this.mindOn);
-    this.sceneLabels(snap, x, on);
     if (!on) return;
-    // the panel takes the side of the screen the kitten is not on
-    el.classList.toggle('left', x.catPx.x > x.width * 0.55);
-    const c = snap.creature, d = snap.diagnostics, name = snap.kitten.name;
-    const label = (n) => (n === 'SOCIAL' && c.socialTarget ? `Join ${NAMES[c.socialTarget]}` : ACTS[n] ?? n);
-    const setAside = snap.toolless ? ['HUNT', 'GIFT', 'TRICK'] : [];
-    const rows = d.candidates.filter((q) => !setAside.includes(q.name)).filter((q) => q.available || /^[A-Z_]+$/.test(q.blocked ?? '') || ['too_young', 'trust', 'alone'].includes(q.blocked))
-      .slice(0, 5).map((q) => {
-        const chosen = q.name === d.chosen || (d.chosen === 'EAT' && q.name === 'SEEK_FOOD');
-        const why = q.available ? (q.request ? 'you offered this' : q.score.toFixed(2)) : WHY_NOT[q.blocked] ?? q.blocked;
-        return `<div class="m-row ${chosen ? 'chosen' : ''} ${q.available ? '' : 'blocked'}"><span>${label(q.name)}</span><i style="--v:${Math.round(Math.min(1, q.score) * 100)}%"></i><em>${chosen ? 'chosen' : why}</em></div>`;
-      }).join('');
-    const q = snap.input.source === 'camera' ? snap.input.quality : 'valid';
-    const seen = snap.input.source === 'camera' ? (q === 'valid' ? 'seen clearly' : q === 'uncertain' ? 'not sure' : 'not in view') : `${snap.input.source}, exact`;
-    const intent = READING[snap.intent.label] ?? snap.intent.label;
-    const trust = this.copy.relation[c.relation].toLowerCase();
-    const html = `<h3>${kit('ai/sees-you', 20)}What ${name} notices</h3>
-      <div class="m-fact"><span>Your hand</span><em>${seen}</em></div>
-      <div class="m-fact"><span>Movement</span><em>${intent}${snap.intent.score ? ` · ${snap.intent.score.toFixed(2)}` : ''}</em></div>
-      <div class="m-fact"><span>Bond</span><em>${trust}</em></div>
-      <h3>${kit('ai/thinking', 20)}What it is weighing</h3>${rows}
-      <p class="m-foot">Safety rules first, then hand-written scores. Not a learned model. Nothing here is recorded.</p>`;
-    if (this.mindHtml !== html) { this.mindHtml = html; el.innerHTML = html; }
-  }
-
-  // Labels in the scene while the view is open: the comfort ring and the visitor's hand.
-  sceneLabels(snap, x, on) {
-    const ring = $('lblRing'), hand = $('lblHand');
-    const r = x.ring;
-    this.show('lblRing', on && !!r);
-    this.show('lblHand', on && !!x.cursorPx);
-    if (!on) return;
-    $('mindName').textContent = snap.kitten.name;
-    if (r) {
-      const word = snap.creature.acceptedContact ? 'you are inside it' : snap.creature.inviting ? 'open to you' : r.trend > 0.004 ? 'widening' : r.trend < -0.004 ? 'shrinking' : 'steady';
-      ring.textContent = `comfort distance · ${word}`;
-      ring.style.left = `${x.catPx.x}px`;
-      ring.style.top = `${Math.min(x.height - 40, x.catPx.y + r.ry + 22)}px`;
-    }
-    if (x.cursorPx) {
-      const q = snap.input.source === 'camera' ? snap.input.quality : 'valid';
-      const reading = q === 'lost' ? 'not in view' : q === 'uncertain' ? 'not sure yet' : READING[snap.intent.label] ?? snap.intent.label;
-      hand.textContent = `your hand · ${reading}`;
-      hand.classList.toggle('cool', q !== 'valid' || snap.intent.label === 'unknown');
-      hand.classList.toggle('warn', snap.intent.label === 'fast_approach');
-      // on the far side of the hand from the kitten, so it never covers the kitten or its ring
-      const dx = x.cursorPx.x - x.catPx.x, dy = x.cursorPx.y - x.catPx.y, d = Math.hypot(dx, dy) || 1;
-      hand.style.left = `${Math.max(110, Math.min(x.width - 110, x.cursorPx.x + (dx / d) * 95))}px`;
-      hand.style.top = `${Math.max(110, Math.min(x.height - 30, x.cursorPx.y + (dy / d) * 95 + 20))}px`;
-      // if the two labels still meet (hand right beside the kitten), stack the hand's above
-      if (r) {
-        const a = ring.getBoundingClientRect(), b = hand.getBoundingClientRect();
-        if (a.left < b.right + 6 && b.left < a.right + 6 && a.top < b.bottom + 4 && b.top < a.bottom + 4) {
-          hand.style.top = `${a.top + a.height / 2 - a.height - 10}px`;
-          hand.style.left = `${Math.max(110, Math.min(x.width - 110, a.left + a.width / 2))}px`;
-        }
-      }
-    }
+    const c = snap.creature, input = snap.input;
+    const seen = input.quality === 'lost' ? (input.source === 'camera' ? 'Hand out of view' : 'Move into the clearing')
+      : input.quality === 'uncertain' ? 'Finding a steady hand'
+      : input.source === 'camera' ? 'Hand tracked' : 'Pointer tracked';
+    const action = input.quality !== 'valid' ? 'Waiting for input'
+      : input.overUI ? 'Selecting a control' : READING[snap.intent.label] ?? 'Watching';
+    const reply = c.acceptedContact ? 'Welcomes your touch' : c.behaviour === 'EAT' ? 'Is eating your treat'
+      : c.behaviour === 'APPROACH' ? 'Is coming to sniff' : REPLY[snap.reasonCode]
+      ?? (c.behaviour === 'REST' ? 'Is resting' : c.behaviour === 'PLAY' ? 'Is following the feather' : 'Is watching the clearing');
+    const guidance = input.quality !== 'valid' ? (input.source === 'camera' ? 'Bring your hand back into view.' : 'Move your pointer into the clearing.')
+      : c.inviting && !c.acceptedContact && snap.activeTool === 'PET' ? 'Hold still to let it come to you.'
+      : c.behaviour === 'RETREAT' ? 'Move a little farther away.' : '';
+    const html = `<h3>${kit('ai/sees-you', 20)}${snap.kitten.name}’s view</h3>
+      <div class="m-fact"><span>Input</span><em>${seen}</em></div>
+      <div class="m-fact"><span>Your move</span><em>${action}</em></div>
+      <div class="m-fact"><span>${snap.kitten.name}</span><em>${reply}</em></div>
+      ${guidance ? `<p class="m-foot">${guidance}</p>` : ''}`;
+    if (this.mindHtml !== html) { this.mindHtml = html; $('mind').innerHTML = html; }
   }
 
   active(snap, x) {
@@ -351,7 +320,7 @@ export class UI {
     $('kname').textContent = snap.kitten.name;
     $('relation').textContent = this.copy.relation[c.relation];
     [...$('hearts').children].forEach((el, i) => el.classList.toggle('on', i <= c.relation));
-    this.mind(snap, x);
+    this.mind(snap);
     $('btnSound').innerHTML = kit(x.soundOn ? 'system/sound-on' : 'system/sound-off', 22);
     $('btnSound').setAttribute('aria-pressed', String(x.soundOn));
 
@@ -360,10 +329,24 @@ export class UI {
     if (cam) {
       const q = snap.input.quality;
       $('inputStatus').className = `glass ${q}`;
-      $('inputStatus').innerHTML = `${kit(q === 'lost' ? 'ai/hand-lost' : 'ai/hand-found', 18)}${T.status[q]}`;
+      const recovering = q !== 'valid';
+      const text = x.camera.status === 'failed' ? CAMERA_ERRORS.en[x.camera.error] : T.status[q];
+      if (this.trackingText !== text) {
+        this.trackingText = text;
+        $('trackingText').innerHTML = `${kit(recovering ? 'ai/hand-lost' : 'ai/hand-found', 18)}<span>${text}</span>`;
+      }
+      this.show('btnRecoverMouse', recovering);
+
     }
 
     this.held = snap.held;
+    const handTarget = cam && snap.input.quality === 'valid' && x.cursorPx
+      ? document.elementFromPoint(x.cursorPx.x, x.cursorPx.y)?.closest('button') : null;
+    if (handTarget !== this.handTarget) {
+      this.handTarget?.classList.remove('hand-target');
+      handTarget?.classList.add('hand-target');
+      this.handTarget = handTarget;
+    }
     // the coach leads in Act 1; after that the kitten's own need lights up the matching slot
     const need = this.pulse ? null : snap.need?.hint ? snap.need : null;
     const call = this.pulse ?? NEED_ITEM[need?.kind] ?? null;
@@ -392,12 +375,10 @@ export class UI {
       bubble.style.left = `${x.catPx.x}px`;
       bubble.style.top = `${Math.max(110, x.catPx.y - x.catPx.r * 0.95)}px`;
     } else { bubble.className = 'glass'; this.bubbleCode = null; }
-    if (h && h.owner === 'system') {
+    if (h && h.owner === 'system' && !(cam && h.code === 'TRACKING_LOST')) {
       sys.innerHTML = `${kit(h.code === 'TRACKING_LOST' ? 'ai/hand-lost' : 'ai/motion-unclear', 20)}<span>${this.copy[h.code] ?? h.code}</span>`;
       sys.className = 'glass show';
-      const at = x.cursorPx ?? { x: x.width / 2, y: x.height * 0.3 };
-      sys.style.left = `${Math.max(180, Math.min(x.width - 180, at.x))}px`;
-      sys.style.top = `${Math.max(120, at.y - 40)}px`;
+
     } else sys.className = 'glass';
   }
 }

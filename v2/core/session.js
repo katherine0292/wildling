@@ -24,6 +24,7 @@ export class SessionController {
     this.idle = 0;           // seconds without meaningful activity
     this.stateTime = 0;      // seconds in the current state
     this.calibStable = 0;
+    this.calibElapsed = 0;
     this.pauseReason = null;
     this.endReason = null;
     this.transitions = [];   // drained by the simulation
@@ -34,6 +35,7 @@ export class SessionController {
     if (from === next) return;
     this.state = next;
     this.stateTime = 0;
+    if (next === 'CALIBRATING') { this.calibStable = 0; this.calibElapsed = 0; }
     this.transitions.push({ from, to: next, reason });
   }
 
@@ -46,7 +48,6 @@ export class SessionController {
     this.inputSource = source;
     if (fresh) { this.sessionId = newSessionId(this.rand); this.activeTime = 0; }
     this.idle = 0;
-    this.calibStable = 0;
     this.go(source === 'camera' ? 'CALIBRATING' : 'ACTIVE', `input:${source}`);
     return true;
   }
@@ -80,14 +81,16 @@ export class SessionController {
   noteActivity() { this.idle = 0; }
 
   // --- time ---
-  // ctx: { trackingValid, grown }
+  // ctx: { trackingValid, trackingAvailable, grown }
   tick(dt, ctx = {}) {
     this.stateTime += dt;
     switch (this.state) {
       case 'CALIBRATING':
+        if (ctx.trackingAvailable === false) break;
+        this.calibElapsed += dt;
         this.calibStable = ctx.trackingValid ? this.calibStable + dt : 0;
         if (this.calibStable >= this.p.calibrateStableSec) this.go('ACTIVE', 'calibrated');
-        else if (this.stateTime >= this.p.calibrateMaxSec) this.go('CONSENT', 'calibration_timeout');
+        else if (this.calibElapsed >= this.p.calibrateMaxSec) this.go('CONSENT', 'calibration_timeout');
         break;
       case 'ACTIVE':
         this.activeTime += dt;

@@ -30,8 +30,8 @@
   <!-- HOW IT WORKS: four moves, no reading required -->
   <section id="how" class="screen dim" hidden>
     <div class="card glass how-card" role="dialog" aria-labelledby="howTitle">
-      <h2 id="howTitle">Four things you can do</h2>
-      <p class="sub">Nothing to select. Your hand, and what it holds, says what you mean.</p>
+      <h2 id="howTitle">Five things you can do</h2>
+      <p class="sub">Come close slowly and let the kitten decide when to meet you.</p>
       <div class="how-grid" id="howGrid"></div>
       <p class="fine">The kitten can say no to any of them. It is never your fault when the camera loses your hand.</p>
       <div class="card-actions"><button class="btn primary" id="btnHowClose">Got it</button></div>
@@ -42,13 +42,13 @@
   <section id="consent" class="screen dim" hidden>
     <div class="card glass input-card" role="dialog" aria-labelledby="inputTitle">
       <h2 id="inputTitle">How will you say hello?</h2>
-      <p class="sub">You can switch at any time.</p>
+      <p class="sub">Use your hand, mouse or keyboard.</p>
       <div class="opts">
         <button class="opt recommended" id="btnCamera"></button>
         <button class="opt" id="btnMouse"></button>
       </div>
       <p class="error" id="cameraError" hidden></p>
-      <p class="fine split"><span>The camera only looks for one hand. Nothing is recorded or uploaded.</span><button class="textlink" id="btnKeyboard">Use the keyboard</button></p>
+      <p class="fine split"><span>Show one hand. Camera frames stay on this device.</span><button class="textlink" id="btnKeyboard">Use the keyboard</button></p>
       <button class="textlink back" id="btnCancel">Back to the clearing</button>
     </div>
   </section>
@@ -75,11 +75,11 @@
       <button class="ib glass" id="btnHelp" aria-label="How it works"></button>
       <button class="ib glass" id="btnEnd" aria-label="End the visit" title="End the visit"></button>
     </nav>
-    <div id="inputStatus" class="glass" role="status" hidden></div>
+    <div id="inputStatus" class="glass" hidden>
+    <span id="trackingText" role="status"></span>
+    <button class="textlink" id="btnRecoverMouse" hidden>Use mouse</button>
+  </div>
     <aside id="mind" class="glass" hidden aria-live="off"></aside>
-    <div id="lblRing" class="scene-label" hidden></div>
-    <div id="lblHand" class="scene-label" hidden></div>
-    <div id="mindKey" class="glass" hidden><kbd>V</kbd><span>held · seeing what <b id="mindName"></b> sees</span></div>
     <div id="bubble" class="glass" role="status" aria-live="polite"></div>
     <div id="sysHint" class="glass" role="status" aria-live="assertive"></div>
     <div id="coach" class="glass" role="status" aria-live="polite" hidden></div>

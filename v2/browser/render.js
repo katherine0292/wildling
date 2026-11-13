@@ -81,7 +81,7 @@ export class Renderer {
     this.S = Math.min(this.W, this.H);
     this.u = this.S / 900;
     this.dpr = p.pixelDensity();
-    this.grain = this.makeGrain();
+    this.grain = this.p.drawingContext.createPattern(this.makeGrain(), 'repeat');
     // paint the habitat on screen now and the other two shortly after, off the first frame
     const makers = { kitten: () => this.makeForest(), juvenile: () => this.makeSnow(), adult: () => this.makeDesert() };
     const gen = (this.gen = (this.gen ?? 0) + 1);
@@ -107,11 +107,13 @@ export class Renderer {
     const c = snap.creature, st = snap.sessionState;
     const now = performance.now() / 1000;
     const celebrating = now < this.celebrateUntil;
+    const meeting = st === 'ACTIVE' && now < (this.meetingUntil ?? 0) && !this.mindView;
     let z = st === 'ACTIVE' ? 1.06 : 1.03, tx = this.W / 2, ty = this.H / 2;
     if (st === 'ACTIVE' || celebrating) {
       const cx = c.position.x * this.W, cy = c.position.y * this.H;
       tx += (cx - this.W / 2) * 0.35; ty += (cy - this.H / 2) * 0.35;
       if (celebrating) { z = 1.22; tx = cx; ty = cy; }
+      if (meeting) { z = 1.23; tx = (tx + cx) / 2; ty = (ty + cy) / 2; }
     }
     // never show past the painted edge
     const hw = this.W / (2 * z), hh = this.H / (2 * z);
@@ -127,6 +129,11 @@ export class Renderer {
   onEvent(e, snap) {
     if (!snap) return;
     const at = this.px(snap.creature.position);
+    if (e.type === 'session' && e.from === 'CONSENT') { this.firstTouch = false; this.meetingUntil = 0; }
+    if ((e.type === 'contact_started' && !this.firstTouch) || e.type === 'rhythm_adapted') {
+      this.firstTouch = true;
+      this.meetingUntil = performance.now() / 1000 + 2.6;
+    }
     if (e.type === 'growth_burst') {
       for (let i = 0; i < 9; i++) this.sparks.push({ x: at.x, y: at.y - 20 * this.u, vx: (Math.random() - 0.5) * 260 * this.u, vy: -(120 + Math.random() * 160) * this.u, t: 0, d: 1.1 + Math.random() * 0.4, home: i < 5 });
     }
@@ -177,7 +184,7 @@ export class Renderer {
       const reaction = s.standoff ? (s.kitten === 'saffron' ? 'hiss' : 'cower') : s.fleeing ? 'cower' : null;
       this.body(ctx, s.kitten, s, s.lookAt ? this.px(s.lookAt) : null, dt, 1, { wrestling: s.wrestling, socialMode: s.mode === 'wrestle' ? null : s.mode, reaction });
     }
-    let look = ['OBSERVE', 'APPROACH', 'CONTACT', 'PLAY', 'GIFT'].includes(c.behaviour) ? hand : null;
+    let look = !snap.input.overUI && snap.input.quality === 'valid' && !['REST', 'EAT'].includes(c.behaviour) ? hand : null;
     // a hungry kitten keeps glancing at the pouch: the body asks before any pictogram does
     if (interactive && snap.need?.kind === 'food' && this.pouchAt && !c.acceptedContact && Math.sin(t * 1.3) > -0.2) look = this.toWorld(this.pouchAt.x, this.pouchAt.y);
     seen.add(c.kitten);
@@ -203,7 +210,8 @@ export class Renderer {
       const kp = snap.input.source === 'camera' && ui?.keypoints && snap.input.quality !== 'lost' ? ui.keypoints.map((q) => this.px(this.screenToWorldN(q.x, q.y))) : null;
       const handTool = snap.activeTool === 'PET' || snap.activeTool === 'LITTER' || (snap.toolless && hand);
       if (interactive && this.demo === 'approach' && hand) this.demoHand(ctx, hand, main, snap, t);
-      if (kp) this.handCursor(ctx, snap, kp, t);
+      if (kp && ui.showSkeleton) this.skeleton(ctx, ui.keypoints);
+      else if (kp) this.handCursor(ctx, snap, kp, t);
       else if (handTool && hand) this.handCursor(ctx, snap, this.templateHand(hand, snap, t), t);
       else this.cursor(ctx, snap, ui, t);
       if (snap.held === 'treat' && hand) { // the treat sits in the palm
@@ -269,9 +277,7 @@ export class Renderer {
     const fast = snap.intent?.label === 'fast_approach' || c.behaviour === 'RETREAT';
     const want = Math.max(0, Math.min(1, 0.65 * n.stress + 0.55 * (1 - n.trust) + (fast ? 0.45 : 0) - (c.inviting ? 0.35 : 0)));
     const target = this.S * (0.075 + 0.14 * want);
-    const before = this.ringR ?? target;
     this.ringR = this.ringR ? this.ringR + (target - this.ringR) * Math.min(1, dt * (fast ? 6 : 1.6)) : target;
-    this.ringTrend = (this.ringTrend ?? 0) * 0.9 + ((this.ringR - before) / Math.max(dt, 1e-3) / this.S) * 0.1;
     const u = this.u, r = this.ringR, warm = c.inviting;
     if (this.mindView) { // the same judgement, shown plainly: a solid ring, and a line to the hand
       ctx.save();
@@ -297,6 +303,13 @@ export class Renderer {
     ctx.lineWidth = (warm ? 3 : 2.4) * u; ctx.lineCap = 'round';
     ctx.setLineDash(warm ? [10 * u, 8 * u] : [2 * u, 9 * u]); ctx.lineDashOffset = -t * (warm ? 14 : 6);
     ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.84, 0, 0, TAU); ctx.stroke();
+    if (warm && c.contactProgress > 0) {
+      ctx.setLineDash([]);
+      ctx.lineWidth = 4 * u;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r, r * 0.84, 0, -Math.PI / 2, -Math.PI / 2 + c.contactProgress * TAU);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -923,7 +936,7 @@ export class Renderer {
     ctx.globalAlpha = 0.05;
     ctx.globalCompositeOperation = 'overlay';
     ctx.translate(-ox, -oy);
-    ctx.fillStyle = ctx.createPattern(this.grain, 'repeat');
+    ctx.fillStyle = this.grain;
     ctx.fillRect(0, 0, this.W + 256, this.H + 256);
     ctx.restore();
   }
@@ -967,7 +980,7 @@ export class Renderer {
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.stroke(path2d(snap.activeTool));
     ctx.restore();
-    if (ui?.showSkeleton && ui.keypoints) this.skeleton(ctx, ui.keypoints);
+
   }
 
   skeleton(ctx, points) {
