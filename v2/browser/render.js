@@ -227,6 +227,7 @@ export class Renderer {
       else if (handTool && hand) this.handCursor(ctx, snap, this.templateHand(hand, snap, t), t);
       else this.cursor(ctx, snap, ui, t);
       if (snap.held === 'snowball' && hand) this.drawSnowball(ctx, hand.x, hand.y + 4 * this.u);
+      if (snap.held === 'ball' && hand) this.drawBall(ctx, hand.x, hand.y + 4 * this.u, t);
       if (snap.held === 'bowl' && hand) this.waterBowl(ctx, { x: hand.x, y: hand.y + 10 * this.u }, t, 0.8);
       if (snap.held === 'treat' && hand) { // the treat sits in the palm
         ctx.save(); ctx.translate(hand.x, hand.y + 6 * this.u); ctx.scale(1.7, 1.7); ctx.rotate(-0.5);

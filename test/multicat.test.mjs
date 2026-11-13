@@ -129,3 +129,16 @@ test('pointing and OK are told apart from the other hand shapes', () => {
   assert.equal(classifyPose(hand(['up', 'fold', 'fold', 'fold'])).label, 'point');
   assert.equal(classifyPose(hand(['ring', 'up', 'up', 'up'], true)).label, 'ok');
 });
+
+test('the end of a visit scores every kitten by what it gained and the care it got', () => {
+  const d = new Driver({ toolless: true, growth: false, timed: false });
+  d.startMouse();
+  d.petUntilContact();
+  d.run(6, () => { const p = d.catAt(0.02, 0); return mouseAt(p.x, p.y); });
+  d.cmd('end');
+  const k = d.sim.recap.kittens;
+  assert.equal(k.length, 3);
+  assert.equal(k[0].kitten, d.sim.kittenId, 'the kitten you stroked comes first');
+  assert.ok(k[0].strokes >= 1 && k[0].score > 0);
+  for (const other of k.slice(1)) assert.equal(other.score, 0, `${other.name} was not met and scores nothing`);
+});

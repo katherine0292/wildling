@@ -25,10 +25,12 @@ export const PROTOCOL_VERSION = '1.0';
 // field-guide panel; during a session the two siblings keep to the margins.
 const ATTRACT_REGION = { x0: 0.5, x1: 0.92, y0: 0.22, y1: 0.74 };
 const SIBLING_REGIONS = [{ x0: 0.04, x1: 0.18, y0: 0.5, y1: 0.72 }, { x0: 0.83, x1: 0.95, y0: 0.32, y1: 0.62 }];
-// V3: three habitats, each with its own two things in the pouch. Snow swaps the feather for a
-// snowball to throw; the desert swaps the fish for a water bowl to set down.
+// V3: three habitats with the same four things in the pouch, so every habitat plays the same:
+// fish, the feather, a ball to throw (a snowball in the snow, a little rubber ball elsewhere)
+// and a water bowl to set down.
 export const SCENES = ['jungle', 'snow', 'desert'];
-export const SCENE_ITEMS = { jungle: ['treat', 'wand'], snow: ['treat', 'snowball'], desert: ['bowl', 'wand'] };
+export const SCENE_ITEMS = { jungle: ['treat', 'wand', 'ball', 'bowl'], snow: ['treat', 'wand', 'snowball', 'bowl'], desert: ['treat', 'wand', 'ball', 'bowl'] };
+const isBall = (item) => item === 'ball' || item === 'snowball';
 // V3: every kitten can be met, so the others roam most of the clearing instead of its edges
 const SIBLING_REGIONS_V3 = [{ x0: 0.06, x1: 0.46, y0: 0.18, y1: 0.74 }, { x0: 0.54, x1: 0.94, y0: 0.18, y1: 0.74 }];
 
@@ -194,7 +196,7 @@ export class Simulation {
         if (this.toolless) {
           // what the hand holds stays in it until the visitor takes something else from the pouch
           if (this.held === 'treat') this.dropFood(cmd.x, cmd.y);
-          else if (this.held === 'snowball') this.throwBall(cmd.x, cmd.y);
+          else if (isBall(this.held)) this.throwBall(cmd.x, cmd.y);
           else if (this.held === 'bowl') this.placeBowl(cmd.x, cmd.y);
           break;
         }
@@ -239,6 +241,7 @@ export class Simulation {
   resetLitter3() {
     this.full = {};                 // kitten id → its own creature, kept while another is met
     this.needCycles = {};           // kitten id → its own need cycle
+    this.tally = {};                // kitten id → what it did with the visitor, for the end of visit
     this.followMouse = false;
     this.scene = 'jungle';
     this.bowl = null;
@@ -293,18 +296,46 @@ export class Simulation {
     this.log.push(e); this.out.push(e);
   }
 
+  // ---------------------------------------------------------------- V3: the end of a visit
+  countFor(id, type) {
+    const key = { contact_started: 'strokes', eat_completed: 'fed', pounce_success: 'played', drink_completed: 'drank', startle: 'startled' }[type];
+    if (!key || !this.tally) return;
+    const t = (this.tally[id] ??= { strokes: 0, fed: 0, played: 0, drank: 0, startled: 0 });
+    t[key]++;
+  }
+
+  // One card per kitten: how close it came to the visitor. Half the score is the trust it
+  // gained this visit, half the kinds of care it actually received, so varied care beats
+  // repeating one thing, and nothing is taken away for what the camera got wrong.
+  kittenScores() {
+    return KITTENS.map((k) => {
+      const core = this.cat?.kitten.id === k.id ? this.cat : this.full?.[k.id];
+      const twin = this.litter.find((o) => o.kitten.id === k.id);
+      const t = this.tally?.[k.id] ?? { strokes: 0, fed: 0, played: 0, drank: 0, startled: 0 };
+      const trust = (core ?? twin)?.needs.trust ?? 0;
+      const contactSec = core?.stats.contactSec ?? 0;
+      const gained = Math.max(0, trust - (k.start?.trust ?? this.p.creature.trust)); // what this visit earned
+      const care = 0.2 * Math.min(contactSec / 15, 1) + 0.12 * Math.min(t.fed / 2, 1) + 0.12 * Math.min(t.played / 3, 1) + 0.06 * Math.min(t.drank, 1);
+      const score = Math.round(100 * Math.min(1, 0.5 * Math.min(1, gained / 0.4) + care));
+      return { kitten: k.id, name: k.name, met: !!core, trust, contactSec: Math.round(contactSec), ...t, score,
+        stars: score >= 70 ? 3 : score >= 40 ? 2 : score >= 15 ? 1 : 0 };
+    }).sort((a, b) => b.score - a.score);
+  }
+
   setScene(scene) {
     if (!SCENES.includes(scene) || scene === this.scene) return;
     const from = this.scene;
     this.scene = scene;
-    if (this.held && !SCENE_ITEMS[scene].includes(this.held)) this.hold(null);
+    // the ball in hand becomes this habitat's ball; anything else the habitat lacks is put down
+    if (isBall(this.held)) this.hold(SCENE_ITEMS[scene].find(isBall));
+    else if (this.held && !SCENE_ITEMS[scene].includes(this.held)) this.hold(null);
     if (this.toy.kind === 'ball') this.toy.live = false;
     this.bowl = null;
     if (this.tool === 'PLAY' && !this.held) this.tool = 'PET';
     this.logLitter('scene_changed', { from, to: scene });
   }
 
-  // The water bowl (desert): set down where the visitor pinches or clicks; the kitten you are
+  // The water bowl (any habitat): set down where the visitor pinches or clicks; the kitten you are
   // meeting goes to drink, and so does any litter-mate passing by.
   placeBowl(nx, ny) {
     const x = nx * this.world.w, y = Math.min(ny * this.world.h, this.world.h - this.p.feed.toolbarBandS);
@@ -340,7 +371,7 @@ export class Simulation {
     this.stepPair(until);
     // the water bowl: litter-mates close by come to drink too, each from its own side
     if (this.bowl) this.siblings.forEach((o, i) => {
-      if (o.held?.drink) { if (this.demoTime < o.held.until) return; o.held = null; o.drankAt = this.simTime; return; }
+      if (o.held?.drink) { if (this.demoTime < o.held.until) return; o.held = null; o.drankAt = this.simTime; this.countFor(o.kitten.id, 'drink_completed'); return; }
       if (o.held || o.behaviour === 'REST' || (o.drankAt ?? -99) > this.bowl.placedAt) return;
       if (Math.hypot(o.x - this.bowl.x, o.y - this.bowl.y) > 0.6) return;
       const a = Math.atan2(o.y - this.bowl.y, o.x - this.bowl.x);
@@ -422,6 +453,7 @@ export class Simulation {
     const own = this.full[sib.kitten.id];
     if (own) own.needs.fullness = Math.min(1, own.needs.fullness + this.p.feed.fullness);
     this.logLitter('sibling_ate', { sibling: sib.kitten.id });
+    this.countFor(sib.kitten.id, 'eat_completed');
   }
 
   // The litter on its own: two idle litter-mates now and then meet, and either groom each
@@ -464,9 +496,9 @@ export class Simulation {
     this.held = item;
     // a thrown snowball keeps rolling (and stays the toy) after the hand lets go
     const rolling = item === null && this.toy.kind === 'ball' && this.toy.live;
-    this.tool = item === 'treat' ? 'FEED' : item === 'wand' || item === 'snowball' || rolling ? 'PLAY' : 'PET';
+    this.tool = item === 'treat' ? 'FEED' : item === 'wand' || isBall(item) || rolling ? 'PLAY' : 'PET';
     if (item === 'wand' && this.toy.kind !== 'feather') Object.assign(this.toy, { kind: 'feather', live: false, vx: 0, vy: 0 });
-    if (item === 'snowball') Object.assign(this.toy, { kind: 'ball', live: false, vx: 0, vy: 0 });
+    if (isBall(item)) Object.assign(this.toy, { kind: 'ball', live: false, vx: 0, vy: 0 });
     this.session.noteActivity();
     this.out.push({ type: 'held', item });
   }
@@ -831,6 +863,7 @@ export class Simulation {
       }
       if (e.type === 'eat_completed') this.hints.resolve('TOO_FULL');
       e.sessionId = s.sessionId;
+      if (this.toolless && this.cat) this.countFor(this.cat.kitten.id, e.type);
       this.react(e);
       this.log.push(e);
       this.out.push(e);
@@ -927,7 +960,7 @@ export class Simulation {
         this.memory.freeze();
         if (this.cat) { this.cat.contact.active = false; this.cat.acceptedContact = false; }
         this.recap = buildRecap(this.log, this.lang);
-        if (this.toolless) this.recap.learned = learnedAbout(this.log);
+        if (this.toolless) { this.recap.learned = learnedAbout(this.log); this.recap.kittens = this.kittenScores(); }
       }
       if (t.to === 'RESETTING') this.resetSession();
     }

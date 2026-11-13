@@ -41,20 +41,23 @@ const FISH_BASKET = `<svg class="basket" viewBox="0 0 48 40" width="40" height="
 // V3 habitats: what each pouch item looks like and is called, and how to use it
 const SNOWBALL = '<svg viewBox="0 0 40 40" width="34" height="34" aria-hidden="true"><circle cx="20" cy="21" r="13" fill="#eef4fb" stroke="#2f3a46" stroke-width="1"/><circle cx="25" cy="25" r="2.4" fill="#c4d3e6"/><circle cx="14" cy="24" r="1.9" fill="#c4d3e6"/><circle cx="19" cy="14" r="1.6" fill="#c4d3e6"/></svg>';
 const BOWL = '<svg viewBox="0 0 44 34" width="38" height="30" aria-hidden="true"><ellipse cx="22" cy="18" rx="19" ry="12" fill="#c47e4c" stroke="#2f2a1c" stroke-width="1"/><ellipse cx="22" cy="17" rx="13.5" ry="7.5" fill="#6db6d2"/><path d="M14 14q4-3 9-2" stroke="#e6f6fb" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>';
+const RUBBER_BALL = '<svg viewBox="0 0 40 40" width="34" height="34" aria-hidden="true"><circle cx="20" cy="20" r="13" fill="#f2a65a" stroke="#2f3a46" stroke-width="1"/><path d="M10 15a12 12 0 0 1 17-6M30 25a12 12 0 0 1-17 6" stroke="#c85a46" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="15" cy="14" r="3" fill="#ffe7b8" opacity=".8"/></svg>';
 const ITEM_LOOK = {
   treat: { label: 'Fish', icon: () => FISH_BASKET },
   wand: { label: 'Feather', icon: () => kit('inventory/wand', 28) },
   snowball: { label: 'Snowball', icon: () => SNOWBALL },
+  ball: { label: 'Ball', icon: () => RUBBER_BALL },
   bowl: { label: 'Water', icon: () => BOWL },
 };
 const ITEM_GUIDE = {
   treat: { camera: 'Open your hand, move to any spot, then pinch to drop a fish. The basket stays in your hand', pointer: 'Click anywhere to drop a fish. Every kitten nearby will want it' },
   wand: { camera: 'Move the feather in short darts, then pause. Pinch Hand to put it down', pointer: 'Move the feather in short darts, then pause. Click Hand to put it down' },
   snowball: { camera: 'Swing your hand and pinch to throw the snowball', pointer: 'Move, then click to throw the snowball' },
+  ball: { camera: 'Swing your hand and pinch to throw the ball', pointer: 'Move, then click to throw the ball' },
   bowl: { camera: 'Move to where the bowl should go, then pinch to set it down', pointer: 'Click where the water bowl should go' },
 };
 const SCENE_NAME = { jungle: 'Jungle', snow: 'Snowfields', desert: 'Desert' };
-const SCENE_NOTE = { jungle: 'The jungle clearing: fish and the feather', snow: 'The snowfields: a snowball instead of the feather', desert: 'The desert: a water bowl instead of the fish' };
+const SCENE_NOTE = { jungle: 'The jungle clearing', snow: 'The snowfields: the ball is a snowball here', desert: 'The desert: the kittens get thirsty, set the water down' };
 const SCENE_ORDER = ['jungle', 'snow', 'desert'];
 const WARN = new Set(['PRESSURE_HIGH', 'NOT_CLOSE_YET', 'SIB_STANDOFF', 'SIB_TENSE', 'SIB_FOOD']);
 
@@ -291,7 +294,7 @@ export class UI {
 
   // V3 habitats: the pouch shows this habitat's two items, the edge arrows name where they lead.
   habitat(snap) {
-    const items = snap.items ?? ['treat', 'wand'];
+    const items = snap.items ?? ['treat', 'wand', 'ball', 'bowl'];
     if (this.itemsShown !== items.join()) {
       this.itemsShown = items.join();
       [...document.querySelectorAll('#pouch .slot:not(.hand)')].forEach((b, i) => {
@@ -400,9 +403,26 @@ export class UI {
     if (!r) return;
     const k = KITTENS.find((q) => q.id === snap.kitten.id);
     const mins = Math.max(1, Math.round((snap.timers.active ?? 0) / 60));
-    $('reflectEyebrow').textContent = `A first meeting · ${mins} minute${mins > 1 ? 's' : ''}`;
-    $('reflectTitle').textContent = (T.titles[snap.endReason] ?? T.titles.user).replace('{name}', k.name);
-    $('reflectSub').textContent = `${k.name}, ${k.temperament}. ${this.copy.relation[snap.creature.relation]}.`;
+    const scores = r.kittens ?? [];
+    const top = scores[0];
+    $('reflectEyebrow').textContent = `Your visit · ${mins} minute${mins > 1 ? 's' : ''}`;
+    $('reflectTitle').textContent = snap.endReason === 'asleep' ? T.titles.asleep.replace('{name}', k.name)
+      : top?.score > 0 ? `${top.name} warmed to you most` : (T.titles[snap.endReason] ?? T.titles.user).replace('{name}', k.name);
+    $('reflectSub').textContent = scores.length ? 'Each score is how close that kitten came to you: its trust, and the care it actually got.' : `${k.name}, ${k.temperament}. ${this.copy.relation[snap.creature.relation]}.`;
+    // one card per kitten, closest first
+    const fact = (n, one, many) => (n ? `<li>${n === 1 ? one : many.replace('#', n)}</li>` : '');
+    const shtml = scores.map((s, i) => {
+      const facts = fact(s.strokes, 'Stroked once', 'Stroked # times') + fact(s.fed, 'Ate a fish', 'Ate # fish') + fact(s.played, 'Caught a toy', 'Caught toys # times')
+        + fact(s.drank, 'Drank your water', 'Drank # times') + fact(s.startled, 'Startled once', 'Startled # times');
+      const kk = KITTENS.find((q) => q.id === s.kitten);
+      return `<article class="score${i === 0 && s.score > 0 ? ' best' : ''}" data-kitten="${s.kitten}">`
+        + `<header><span class="dot" style="background:${kk.coat.base}"></span><b>${s.name}</b><span class="temp">${kk.temperament}</span>${i === 0 && s.score > 0 ? '<span class="badge">Closest</span>' : ''}</header>`
+        + `<div class="num">${s.score}<small>/100</small><span class="stars" aria-label="${s.stars} of 3 stars">${'★'.repeat(s.stars)}${'☆'.repeat(3 - s.stars)}</span></div>`
+        + `<div class="bar"><i style="width:${s.score}%"></i></div>`
+        + `<ul>${facts || `<li class="none">${s.met ? 'Watched you, and kept its distance' : 'You did not meet this time'}</li>`}</ul></article>`;
+    }).join('');
+    if ($('scores').innerHTML !== shtml) $('scores').innerHTML = shtml;
+    $('scores').hidden = !scores.length;
     // what it learned about you comes first; the event diary stands in when there is nothing to say yet
     const learned = r.learned ?? [];
     this.show('learned', learned.length > 0);
@@ -411,7 +431,7 @@ export class UI {
     if ($('learnedList').innerHTML !== lhtml) $('learnedList').innerHTML = lhtml;
     const html = r.lines.map((l) => `<li>${l.text}<span class="ev">${l.evidence.join(', ') || 'no events'}</span></li>`).join('');
     if ($('recap').innerHTML !== html) $('recap').innerHTML = html;
-    this.show('recap', learned.length === 0);
+    this.show('recap', learned.length === 0 && !scores.length); // the score cards replace the old diary
     const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
     const albumHtml = this.pickPhotos().map((p) => `<figure class="pol"><img src="${p.url}" alt="${p.caption}"><b>${p.caption}</b><span>${fmt(p.at)}</span></figure>`).join('');
     if (this.albumShown !== albumHtml) { this.albumShown = albumHtml; $('album').innerHTML = albumHtml; }
@@ -425,7 +445,7 @@ export class UI {
       ? `${k.name} will remember you in this browser${this.keepRecord ? ` (visit ${this.keepRecord.visits})` : ''}. Nothing is uploaded.`
       : 'Forgotten when you leave. Nothing is uploaded.';
     const left = snap.timers.reflectionLeft;
-    $('btnNext').textContent = left !== null && left !== undefined && snap.timed ? `Next visitor · ${Math.ceil(left)}s` : `Meet another kitten`;
+    $('btnNext').textContent = left !== null && left !== undefined && snap.timed ? `Next visitor · ${Math.ceil(left)}s` : `Visit again`;
   }
 
   // The AI panel stays on screen for the whole visit, in Prototype A's MIND layout: what the
