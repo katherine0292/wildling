@@ -12,11 +12,13 @@
 //   peace      ✌ index and middle up, others folded  → cuddle up
 //   fist       ✊ all fingers folded into the palm    → play-fight
 //   claw       🐾 knuckles bent, fingertips curled    → hiss
+//   point      ☝ only the index finger straight        → the nearest kitten follows the fingertip (V3)
+//   ok         👌 thumb and index touching, three fingers straight → the next habitat (V3)
 //
 // It is labelled `rule_baseline`, never presented as a trained model.
 
 export const POSE_ACTS = { open_palm: 'befriend', peace: 'cuddle', fist: 'fight', claw: 'hiss' };
-export const POSES = ['open_palm', 'peace', 'fist', 'claw'];
+export const POSES = ['open_palm', 'peace', 'fist', 'claw', 'point', 'ok'];
 const FINGERS = [[5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16], [17, 18, 19, 20]]; // MCP, PIP, DIP, TIP
 
 const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: (a.z ?? 0) - (b.z ?? 0) });
@@ -57,11 +59,16 @@ export function poseScores(kp, kp3 = null) {
   const mean = (k, idx = [0, 1, 2, 3]) => idx.reduce((s, i) => s + f[i][k], 0) / idx.length;
   const down = (i) => Math.max(f[i].folded, f[i].bent);
   const up = mean('straight');
+  // thumb tip touching the index tip, relative to the palm (the same measure as a pinch)
+  const P = valid(kp3) && kp3.every((k) => Number.isFinite(k.z)) ? kp3 : kp;
+  const ring = 1 - smooth(0.28, 0.5, d(P[4], P[8]) / (d(P[0], P[9]) || 1e-6));
   return {
-    open_palm: up * (1 - 0.6 * Math.min(down(2), down(3))),
+    open_palm: up * (1 - 0.6 * Math.min(down(2), down(3))) * (1 - ring),
     peace: mean('straight', [0, 1]) * ((down(2) + down(3)) / 2),
     fist: mean('folded'),
     claw: mean('bent'),
+    point: f[0].straight * Math.min(down(1), down(2), down(3)) * (1 - ring),
+    ok: ring * mean('straight', [1, 2, 3]),
   };
 }
 
