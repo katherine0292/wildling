@@ -104,7 +104,8 @@ export class SessionController {
         if (this.stateTime >= this.p.pauseMaxSec) this.end('pause_timeout');
         break;
       case 'REFLECTION':
-        if (this.stateTime >= this.p.reflectionSec) this.go('RESETTING', 'reflection_done');
+        // the exhibition moves on to the next visitor; on the website the journal stays open
+        if (this.timed && this.stateTime >= this.p.reflectionSec) this.go('RESETTING', 'reflection_done');
         break;
       case 'RESETTING':
         // The simulation clears everything during this tick, then confirms.
