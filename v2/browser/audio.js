@@ -115,6 +115,8 @@ export class SoundAdapter {
       case 'teach_example': this.tone(880 + (e.count ?? 1) * 220, 900 + (e.count ?? 1) * 220, 0.12, 0.08, 0); break;
       case 'returned': this.meow(1.2); this.trill(1, 0.5); break;
       case 'toy_thrown': this.whoosh(0.5); break;
+      case 'need_started': if (e.kind === 'play') this.trill(0.9); else if (e.kind !== 'rest') this.meow(e.kind === 'food' ? 1.05 : 0.95); break;
+      case 'need_met': if (e.kind !== 'rest') this.trill(1.05); break;
       case 'session': if (e.to === 'REFLECTION') this.chord([392, 523, 659], 0.08); break;
       default: break;
     }
