@@ -4,7 +4,7 @@
 //
 //   1 approach   come in slowly and hold still until the kitten comes to sniff
 //   2 stroke     keep a gentle hand on it for a moment
-//   3 treat      take a treat from the pouch and drop it near the kitten
+//   3 treat      take a fish from the basket and drop it near the kitten
 //   4 feather    play with the feather until it pounces
 //
 // On the website it runs once per browser; in exhibition (kiosk) mode, for every visitor.
@@ -20,7 +20,7 @@ const STEPS = [
     text: { camera: 'Stroke it gently. Watch the tail', pointer: 'Stroke it gently. Watch the tail' },
     hold: (s) => s.creature.acceptedContact, needMs: 2500 },
   { id: 'treat', pulse: 'treat',
-    text: { camera: 'Pinch the treat slot, open your hand, then pinch to drop', pointer: 'Take a treat from the pouch, click to drop it' },
+    text: { camera: 'Pinch a fish from the basket, open your hand, then pinch to drop it', pointer: 'Take a fish from the basket, click to drop it' },
     done: (s, e) => e.some((x) => x.type === 'eat_completed') },
   { id: 'feather', pulse: 'wand',
     text: { camera: 'Pinch the feather slot. Dart, then pause', pointer: 'Now the feather. Dart, then pause' },
