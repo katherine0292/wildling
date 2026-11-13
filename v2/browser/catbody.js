@@ -664,11 +664,9 @@ export class CatBody {
       ctx.fillStyle = 'rgba(226,120,130,0.95)';
       ctx.beginPath(); ctx.ellipse((0.5 + out) * L, 0, (0.07 + out * 0.5) * L, 0.09 * W, 0, 0, TAU); ctx.fill();
     }
-    if (p.mouth > 0.05) { // hissing: open mouth with two small fangs
-      ctx.fillStyle = 'rgba(120,40,50,0.95)';
-      ctx.beginPath(); ctx.ellipse(0.5 * L, 0, 0.09 * L * p.mouth, 0.17 * W * p.mouth, 0, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#fff';
-      for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(0.46 * L, sd * 0.1 * W * p.mouth); ctx.lineTo(0.55 * L, sd * 0.07 * W * p.mouth); ctx.lineTo(0.47 * L, sd * 0.03 * W * p.mouth); ctx.closePath(); ctx.fill(); }
+    if (p.mouth > 0.05) { // hissing: a small open mouth, no teeth
+      ctx.fillStyle = 'rgba(150,62,72,0.9)';
+      ctx.beginPath(); ctx.ellipse(0.5 * L, 0, 0.07 * L * p.mouth, 0.13 * W * p.mouth, 0, 0, TAU); ctx.fill();
     }
     ctx.fillStyle = rgba(c.nose);
     ctx.beginPath(); ctx.moveTo(0.49 * L, 0); ctx.lineTo(0.42 * L, 0.09 * W); ctx.lineTo(0.42 * L, -0.09 * W); ctx.closePath(); ctx.fill();
