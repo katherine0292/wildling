@@ -236,3 +236,13 @@ test('§11.2: a long frame gap is a pause, not a giant dt that drains energy', (
   d.sim.update(10, d.t); // 10 s gap in one call
   assert.ok(e - d.cat.needs.energy < 0.003, 'at most 5 fixed steps are processed');
 });
+
+test('a visit on the website is not timed: no idle pause and no time limit', () => {
+  const d = new Driver({ timed: false });
+  d.startMouse();
+  d.run(400, () => mouseAt(0.5, 0.5)); // well past both the idle pause and the five-minute limit
+  assert.equal(d.state, 'ACTIVE');
+  assert.equal(d.sim.snapshot().offerEnd, false);
+  d.cmd('end');
+  assert.equal(d.state, 'REFLECTION');
+});
