@@ -14,6 +14,7 @@ import { SessionController } from './session.js';
 import { CreatureCore, BEHAVIOURS } from './creature.js';
 import { RelationshipMemory } from './memory.js';
 import { buildRecap } from './recap.js';
+import { learnedAbout } from './learned.js';
 import { growthCheck, PHASES, UNLOCKS } from './growth.js';
 import { PoseSmoother, PoseGate, POSE_ACTS } from './pose.js';
 import { TrickLearner, MoveSegmenter, TRICKS } from './tricks.js';
@@ -669,6 +670,7 @@ export class Simulation {
         this.memory.freeze();
         if (this.cat) { this.cat.contact.active = false; this.cat.acceptedContact = false; }
         this.recap = buildRecap(this.log, this.lang);
+        if (this.toolless) this.recap.learned = learnedAbout(this.log);
       }
       if (t.to === 'RESETTING') this.resetSession();
     }
