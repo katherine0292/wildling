@@ -17,12 +17,12 @@ python3 -m http.server 8790     # from the repository root
 
 Open <http://localhost:8790/v2/> in Chrome. Camera mode needs localhost or HTTPS. The hand model, p5.js and fonts ship with the app. Camera frames stay on the device.
 
-Choose **Use your hand** (or **Use the mouse**) on the cover. Keep one open hand in view: the small camera preview in the corner shows what the tracker sees. Bring your hand in slowly and let a kitten come to you, then stroke along its back. Pinch a pouch slot to pick something up; it stays in your hand until you take something else, and the **Hand** slot empties it. Pinch anywhere to use it. Wave near the kittens and they scatter. Rest your hand on an edge arrow to change habitat. A pinch presses any button, so the hand can do everything the mouse can.
+Choose **Use your hand** (or **Use the mouse**) on the cover. Keep one open hand in view: the small camera preview in the corner shows what the tracker sees. Bring your hand in slowly; rest your palm on a kitten's back to stroke it. Pinch a pouch slot to pick something up; it stays in your hand until you take something else, and the **Hand** slot empties it. Pinch anywhere to use it. Wave near the kittens and they scatter. Rest your hand on an edge arrow to change habitat. A pinch presses any button, so the hand can do everything the mouse can.
 
 | Key | Action |
 |---|---|
 | `Enter` on the cover | Start with the mouse |
-| `1` `2` · `3` during the visit | Take this habitat's first or second item · empty hand |
+| `1`–`4` · `5` during the visit | Take Fish, Feather, Ball (a snowball in the snow) or Water · empty hand |
 | `[` `]` | Previous or next habitat |
 | Arrow keys + `Space` | Move and confirm with the keyboard hand |
 | Hold `V` or press `T` | View what the kitten sees. The eye button also toggles this view |
