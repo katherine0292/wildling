@@ -103,3 +103,24 @@ Siblings requests and their four hand shapes, the three habitats and life stages
 | "What it learned about you": up to three lines (reading its asks, a gentle hand, the favourite act, stepping back), each citing events | Built (`v2/core/learned.js`) |
 
 The layout mockups that preceded the build are in [`mockups/`](mockups/README.md).
+
+## 8 Revision after the hand-interaction review (V3.1)
+
+Requested after trying the build with a camera at exhibition distance.
+
+| Request | What changed |
+|---|---|
+| The hand is often not recognised and the picture flickers | The tracking gate allows slower frames (350 ms) and smaller hands (about 2.5 m away); the drawn hand survives a missed frame for 300 ms; the hand's look follows tracking quality only, not the 600 ms reading; MediaPipe prefers the GPU and uses slightly looser confidences |
+| Keep the camera window | A mirrored camera preview with the detected hand, top right, whenever the camera is on |
+| Hand and mouse must do the same things, including buttons | A pinch is a click on every screen (visit, pause, journal); a ring follows the palm over dimmed screens; the camera stays on until the journal closes; every press clicks audibly |
+| No kitten choice; the cover offers hand or mouse | Two buttons on the cover start the visit directly |
+| Every kitten reacts to the hand | The kitten nearest the hand (or the feather) becomes the one being met; each kitten keeps its own state; the AI panel follows it, in that kitten's colours |
+| Point one finger and the nearest kitten follows | New `point` hand shape; with the mouse, press and hold on open ground |
+| The feather draws the others in | Litter-mates near the feather chase it from their own side, never piling up |
+| A basket of fish; fish on the ground start a scramble | The fish slot is a basket; a dropped fish is rushed by nearby kittens; two meeting over it face off a body length apart and hiss until the hungrier one usually wins |
+| Fights look like the reference drawing, not overlapping | Play-fights and food standoffs are face-offs: arched, puffed, hissing, apart |
+| The litter interacts on its own | Idle litter-mates now and then meet to groom each other or face off |
+| Switch habitat | Arrows at the left and right edges; a hand resting on one fills a ring and switches (a click or pinch works too). (An OK gesture was considered and replaced by the arrows.) |
+| Habitat props | Snow: a snowball to throw instead of the feather. Desert: a water bowl to set down instead of the fish; kittens drink with the tongue out and the tail curled |
+| Show how to use a tool when it is picked | A one-line guide at the top, worded for the hand or the mouse |
+| An eye-level camera | Not done: the world and the kittens are drawn from above in 2D, and an eye-level view would mean redrawing every kitten and habitat in a different projection |
