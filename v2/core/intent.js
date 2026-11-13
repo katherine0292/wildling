@@ -59,7 +59,7 @@ export function extractFeatures(points, cat, p = PARAMS) {
 const soft = (x, lo, hi) => clamp((x - lo) / (hi - lo));
 
 // Rule baseline scores. Output shape is the model contract: { scores, label, score, margin }.
-export function scoreWindow(f, p = PARAMS) {
+export function scoreWindow(f, p = PARAMS, fastScale = 1) {
   const ip = p.intent;
   // The contact zone must match the creature's own contact radius, otherwise a hand the
   // cat treats as "on its back" scores below the camera rejection threshold.
@@ -68,7 +68,7 @@ export function scoreWindow(f, p = PARAMS) {
   const slow = 1 - soft(f.meanSpeed, ip.gentleSpeed * 0.6, ip.gentleSpeed * 1.2);
   const settled = soft(f.dwell, ip.contactDwell * 0.5, ip.contactDwell * 0.9);
   const near = 1 - soft(f.edgeDist, ip.nearS, ip.nearS * 1.6);
-  const fast = soft(f.approachSpeed, ip.fastSpeed * 0.7, ip.fastSpeed * 1.1);
+  const fast = soft(f.approachSpeed, ip.fastSpeed * 0.7 * fastScale, ip.fastSpeed * 1.1 * fastScale);
   const towards = soft(f.approachSpeed, 0.02, 0.12);
   const reachable = 1 - soft(f.dist, 0.45, 0.65);
   const openHand = soft(f.open, 0.3, 0.6);
@@ -123,7 +123,7 @@ export class IntentClassifier {
     if (isCamera && coverage < ip.minCoverage) { this.pendingCount = 0; return out('unknown', { coverage }); }
     const f = extractFeatures(points, cat, this.p);
     if (!f) return out(isCamera ? 'unknown' : 'neutral_motion', { coverage });
-    const r = scoreWindow(f, this.p);
+    const r = scoreWindow(f, this.p, isCamera ? 1 : ip.pointerFastScale ?? 1);
 
     // Camera evidence must clear the rejection thresholds; mouse/keyboard are exact positions.
     const confident = !isCamera || (r.score >= ip.topScore && r.margin >= ip.margin);
@@ -131,7 +131,8 @@ export class IntentClassifier {
 
     if (this.pending === r.label) this.pendingCount++;
     else { this.pending = r.label; this.pendingCount = 1; }
-    const need = isCamera ? ip.confirmCycles : 1;
+    // a pointer's fast approach needs a second look too; its other labels stay immediate
+    const need = isCamera ? ip.confirmCycles : r.label === 'fast_approach' ? ip.pointerConfirmCycles ?? 1 : 1;
     if (this.pendingCount < need) {
       return out(isCamera ? 'unknown' : this.current.label, { coverage, scores: r.scores, score: r.score, margin: r.margin });
     }

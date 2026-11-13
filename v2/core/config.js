@@ -26,6 +26,9 @@ export const PARAMS = Object.freeze({
     topScore: 0.8, margin: 0.2, confirmCycles: 2,
     gentleSpeed: 0.4, fastSpeed: 1.1, nearS: 0.18,
     contactDwell: 0.6, withdrawS: 0.25, withdrawSec: 1.0,
+    // A mouse or keyboard pointer crosses the screen far faster than a hand in front of a
+    // camera, so only a real lunge at the kitten counts as a fast approach for those inputs.
+    pointerFastScale: 2.4, pointerConfirmCycles: 2,
   },
 
   // F2-06 creature initial state
