@@ -92,7 +92,7 @@ Siblings requests and their four hand shapes, the three habitats and life stages
 | Growth switched off in favour of the bond (`growth: false`) | Built |
 | Act 1: comfort ring, demonstration hand, four steps taught by doing | Built |
 | Pictogram replies instead of sentences; system messages stay in words | Built |
-| See what it sees (T) | Built as a toggle; hold-to-show and in-scene labels to come |
+| See what it sees: hold V (or the eye button / T to keep it open). The scene dims; the comfort ring turns solid with a line to the hand; labels name the ring's trend and the hand reading; the panel sits on the side away from the kitten | Built |
 | Journal that stays open on the website | Built |
 | Need cycle (Act 2): one need at a time, shown by the body first, a pictogram after 8 s, the matching pouch slot lit; each episode logged with how long the answer took | Built (`v2/core/needs.js`) |
 | The kitten falls asleep to end the visit; "what it learned about you" | To come |
