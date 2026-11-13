@@ -356,7 +356,7 @@ body.has-cam #inputStatus { top: 260px; }
   body.has-cam #inputStatus { top: 68px; right: auto; left: 12px; max-width: calc(50% - 20px); }
 }
 @media (orientation: landscape) and (max-height: 380px) {
-  #camPreview { right: 130px; top: 12px; }
+  #camPreview { right: 206px; top: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
