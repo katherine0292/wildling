@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://katherine0292.github.io/wildling/"><b>▶ Play Wildling</b></a> &nbsp;·&nbsp;
-  <a href="https://claude.ai/artifact/QgJWrN1diwGWNbLU6zrwM8"><b>Portfolio case study</b></a> &nbsp;·&nbsp;
+  <a href="https://katherine0292.github.io/wildling/portfolio/"><b>Portfolio</b></a> &nbsp;·&nbsp;
   <a href="docs/design/experience-spec-v3.md">Experience spec V3</a> &nbsp;·&nbsp;
   <a href="docs/redesign/self-audit.zh.md">Self-audit</a> &nbsp;·&nbsp;
   <a href="docs/decisions/README.md">Decisions</a> &nbsp;·&nbsp;
