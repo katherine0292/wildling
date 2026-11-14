@@ -1,0 +1,795 @@
+<title>Wildling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap">
+<style>
+/* Layout: a white sheet on cool grey with a fixed chapter rail; one violet accent taken from the poster's glowing hand, a leaf green for state; no large black areas. */
+:root{
+  --bg:#ECEDF2; --paper:#FFFFFF; --paper-2:#F5F5FA; --ink:#14151B; --ink-2:#585B68; --ink-3:#9194A2; --line:#E3E4EC; --line-2:#CFD1DC;
+  --acc:#7B6AF0; --acc-2:#B9AEFF; --acc-3:#E7B8F4; --acc-soft:#F1EFFE; --acc-ink:#5140C9;
+  --leaf:#3D8B5C; --leaf-soft:#E8F3EC; --amber:#B5852E; --rose:#C2453A;
+  --deep:#2A1A66; --deep-2:#5B3FD0;
+  --f:"Inter Tight","Noto Sans SC",-apple-system,"PingFang SC","Helvetica Neue",Arial,sans-serif;
+  --ease:cubic-bezier(.22,.8,.2,1); --r:18px; --wrap:1180px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0A0A0F; --paper:#121318; --paper-2:#181A21; --ink:#F2F3F7; --ink-2:#A9ACB8; --ink-3:#6E717E; --line:#25272F; --line-2:#383B46;
+  --acc:#9D90FF; --acc-2:#6F60E0; --acc-3:#C98BE0; --acc-soft:#201D38; --acc-ink:#C3BAFF;
+  --leaf:#6CC08D; --leaf-soft:#14241B; --amber:#E0B25E; --rose:#F0806F; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0A0A0F; --paper:#121318; --paper-2:#181A21; --ink:#F2F3F7; --ink-2:#A9ACB8; --ink-3:#6E717E; --line:#25272F; --line-2:#383B46;
+  --acc:#9D90FF; --acc-2:#6F60E0; --acc-3:#C98BE0; --acc-soft:#201D38; --acc-ink:#C3BAFF;
+  --leaf:#6CC08D; --leaf-soft:#14241B; --amber:#E0B25E; --rose:#F0806F; color-scheme:dark}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--f);font-size:15.5px;line-height:1.65;font-weight:400;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:90;background:var(--paper)}
+img,video{max-width:100%;display:block}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--acc);outline-offset:3px;border-radius:6px}
+h1,h2,h3,h4,p,ul,ol,figure,dl{margin:0}
+h1,h2,h3{font-weight:300;letter-spacing:-.02em;text-wrap:balance}
+html:not(.en) h1,html:not(.en) h2,html:not(.en) h3{letter-spacing:-.005em;font-weight:400;word-break:keep-all;overflow-wrap:anywhere}
+.lbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);font-weight:500;display:block}
+html:not(.en) .lbl{letter-spacing:.08em}
+span.en{display:none}
+html.en span.en{display:inline}
+html.en span.zh{display:none}
+code,.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:.88em}
+
+/* sheet */
+.sheet{margin:0 auto;background:var(--paper);max-width:1480px;border-radius:0 0 28px 28px;overflow:clip;position:relative}
+@media (min-width:900px){.sheet{margin:14px 14px 0;border-radius:28px;max-width:none}}
+.wrap{max-width:var(--wrap);margin:0 auto;padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px))}
+@media (min-width:1280px){.wrap{padding-left:200px;padding-right:56px;max-width:1440px}}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:70;background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.top .in{display:flex;align-items:center;gap:14px;height:60px;padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px))}
+.word{font-weight:600;letter-spacing:.16em;font-size:14px;text-decoration:none}
+.menu-btn{display:flex;align-items:center;gap:10px;font-size:13px}
+.menu-btn i{display:grid;gap:4px;width:22px}.menu-btn i b{height:1.5px;background:currentColor;display:block}.menu-btn i b:last-child{width:14px}
+.top .sp{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:99px;padding:3px}
+.seg button{padding:5px 12px;border-radius:99px;font-size:12.5px;color:var(--ink-2);white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.prog{position:absolute;left:0;bottom:0;height:2px;width:100%;background:linear-gradient(90deg,var(--acc),var(--acc-3));transform-origin:0 50%;transform:scaleX(var(--p,0))}
+
+/* rail */
+.rail{position:fixed;left:30px;top:50%;transform:translateY(-50%);z-index:60;display:none;transition:opacity .4s var(--ease)}
+@media (min-width:1280px){.rail{display:block}}
+.rail ol{list-style:none;margin:0;padding:0 0 0 16px;display:grid;gap:7px;border-left:1px solid var(--line-2);position:relative}
+.rail li button{font-size:12.5px;color:var(--ink-3);transition:color .3s;text-align:left;padding:1px 0}
+.rail li button:hover{color:var(--ink)}
+.rail li.on button{color:var(--ink);font-weight:500}
+.rail .dot{position:absolute;left:-5px;top:0;width:9px;height:9px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 4px color-mix(in srgb,var(--acc) 22%,transparent);transition:transform .55s var(--ease)}
+.rail.away{opacity:0;pointer-events:none}
+
+/* menu */
+.menu{position:fixed;inset:0;z-index:95;background:color-mix(in srgb,var(--paper) 95%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);padding:max(22px,env(safe-area-inset-top,0px)) max(22px,env(safe-area-inset-right,0px)) 22px max(22px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;clip-path:circle(0% at 60px 32px);transition:clip-path .7s var(--ease);visibility:hidden;overflow:auto}
+.menu.open{clip-path:circle(150% at 60px 32px);visibility:visible}
+.menu .mh{display:flex;justify-content:space-between;align-items:center;height:40px}
+.menu .mh button{border:1px solid var(--line-2);border-radius:99px;padding:6px 14px;font-size:13px}
+.menu ol{list-style:none;margin:30px 0 auto;padding:0;display:grid;gap:2px;max-width:560px}
+.menu li button{display:flex;align-items:baseline;gap:16px;font-size:clamp(18px,2vw,24px);font-weight:400;color:var(--ink-2);padding:6px 0;text-align:left}
+.menu li button small{color:var(--ink-3);font-size:12px;min-width:24px}
+.menu li button:hover{color:var(--acc-ink)}
+
+/* banner */
+.banner{position:relative;overflow:hidden;background:#150F26;line-height:0}
+.banner img{width:100%;height:auto;aspect-ratio:1774/887;object-fit:cover;transform:scale(1.04);transition:transform .25s linear;will-change:transform}
+.banner canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.banner .glow{position:absolute;inset:0;pointer-events:none;background:radial-gradient(260px circle at var(--mx,70%) var(--my,30%),rgba(190,160,255,.38),transparent 70%);mix-blend-mode:screen;opacity:0;transition:opacity .4s}
+.banner:hover .glow{opacity:1}
+.pill{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--ink);border-radius:99px;padding:10px 18px;font-size:12.5px;letter-spacing:.05em;font-weight:500;text-decoration:none;transition:transform .25s var(--ease)}
+.pill:hover{transform:translateY(-2px)}
+.pill.dark{background:var(--ink);color:var(--paper)}
+.ctas{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}
+.intro{padding-top:clamp(34px,4.4vw,60px)}
+.intro h1{font-size:clamp(26px,3.2vw,42px);font-weight:400;line-height:1.2;margin:10px 0 clamp(26px,3.4vw,42px);max-width:24em}
+html.en .intro h1{font-weight:300}
+.meta2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 clamp(24px,5vw,72px)}
+.meta2>div{border-top:1px solid var(--line-2);padding:14px 0 20px;min-width:0}
+.meta2 .lbl{margin-bottom:6px}
+.meta2 p,.meta2 li{font-size:15px;line-height:1.55}
+.meta2 ul{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.meta2 li::before{content:"— ";color:var(--acc)}
+
+/* chapters */
+section.ch{position:relative;padding-block:clamp(40px,4.8vw,70px)}
+section.ch.alt{background:var(--paper-2)}
+.head{display:grid;gap:10px;margin-bottom:clamp(22px,2.8vw,36px)}
+.head .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.head h2{font-size:clamp(24px,2.6vw,35px);line-height:1.22;max-width:28ch;position:relative;padding-bottom:14px}
+html:not(.en) .head h2{line-height:1.38;max-width:24em;font-size:clamp(22px,2.4vw,31px)}
+.head h2::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:64px;background:linear-gradient(90deg,var(--acc),var(--acc-3));transform-origin:0 50%}
+.js .head h2::after{transform:scaleX(0);transition:transform 1s var(--ease)}
+.js .head.in h2::after{transform:scaleX(1)}
+.head .lede{font-size:15.5px;color:var(--ink-2);max-width:70ch;margin-top:4px}
+.blk{margin-top:clamp(36px,4.6vw,64px)}
+.blk:first-child{margin-top:0}
+.h2{font-size:clamp(21px,2.2vw,29px);font-weight:400;letter-spacing:-.01em;line-height:1.32;margin:8px 0 14px;max-width:28em}
+.para{font-size:clamp(15px,1.2vw,16.5px);color:var(--ink-2);line-height:1.75;max-width:74ch}
+.para+.para{margin-top:12px}
+.para b{color:var(--ink);font-weight:500}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(18px,3vw,44px)}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(12px,1.8vw,22px)}
+.g2>*,.g3>*{min-width:0}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:clamp(18px,2vw,24px);min-width:0}
+.k{margin-bottom:10px}
+.insight{font-size:clamp(18px,1.8vw,22px);font-weight:300;letter-spacing:-.01em;line-height:1.5}
+html:not(.en) .insight{font-weight:400}
+.qband{color:#fff;padding-block:clamp(44px,5.5vw,76px);background:linear-gradient(120deg,var(--deep) 0%,var(--deep-2) 62%,#9a5fd8 100%);position:relative;overflow:hidden}
+.qband::after{content:"";position:absolute;right:-8%;top:-60%;width:46%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(231,184,244,.5),transparent 68%);pointer-events:none}
+.qband .lbl{color:rgba(255,255,255,.75)}
+.qband h2{font-size:clamp(21px,2.4vw,32px);font-weight:400;line-height:1.4;margin:12px 0 16px;max-width:26em;letter-spacing:-.01em}
+.qband p{color:rgba(255,255,255,.8);font-size:clamp(14.5px,1.2vw,16.5px);max-width:60ch}
+
+/* flow stepper */
+.flow{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(var(--n,5),minmax(0,1fr));gap:0;position:relative}
+.flow li{position:relative;padding:34px 16px 0 0;min-width:0}
+.flow li::before{content:"";position:absolute;left:0;right:0;top:11px;height:2px;background:var(--line-2)}
+.flow li:last-child::before{background:linear-gradient(90deg,var(--line-2),transparent)}
+.flow li i{position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:var(--paper);border:2px solid var(--acc);color:var(--acc-ink);font-style:normal;font-size:11.5px;font-weight:600;display:grid;place-items:center;z-index:1}
+.flow b{display:block;font-weight:500;font-size:14.5px;line-height:1.35;margin-bottom:3px}
+.flow span.d{display:block;font-size:13px;color:var(--ink-2);line-height:1.5}
+.flow.sm li{padding-top:30px}
+.flow.sm li i{width:20px;height:20px;font-size:10.5px;top:1px}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--line);margin-top:32px}
+.stats>div{padding:20px 16px 22px 0;border-bottom:1px solid var(--line);min-width:0}
+.stats>div:not(:nth-child(4n+1)){padding-left:20px;border-left:1px solid var(--line)}
+.stats b,.bnum b{display:block;font-size:clamp(34px,3.6vw,48px);font-weight:300;line-height:1;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.stats p,.bnum p{margin-top:10px;font-size:13.5px;color:var(--ink-2);max-width:26ch}
+.bnum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;max-width:900px}
+.bnum b small{font-size:.38em;color:var(--acc);margin-left:3px;letter-spacing:0}
+
+/* tables */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:540px}
+th,td{text-align:left;vertical-align:top;padding:11px 14px;border-bottom:1px solid var(--line)}
+th{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:500;white-space:nowrap}
+html:not(.en) th{letter-spacing:.05em}
+tr:last-child td{border-bottom:0}
+td.hl{background:var(--acc-soft)}
+td b{font-weight:500}
+.res{font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid currentColor;white-space:nowrap;display:inline-block}
+.res.pass{color:var(--leaf)}.res.gap{color:var(--amber)}.res.part{color:var(--acc-ink)}
+.sev{display:inline-block;min-width:26px;text-align:center;font-size:12px;font-weight:600;padding:2px 6px;border-radius:6px;color:#fff}
+.sev.s1{background:#2B2D36}.sev.s2{background:#6A5CD8}
+.flt{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.flt button{border:1px solid var(--line-2);border-radius:99px;padding:6px 12px;font-size:13px}
+.flt button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.tag{font-size:11px;font-weight:600;letter-spacing:.04em;padding:2px 7px;border-radius:6px;border:1px solid var(--line-2);white-space:nowrap;margin-right:6px}
+.tag.c{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.tag.p{background:var(--acc-soft);color:var(--acc-ink);border-color:transparent}
+
+/* cards */
+.ncard{border:1px solid var(--line);border-radius:var(--r);padding:20px;background:var(--paper);display:flex;flex-direction:column;gap:8px;min-width:0;transition:transform .4s var(--ease),border-color .3s}
+.ncard:hover{transform:translateY(-3px);border-color:var(--acc-2)}
+.ncard .n{font-size:30px;font-weight:300;line-height:.95;letter-spacing:-.05em;color:var(--acc)}
+.ncard h3{font-size:16.5px;font-weight:500;letter-spacing:0}
+.ncard p{font-size:14px;color:var(--ink-2)}
+.cuts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.cut{border:1px solid var(--line);border-radius:var(--r);padding:18px;background:var(--paper);min-width:0}
+.cut h4{font-size:15.5px;font-weight:500;margin-bottom:8px;line-height:1.35}
+.cut p{font-size:13.5px;color:var(--ink-2)}
+.cut small{display:block;margin-top:10px;font-size:11.5px;color:var(--acc-ink);letter-spacing:.04em}
+
+/* figures */
+.fig{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#111;position:relative;cursor:zoom-in}
+.fig img,.fig video{width:100%;height:auto}
+.fig .z{position:absolute;right:10px;bottom:10px;font-size:11px;background:rgba(17,17,20,.72);color:#fff;border-radius:99px;padding:3px 9px;opacity:0;transition:opacity .25s}
+.fig:hover .z{opacity:1}
+.fig.vid{cursor:default}
+figcaption{font-size:12.5px;color:var(--ink-2);margin-top:8px;max-width:70ch;line-height:1.5}
+figcaption b{color:var(--ink);font-weight:500}
+.exh{border-radius:22px;overflow:hidden;position:relative;background:#111}
+.exh img{width:100%;height:auto}
+.exh .badge{position:absolute;left:14px;top:14px;font-size:11.5px;background:rgba(12,18,16,.72);color:#fff;border-radius:99px;padding:5px 11px;backdrop-filter:blur(6px)}
+.tilt{transition:transform .35s var(--ease);will-change:transform}
+
+/* version rows */
+.vrow{display:grid;grid-template-columns:minmax(0,.78fr) minmax(0,1.5fr);gap:clamp(20px,3.4vw,48px);padding-block:clamp(26px,3.4vw,44px);border-top:1px solid var(--line-2);align-items:start}
+.vrow.first{border-top:0;padding-top:0}
+.vinfo{position:sticky;top:84px}
+.vnum{font-size:clamp(46px,5.6vw,78px);font-weight:300;letter-spacing:-.05em;line-height:.95;background:linear-gradient(120deg,var(--ink) 20%,var(--acc) 80%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.vinfo h3{font-size:19px;font-weight:500;margin:10px 0 14px;letter-spacing:0}
+.vinfo dl{display:grid;gap:12px}
+.vinfo dt{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:2px}
+html:not(.en) .vinfo dt{letter-spacing:.05em}
+.vinfo dd{margin:0;font-size:14px;color:var(--ink-2);line-height:1.6}
+.vinfo dd.finding{color:var(--ink)}
+.vgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.vgrid.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.vgrid .span2{grid-column:1/-1}
+.vgrid>*{min-width:0}
+.vsub{margin:22px 0 10px}
+.pair{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.pair>*{min-width:0}
+
+/* hotspot */
+.hs{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:clamp(16px,2.6vw,36px);align-items:start}
+.hs-img{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#111}
+.hs-img img{width:100%;height:auto}
+.hot{position:absolute;border:1.5px solid rgba(255,255,255,.5);border-radius:10px;transition:background .25s,border-color .25s,box-shadow .25s}
+.hot b{position:absolute;left:-1px;top:-1px;transform:translate(-35%,-35%);width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;font-size:12px;font-weight:600;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.hot:hover,.hot.on{background:rgba(157,144,255,.2);border-color:var(--acc-2);box-shadow:0 0 0 3px rgba(157,144,255,.3)}
+.hs-list{display:grid;border-top:1px solid var(--line)}
+.hs-list button{display:grid;grid-template-columns:28px minmax(0,1fr);gap:0 8px;text-align:left;padding:12px 0;border-bottom:1px solid var(--line);width:100%}
+.hs-list .i{font-size:12px;color:var(--ink-3);font-weight:600;padding-top:2px}
+.hs-list .t{font-size:15px;color:var(--ink-3);transition:color .2s}
+.hs-list .d{grid-column:2;font-size:13.5px;color:var(--ink-2);max-height:0;overflow:hidden;opacity:0;transition:max-height .5s var(--ease),opacity .4s,margin .4s}
+.hs-list button.on .t{color:var(--ink);font-weight:500}
+.hs-list button.on .i{color:var(--acc)}
+.hs-list button.on .d{max-height:240px;opacity:1;margin-top:6px}
+
+/* carousel */
+.car-track{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none;overscroll-behavior-x:contain}
+.car-track::-webkit-scrollbar{display:none}
+.slide{flex:0 0 100%;scroll-snap-align:start;display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:clamp(18px,3vw,40px);align-items:center;background:var(--paper-2);border:1px solid var(--line);border-radius:22px;padding:clamp(18px,2.6vw,32px);min-width:0}
+.slide .sn{font-size:12px;color:var(--acc);font-weight:600;margin-bottom:8px;display:block}
+.slide h3{font-size:clamp(18px,1.7vw,22px);font-weight:500;line-height:1.3;margin-bottom:10px;letter-spacing:0}
+.slide p{font-size:14px;color:var(--ink-2)}
+.slide .why{margin-top:14px;padding-top:12px;border-top:1px solid var(--line-2)}
+.slide .why .lbl{margin-bottom:4px}
+.car-ctl{display:flex;align-items:center;gap:12px;margin-top:14px}
+.car-ctl button.nav{width:38px;height:38px;border:1px solid var(--line-2);border-radius:50%;display:grid;place-items:center;font-size:16px}
+.car-ctl button.nav:hover{background:var(--ink);color:var(--paper)}
+.dots{display:flex;gap:7px}
+.dots button{width:8px;height:8px;border-radius:50%;background:var(--line-2);transition:width .3s var(--ease),background .3s}
+.dots button.on{width:24px;border-radius:9px;background:var(--acc)}
+
+/* before/after */
+.ba{position:relative;aspect-ratio:16/9;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#111;user-select:none;touch-action:pan-y}
+.ba img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:left top}
+.ba .af{clip-path:inset(0 0 0 var(--x,50%))}
+.ba .hd{position:absolute;top:0;bottom:0;left:var(--x,50%);width:2px;background:#fff;pointer-events:none}
+.ba .hd::after{content:"⟷";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;color:#111;border-radius:99px;width:34px;height:34px;display:grid;place-items:center;font-size:15px}
+.ba .t{position:absolute;top:12px;font-size:11px;letter-spacing:.08em;padding:4px 10px;border-radius:99px;background:rgba(0,0,0,.65);color:#fff}
+.ba .t.l{left:12px}.ba .t.r{right:12px}
+.ba input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize;margin:0}
+
+.exp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.exp>div{border:1px solid var(--line);border-radius:16px;padding:18px;background:var(--paper);min-width:0}
+.exp h4{font-size:15px;font-weight:500;margin-bottom:6px}
+.exp p{font-size:13.5px;color:var(--ink-2)}
+.exp .out{margin-top:10px;font-size:12.5px;color:var(--rose);font-weight:500}
+
+/* AI chapter (light) */
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.three>div{border:1px solid var(--line);border-radius:16px;padding:20px;background:var(--paper);min-width:0;position:relative;overflow:hidden}
+.three>div::before{content:"";position:absolute;left:0;top:0;right:0;height:3px;background:var(--c,var(--acc))}
+.three>div:nth-child(1){--c:#4A8FC9}.three>div:nth-child(2){--c:#D9A93B}.three>div:nth-child(3){--c:var(--acc)}
+.three .lv{font-size:12px;font-weight:600;letter-spacing:.06em;color:var(--ink-3)}
+.three h4{font-size:16px;font-weight:500;margin:8px 0 6px}
+.three p{font-size:13.5px;color:var(--ink-2)}
+.three .cd{margin-top:12px;display:inline-block;font-size:11px;letter-spacing:.04em;border:1px solid var(--line-2);border-radius:99px;padding:3px 10px;color:var(--ink-2);font-family:ui-monospace,Menlo,monospace}
+.three .st{margin-top:12px;font-size:12.5px;color:var(--leaf);font-weight:500}
+.lab{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:clamp(18px,3vw,40px);align-items:start}
+.opts{display:grid;gap:8px}
+.opts button{border:1px solid var(--line-2);border-radius:12px;padding:12px 14px;font-size:14.5px;text-align:left;background:var(--paper);transition:background .2s,border-color .2s}
+.opts button:hover{border-color:var(--acc)}
+.opts button[aria-pressed="true"]{background:var(--acc-soft);border-color:var(--acc);color:var(--acc-ink);font-weight:500}
+.out-pane{border:1px solid var(--line);border-radius:18px;padding:clamp(16px,2vw,24px);background:var(--paper);min-height:320px}
+.out-pane .sc{display:none}
+.out-pane .sc.on{display:block;animation:pp .45s var(--ease)}
+@keyframes pp{from{opacity:0;transform:translateY(8px)}}
+.out-pane .layer{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.lchip{font-size:12px;font-weight:600;padding:4px 11px;border-radius:99px;letter-spacing:.03em}
+.lchip.l1{background:#DCEBF8;color:#1F5A8C}
+.lchip.l2{background:#FBEFCB;color:#7A5A0F}
+.lchip.l3{background:var(--acc-soft);color:var(--acc-ink)}
+.out-pane .rc{font-size:12px;color:var(--ink-2)}
+.out-pane dl{display:grid;gap:14px}
+.out-pane dt{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:3px}
+html:not(.en) .out-pane dt{letter-spacing:.06em}
+.out-pane dd{margin:0;font-size:14.5px}
+.out-pane dd.no{color:var(--leaf);font-weight:500}
+.chain{display:grid;gap:8px}
+.layerx{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:13px 16px;background:var(--paper);transition:border-color .35s,background .35s,transform .45s var(--ease)}
+.layerx .lv{font-size:24px;font-weight:300;color:var(--ink-3)}
+.layerx h4{font-size:15px;font-weight:500}
+.layerx p{font-size:13px;color:var(--ink-2)}
+.layerx .s{font-size:11px;letter-spacing:.06em;color:var(--ink-2);text-align:right;max-width:150px;border:1px solid var(--line-2);border-radius:99px;padding:3px 10px;white-space:nowrap}
+.layerx.on{border-color:var(--acc);background:var(--acc-soft);transform:translateX(6px)}
+.layerx.on .lv{color:var(--acc)}
+pre.code{margin:0;background:var(--acc-soft);border:1px solid var(--line);border-radius:14px;padding:18px 20px;overflow-x:auto;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:12.5px;line-height:1.8;color:var(--ink)}
+pre.code .c{color:var(--ink-3)}pre.code .k2{color:var(--acc-ink);font-weight:600}
+.ethic{list-style:none;margin:0;padding:0;display:grid}
+.ethic li{padding:12px 0;border-bottom:1px solid var(--line);display:flex;gap:12px;font-size:14.5px}
+.ethic li:last-child{border-bottom:0}
+.ethic li::before{content:"✗";color:var(--rose);flex:none}
+.ethic.ok li::before{content:"✓";color:var(--leaf)}
+
+/* design system */
+.sw{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.sw div{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--paper)}
+.sw i{display:block;height:60px}
+.sw p{padding:9px 12px;font-size:12.5px;line-height:1.35}.sw b{display:block;font-weight:500;font-size:13.5px}
+.sw p span{color:var(--ink-3);font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.ico-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.ico{border:1px solid var(--line);border-radius:14px;padding:14px 6px 10px;text-align:center;background:var(--paper);transition:border-color .2s,transform .3s var(--ease)}
+.ico:hover{border-color:var(--acc-2);transform:translateY(-3px)}
+.ico svg{width:30px;height:30px;color:var(--ink);margin:0 auto 8px;display:block}
+.ico span{font-size:11.5px;color:var(--ink-2);display:block;line-height:1.3}
+.ico-group{margin-bottom:22px}
+.ico-group .lbl{margin-bottom:10px}
+.spec{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--line)}
+.spec>div{padding:16px 14px 18px 0;border-bottom:1px solid var(--line)}
+.spec>div:not(:nth-child(4n+1)){padding-left:16px;border-left:1px solid var(--line)}
+.spec b{display:block;font-size:26px;font-weight:300;letter-spacing:-.03em;line-height:1.1}
+.spec p{font-size:12.5px;color:var(--ink-2);margin-top:6px}
+
+/* end */
+.big{font-size:clamp(52px,12vw,170px);font-weight:300;letter-spacing:-.05em;line-height:1.12;padding-bottom:.08em;text-align:center;background:linear-gradient(90deg,var(--ink) 0%,var(--ink) 30%,var(--acc) 55%,var(--acc-3) 75%,var(--ink-3) 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:sh 9s ease-in-out infinite alternate;padding-top:clamp(26px,4vw,52px)}
+@keyframes sh{to{background-position:100% 0}}
+.tagline{text-align:center;color:var(--ink-2);font-size:15px;margin-bottom:28px;font-style:italic}
+footer{padding-block:26px 38px;border-top:1px solid var(--line)}
+footer .in{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:center;font-size:13px;color:var(--ink-2)}
+
+/* lightbox */
+.lb{position:fixed;inset:0;z-index:99;background:rgba(14,10,30,.88);display:grid;place-items:center;padding:max(24px,env(safe-area-inset-top,0px)) 16px 24px;animation:pp .3s var(--ease)}
+.lb img{max-height:88vh;width:auto;max-width:100%;border-radius:12px}
+.lb button{position:absolute;top:max(18px,env(safe-area-inset-top,0px));right:max(18px,env(safe-area-inset-right,0px));background:#fff;color:#111;border-radius:99px;padding:8px 16px;font-size:13px}
+
+/* pointer effects */
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:80}
+#ring{position:fixed;left:0;top:0;z-index:97;pointer-events:none;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:1.5px solid var(--acc);background:color-mix(in srgb,var(--acc) 8%,transparent);transition:width .35s var(--ease),height .35s var(--ease),margin .35s var(--ease),border-color .3s,background .3s,opacity .3s;opacity:0}
+#ring::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:var(--acc)}
+#ring.calm{width:30px;height:30px;margin:-15px 0 0 -15px;background:color-mix(in srgb,var(--leaf) 14%,transparent);border-color:var(--leaf)}
+#ring.calm::after{background:var(--leaf)}
+#ring.fast{width:84px;height:84px;margin:-42px 0 0 -42px;border-style:dashed;border-color:var(--rose);background:transparent}
+#ring.fast::after{background:var(--rose)}
+#ring.link{width:56px;height:56px;margin:-28px 0 0 -28px;background:color-mix(in srgb,var(--acc) 16%,transparent)}
+#ring.on{opacity:1}
+
+@media (max-width:1100px){
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stats>div:not(:nth-child(4n+1)){padding-left:0;border-left:0}
+  .stats>div:nth-child(2n){padding-left:20px;border-left:1px solid var(--line)}
+  .cuts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .hs,.lab,.slide,.vrow{grid-template-columns:1fr}
+  .vinfo{position:static}
+  .spec{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .spec>div:not(:nth-child(4n+1)){padding-left:0;border-left:0}
+  .spec>div:nth-child(2n){padding-left:16px;border-left:1px solid var(--line)}
+}
+@media (max-width:760px){
+  .meta2,.g2{grid-template-columns:1fr}
+  .g3,.three,.exp,.pair{grid-template-columns:1fr}
+  .vgrid.c3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bnum{grid-template-columns:1fr;gap:18px}
+  .stats b{font-size:30px}
+  .cuts{grid-template-columns:1fr}
+  .menu-btn span{display:none}
+  .layerx{grid-template-columns:34px minmax(0,1fr)}
+  .layerx .s{grid-column:2;text-align:left;max-width:none;justify-self:start}
+  .sw{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .hot b{width:18px;height:18px;font-size:10px}
+  .flow{grid-template-columns:1fr}
+  .flow li{padding:0 0 18px 38px}
+  .flow li::before{left:11px;right:auto;top:0;bottom:0;width:2px;height:auto}
+  .flow li:last-child::before{background:none}
+  .flow.sm li{padding:0 0 14px 32px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  html{scroll-behavior:auto}
+  #fx,#ring,.banner .glow,.banner canvas{display:none}
+}
+.fig.contain{aspect-ratio:1440/900;display:grid;place-items:center;background:#0f1612}.fig.contain img{height:100%;width:auto;max-width:100%}
+
+/* game cursor: target lock-on, label chip, click shockwave */
+#lock{position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0;width:40px;height:40px;transition:opacity .2s,width .2s var(--ease),height .2s var(--ease),transform .16s var(--ease)}
+#lock.on{opacity:1}
+#lock i{position:absolute;width:11px;height:11px;border:0 solid var(--acc)}
+#lock i:nth-child(1){left:0;top:0;border-left-width:2px;border-top-width:2px;border-top-left-radius:5px}
+#lock i:nth-child(2){right:0;top:0;border-right-width:2px;border-top-width:2px;border-top-right-radius:5px}
+#lock i:nth-child(3){left:0;bottom:0;border-left-width:2px;border-bottom-width:2px;border-bottom-left-radius:5px}
+#lock i:nth-child(4){right:0;bottom:0;border-right-width:2px;border-bottom-width:2px;border-bottom-right-radius:5px}
+#lock.on i{animation:lk 1.2s ease-in-out infinite alternate}
+@keyframes lk{from{transform:scale(1)}to{transform:scale(1.25)}}
+#lockl{position:fixed;left:0;top:0;z-index:96;pointer-events:none;opacity:0;font:600 10.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.14em;background:var(--acc);color:#fff;padding:4px 8px;border-radius:6px 6px 6px 0;transition:opacity .2s,transform .16s var(--ease)}
+#lockl.on{opacity:1}
+.shock{position:fixed;z-index:96;pointer-events:none;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;border:2px solid var(--acc);animation:shock .6s var(--ease) forwards}
+@keyframes shock{to{transform:scale(6);opacity:0}}
+/* chapter rail: fisheye on hover */
+.rail ol{perspective:520px;padding:14px 46px 14px 16px}
+.rail li{transform-origin:0 50%;transition:transform .28s var(--ease),opacity .28s;will-change:transform}
+.rail.hot li button{color:var(--ink-2)}
+.rail.hot li.near button{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){#lock,#lockl,.shock{display:none}}
+
+</style>
+<header class="top" id="top"><div class="in">
+<a class="word" href="#hero">WILDLING</a>
+<button class="menu-btn" id="menu-open" type="button" aria-haspopup="dialog"><i><b></b><b></b></i><span>Menu</span></button>
+<span class="sp"></span>
+<div class="seg" role="group" aria-label="Language"><button type="button" id="l-zh" aria-pressed="true">中</button><button type="button" id="l-en" aria-pressed="false">EN</button></div>
+</div><span class="prog" id="prog"></span></header>
+<nav class="rail" id="railnav" aria-label="Chapters"><ol id="rail"><span class="dot" id="rail-dot"></span></ol></nav>
+<div class="menu" id="menu" role="dialog" aria-modal="true" aria-label="Chapters"><div class="mh"><span class="word">WILDLING</span><button type="button" id="menu-close">✕</button></div><ol id="menu-list"></ol></div>
+<canvas id="fx" aria-hidden="true"></canvas><div id="ring" aria-hidden="true"></div><div id="lock" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div id="lockl" aria-hidden="true"></div>
+<div class="sheet">
+<section class="banner" id="hero" aria-label="Wildling"><img id="bn-img" src="media/user1.webp" alt="Wildling poster: three kittens leaping towards a glowing purple hand holding a feather" fetchpriority="high"><canvas id="leaves" aria-hidden="true"></canvas><div class="glow" id="glow"></div></section>
+<section class="ch intro" id="c-overview" data-nav="概览|Overview"><div class="wrap"><div>
+<span class="lbl"><span class="zh">产品与体验设计案例</span><span class="en">Product and experience design case study</span></span>
+<h1><span class="zh">Wildling：面向公共展览的可解释 AI 交互装置</span><span class="en">Wildling: an explainable AI interactive installation for public exhibition</span></h1>
+<div class="meta2"><div><span class="lbl"><span class="zh">角色</span><span class="en">Role</span></span><p><span class="zh">AI 产品与交互设计师兼开发：PRD、AI 行为、体验与界面、可玩版本、验证证据。</span><span class="en">AI product and interaction designer and developer: PRDs, AI behaviour, experience, playable build, evidence.</span></p></div><div><span class="lbl"><span class="zh">背景</span><span class="en">Context</span></span><p><span class="zh">悉尼游戏与交互展览，两轮 Brief；V3 是我自查后发起的重构。</span><span class="en">A Sydney game and interaction exhibition, two briefs; V3 is a redesign I started after my own audit.</span></p></div><div><span class="lbl"><span class="zh">交付物</span><span class="en">Deliverables</span></span><p><span class="zh">2 份 PRD · 23 条决策记录 · 追溯矩阵 · AI 边界文档 · 可玩版本 · 123 个回放测试 · 研究方案</span><span class="en">2 PRDs · 23 decision records · traceability matrix · AI boundaries · playable build · 123 replay tests · study plan</span></p></div><div><span class="lbl"><span class="zh">核心成果</span><span class="en">Key outcomes</span></span><ul><li><span class="zh">提出三层原因模型，区分追踪失败、手势不明确与角色拒绝</span><span class="en">A three-layer cause model separating tracking failure, unclear gesture and character refusal</span></li><li><span class="zh">建立 AI 能力边界表，逐项标注模型、规则或统计</span><span class="en">An AI boundary table labelling each capability as model, rule or statistics</span></li><li><span class="zh">基于自查将 V2 重构为 V3：取消工具栏与成长条，改为手部直接操作</span><span class="en">A self-audit-driven rebuild from V2 to V3: toolbar and growth bar removed, direct hand manipulation introduced</span></li></ul></div></div>
+<div class="ctas"><a class="pill dark" href="https://katherine0292.github.io/wildling/" target="_blank" rel="noopener">▶ <span class="zh">试玩</span><span class="en">Play the build</span></a><a class="pill" href="https://github.com/katherine0292/wildling" target="_blank" rel="noopener"><span class="zh">源码与文档</span><span class="en">Source and docs</span> ↗</a></div></div>
+<div class="stats"><div><b class="num" data-c="3">3</b><p><span class="zh">轮迭代：V1 原型、V2、V3.1</span><span class="en">iterations: V1 prototypes, V2, V3.1</span></p></div><div><b class="num" data-c="23">23</b><p><span class="zh">条决策记录，含选项、代价与推翻条件</span><span class="en">decision records with options, cost and overturn conditions</span></p></div><div><b class="num" data-c="123">123</b><p><span class="zh">个确定性回放测试，CI 中运行</span><span class="en">deterministic replay tests, run in CI</span></p></div><div><b class="num" data-c="0">0</b><p><span class="zh">次因追踪失效扣减关系值（回放验证）</span><span class="en">relationship points lost to invalid tracking (replay-verified)</span></p></div></div>
+</div></section>
+<section class="ch alt" id="c-bg" data-nav="背景与问题|Context"><div class="wrap">
+<div class="head"><div class="row"><span class="lbl">01 · <span class="zh">背景与问题</span><span class="en">Context and problem</span></span></div><h2><span class="zh">无人引导的展厅里，以手速推断意图并不可靠</span><span class="en">In an unattended gallery, inferring intent from hand speed is unreliable</span></h2></div>
+<div class="g2"><div>
+<span class="lbl k"><span class="zh">使用场景与约束（Brief V2）</span><span class="en">Context and constraints (Brief V2)</span></span>
+<div class="tw "><table><thead><tr><th><span class="zh">维度</span><span class="en">Dimension</span></th><th><span class="zh">要求</span><span class="en">Requirement</span></th></tr></thead><tbody><tr><td><span class="zh">用户</span><span class="en">User</span></td><td><span class="zh">首次接触的公众；左右手、坐姿站姿不限；部分人不愿开摄像头</span><span class="en">First-time public visitors; left or right hand, seated or standing; some unwilling to use a camera</span></td></tr><tr><td><span class="zh">入口</span><span class="en">Entry</span></td><td><span class="zh">30 秒内完成一次有效动作，无工作人员协助</span><span class="en">One effective action within 30 s, no staff help</span></td></tr><tr><td><span class="zh">时长</span><span class="en">Length</span></td><td><span class="zh">单次体验 3–5 分钟</span><span class="en">A visit lasts 3–5 minutes</span></td></tr><tr><td><span class="zh">输入</span><span class="en">Input</span></td><td><span class="zh">摄像头之外，鼠标与键盘可完成全部体验</span><span class="en">Mouse and keyboard reach every feature</span></td></tr><tr><td><span class="zh">运营</span><span class="en">Operations</span></td><td><span class="zh">离线运行；换人后不保留上一位的数据</span><span class="en">Runs offline; no data carried between visitors</span></td></tr></tbody></table></div>
+<p class="para" style="margin-top:18px"><span class="zh">策展主题 <b>“Learning each other’s distance”</b>：角色有自己的状态与边界，目标是找到合适的相处方式，而非填满信任条。</span><span class="en">Theme: <b>“Learning each other’s distance”</b>. The character has its own state and boundaries; the goal is a fitting way of being together, not a full trust bar.</span></p></div>
+<div><figure><div class="exh"><img src="media/user2.webp" alt="Concept render of a visitor reaching towards a wall-mounted screen showing the Wildling clearing in a gallery" loading="lazy"><span class="badge"><span class="zh">展厅场景概念图</span><span class="en">Exhibition concept render</span></span></div><figcaption><span class="zh">预期展示形态：访客站在地面标记处隔空操作；左侧常驻 MIND 面板，右下为道具小包。</span><span class="en">Intended setting: visitors stand on the floor marker and gesture in the air; MIND panel at left, pouch at bottom right.</span></figcaption></figure></div></div>
+<div class="blk g2"><div><span class="lbl k"><span class="zh">V1 暴露的问题</span><span class="en">Issues found in V1</span></span>
+<p class="insight"><span class="zh">V1 以手速判断意图：慢手是抚摸，快手是威胁。公共场合里，追踪抖动、换姿势和路人都会被误读，角色要么惩罚用户，要么像按钮一样服从；信任只是一个数字，用户不知道哪个动作改变了它。</span><span class="en">V1 read slow hands as petting and fast hands as threats. In public, jitter, posture changes and passers-by were misread, so the character punished users or obeyed like a button. Trust was one number, so nobody knew which action changed it.</span></p></div>
+<div class="card" style="align-self:start"><span class="lbl k"><span class="zh">设计问题</span><span class="en">Design question</span></span><p style="font-size:17px"><span class="zh">如何让用户相信 AI 的每次反应都有依据，出错时既不怪自己，也不怪角色？</span><span class="en">How can users trust that every AI reaction has a basis, and blame neither themselves nor the character when it errs?</span></p></div></div>
+</div></section>
+<section class="qband" aria-label="Product definition"><div class="wrap"><span class="lbl"><span class="zh">产品定义</span><span class="en">Product definition</span></span><h2><span class="zh">任何情况下，用户都能分辨：是系统没有识别到手，还是角色自己做出了选择。</span><span class="en">In every case, the user can tell whether the system lost the hand or the character made a choice.</span></h2><p><span class="zh">这是 Brief V2 对可理解、可信任的 AI 体验的定义，也是此后每个取舍的标准。</span><span class="en">Brief V2’s definition of an understandable, trustworthy AI experience, and the test for every later trade-off.</span></p></div></section>
+<section class="ch" id="c-strategy" data-nav="产品策略|Strategy"><div class="wrap">
+<div class="head"><div class="row"><span class="lbl">02 · <span class="zh">产品策略</span><span class="en">Product strategy</span></span></div><h2><span class="zh">以可追溯的需求管理，控制范围与风险</span><span class="en">Traceable requirements to control scope and risk</span></h2></div>
+<div class="g2"><div><span class="lbl k"><span class="zh">需求管理</span><span class="en">Requirement management</span></span><div class="card"><p style="margin-bottom:8px"><span class="tag c">[Client]</span><span class="zh">Brief 中的要求</span><span class="en">Stated in a brief</span></p><p style="margin-bottom:8px"><span class="tag p">[Proposal]</span><span class="zh">PRD 中我提出的方案</span><span class="en">My proposal in the PRD</span></p><p style="margin-bottom:20px"><span class="tag">[To confirm]</span><span class="zh">需负责人确认的取舍</span><span class="en">Trade-offs needing sign-off</span></p><ol class="flow sm" style="--n:4"><li><i>1</i><b><span class="zh">Brief 目标</span><span class="en">Brief goal</span></b></li><li><i>2</i><b><span class="zh">规格</span><span class="en">Spec</span></b></li><li><i>3</i><b><span class="zh">验收用例</span><span class="en">Acceptance</span></b></li><li><i>4</i><b><span class="zh">指标</span><span class="en">Metric</span></b></li></ol></div></div>
+<div><span class="lbl k"><span class="zh">范围划分</span><span class="en">Scope</span></span>
+<div class="tw "><table><thead><tr><th><span class="zh">优先级</span><span class="en">Priority</span></th><th><span class="zh">范围</span><span class="en">Scope</span></th></tr></thead><tbody><tr><td><span class="zh">P0</span><span class="en">P0</span></td><td><span class="zh">单人体验、摄像头与替代输入、质量门控、效用行为、有界适应、解释性反馈、换人清空</span><span class="en">Single-visitor session, camera and alternative input, quality gate, utility behaviour, bounded adaptation, explanatory feedback, turnover</span></td></tr><tr><td><span class="zh">P1 / P2</span><span class="en">P1 / P2</span></td><td><span class="zh">完整骨架与基因、长时间观察模式；生成式总结、多访客控制</span><span class="en">Full skeleton and genetics, long-form mode; generative recap, multi-visitor control</span></td></tr><tr><td><span class="zh">范围外</span><span class="en">Out of scope</span></td><td><span class="zh">账号社交、云端视频分析、情绪识别、语音聊天、付费</span><span class="en">Accounts, cloud video analysis, emotion recognition, voice chat, payments</span></td></tr></tbody></table></div>
+</div></div>
+<div class="blk"><span class="lbl k"><span class="zh">明确不做的五项及依据</span><span class="en">Five deliberate exclusions and why</span></span><div class="cuts"><div class="cut"><h4><span class="zh">开放式聊天</span><span class="en">Open chat</span></h4><p><span class="zh">生成文字无法证明身体交互成立，且带来延迟、审核与事实性风险。</span><span class="en">Generated text cannot prove body interaction works, and adds latency, moderation and factuality risk.</span></p><small>ADR-003</small></div><div class="cut"><h4><span class="zh">公共屏幕信任条</span><span class="en">Public trust bar</span></h4><p><span class="zh">会诱导“刷满”，与策展主题相反；改用词语加三颗心。</span><span class="en">Encourages filling it, against the theme; replaced by phrases and three hearts.</span></p><small>ADR-009</small></div><div class="cut"><h4><span class="zh">“学会用户性格”</span><span class="en">“Learns your personality”</span></h4><p><span class="zh">短会话数据不足；适应仅为有界统计，随机外观不冒充学习。</span><span class="en">A short visit lacks the data; adaptation is bounded statistics and random looks do not pass as learning.</span></p><small>ADR-007</small></div><div class="cut"><h4><span class="zh">成长进度条</span><span class="en">Growth bar</span></h4><p><span class="zh">让目标变成刷进度；V3 改为三个关系阶段。</span><span class="en">Turns the goal into grinding; V3 uses three bond stages.</span></p><small>V3 · R6</small></div><div class="cut"><h4><span class="zh">生成式结尾</span><span class="en">Generative ending</span></h4><p><span class="zh">列为 P2 且不得影响行为；P0 日志用模板，逐句引用真实事件。</span><span class="en">P2 and never allowed to affect behaviour; P0 uses templates citing real events.</span></p><small>ADR-003</small></div></div></div></div></section>
+<section class="ch alt" id="c-ai" data-nav="AI 系统|AI system"><div class="wrap">
+<div class="head"><div class="row"><span class="lbl">03 · <span class="zh">AI 系统设计</span><span class="en">AI system design</span></span></div><h2><span class="zh">每项 AI 能力标明类型，并区分三类失败原因</span><span class="en">Each AI capability is labelled by type, and three failure causes are kept apart</span></h2><p class="lede"><span class="zh">Brief V2 要求区分训练模型、规则与统计适应。我做成边界表，并让界面直接展示同一份决策记录。</span><span class="en">Brief V2 asks to separate trained models, rules and statistical adaptation. I made a boundary table and let the interface show the same decision record.</span></p></div>
+<div class="three"><div><span class="lv"><span class="zh">第 1 层</span><span class="en">LAYER 1</span></span><h4><span class="zh">系统未识别</span><span class="en">System did not see</span></h4><p><span class="zh">手被遮挡、出画或追踪跳变。反馈在<b>手</b>上：蓝色虚线，接触暂停。</span><span class="en">Hand occluded, out of frame or tracker jump. Feedback is on the <b>hand</b>: dashed blue, contact pauses.</span></p><span class="cd">TRACKING_LOST</span><p class="st"><span class="zh">不影响角色与关系值</span><span class="en">No effect on character or bond</span></p></div><div><span class="lv"><span class="zh">第 2 层</span><span class="en">LAYER 2</span></span><h4><span class="zh">手势不明确</span><span class="en">Gesture unclear</span></h4><p><span class="zh">得分不足或与次高分过近，输出 <code>unknown</code>，不回应也不猜测。</span><span class="en">Score too low or too close to the runner-up: output <code>unknown</code>, no response and no guess.</span></p><span class="cd">INTENT_UNCERTAIN</span><p class="st"><span class="zh">unknown 期间不写入记忆</span><span class="en">Nothing is remembered while unknown</span></p></div><div><span class="lv"><span class="zh">第 3 层</span><span class="en">LAYER 3</span></span><h4><span class="zh">角色拒绝</span><span class="en">Character refuses</span></h4><p><span class="zh">疲劳、饱足、紧张或关系未到。用<b>身体</b>回应并给出原因。</span><span class="en">Tired, full, tense or not yet close. It answers with its <b>body</b> and gives a reason.</span></p><span class="cd">NEED_REST · TOO_FULL</span><p class="st"><span class="zh">拒绝不扣减关系值</span><span class="en">A refusal never costs trust</span></p></div></div>
+<div class="blk"><span class="lbl k"><span class="zh">场景演示：判断反馈属于哪一层</span><span class="en">Scenario demo: which layer does the feedback belong to?</span></span><div class="lab"><div class="opts" id="lab-opts" role="group">
+<button type="button" data-sc="0" aria-pressed="true"><span class="zh">摄像头丢失手部</span><span class="en">Camera loses the hand</span></button>
+<button type="button" data-sc="1" aria-pressed="false"><span class="zh">手势抖动、识别不清</span><span class="en">Jittery or unclear gesture</span></button>
+<button type="button" data-sc="2" aria-pressed="false"><span class="zh">角色疲劳时递上玩具</span><span class="en">A toy offered to a tired kitten</span></button>
+<button type="button" data-sc="3" aria-pressed="false"><span class="zh">快速挥手掠过猫群</span><span class="en">A fast hand sweeps over the litter</span></button>
+</div><div class="out-pane" aria-live="polite">
+<div class="sc on"><div class="layer"><span class="lchip l1"><span class="zh">第 1 层 · 系统</span><span class="en">Layer 1 · System</span></span><span class="rc mono">TRACKING_LOST</span></div><dl><div><dt><span class="zh">用户看到</span><span class="en">User sees</span></dt><dd><span class="zh">手变为蓝色虚线，接触暂停；角色仅短暂张望，状态不变。</span><span class="en">The hand turns dashed blue and contact pauses; the kitten glances over and its state is unchanged.</span></dd></div><div><dt><span class="zh">系统记录</span><span class="en">System records</span></dt><dd><span class="zh">追踪由“有效”变为“丢失”，不写入任何接触事件。</span><span class="en">Tracking changes from valid to lost; no contact event is written.</span></dd></div><div><dt><span class="zh">对关系的影响</span><span class="en">Effect on the bond</span></dt><dd class="no"><span class="zh">无影响。该时段不归咎于任何一方。</span><span class="en">No effect. The interval is not attributed to anyone.</span></dd></div></dl></div>
+<div class="sc"><div class="layer"><span class="lchip l2"><span class="zh">第 2 层 · 手势</span><span class="en">Layer 2 · Gesture</span></span><span class="rc mono">INTENT_UNCERTAIN</span></div><dl><div><dt><span class="zh">用户看到</span><span class="en">User sees</span></dt><dd><span class="zh">光标旁显示虚线提示（如 “Show one open hand”），角色不回应。</span><span class="en">A dashed hint appears at the cursor (for example “Show one open hand”); the kitten does not respond.</span></dd></div><div><dt><span class="zh">系统记录</span><span class="en">System records</span></dt><dd><span class="zh">得分不足或与次高分过近记为 unknown（V2：最高分 ≥ 0.80，领先 ≥ 0.20，连续 2 周期）。</span><span class="en">Score too low or too close to the runner-up is unknown (V2: top ≥ 0.80, margin ≥ 0.20, for 2 cycles).</span></dd></div><div><dt><span class="zh">对关系的影响</span><span class="en">Effect on the bond</span></dt><dd class="no"><span class="zh">无影响。unknown 期间不写入记忆。</span><span class="en">No effect. Nothing is remembered while unknown.</span></dd></div></dl></div>
+<div class="sc"><div class="layer"><span class="lchip l3"><span class="zh">第 3 层 · 角色</span><span class="en">Layer 3 · Character</span></span><span class="rc mono">NEED_REST</span></div><dl><div><dt><span class="zh">用户看到</span><span class="en">User sees</span></dt><dd><span class="zh">角色蜷缩休息；被屏蔽的选项旁标注原因。V2 中角色会说 “I’m tired. Give me a little space.”</span><span class="en">The kitten curls up; blocked options show their reason. In V2 it said “I’m tired. Give me a little space.”</span></dd></div><div><dt><span class="zh">系统记录</span><span class="en">System records</span></dt><dd><span class="zh">硬约束先于效用：能量过低强制 REST，其余候选打分或标注被屏蔽，全部记入决策记录。</span><span class="en">Hard constraints precede utility: low energy forces REST; other candidates are scored or marked blocked, all in the decision record.</span></dd></div><div><dt><span class="zh">对关系的影响</span><span class="en">Effect on the bond</span></dt><dd class="no"><span class="zh">不扣减。这是角色的边界，不是用户的失误。</span><span class="en">No deduction. It is the character’s boundary, not the user’s error.</span></dd></div></dl></div>
+<div class="sc"><div class="layer"><span class="lchip l3"><span class="zh">第 3 层 · 角色</span><span class="en">Layer 3 · Character</span></span><span class="rc mono">PRESSURE</span></div><dl><div><dt><span class="zh">用户看到</span><span class="en">User sees</span></dt><dd><span class="zh">耳朵抖动、猫群散开，数秒后自行返回。抚摸不算挥手，挥玩具算玩耍。</span><span class="en">Ears flick and the litter scatters, then returns on its own. Stroking never counts as waving; swinging a toy is play.</span></dd></div><div><dt><span class="zh">系统记录</span><span class="en">System records</span></dt><dd><span class="zh">近处快速手部运动无论方向都按威胁处理；靠上下文区分抚摸、玩耍与挥手。</span><span class="en">A fast hand nearby is a threat in any direction; context separates stroking, play and waving.</span></dd></div><div><dt><span class="zh">对关系的影响</span><span class="en">Effect on the bond</span></dt><dd class="no"><span class="zh">不惩罚用户。退让是角色自己的选择，并会恢复。</span><span class="en">The user is not penalised. Backing off is the character’s choice and it recovers.</span></dd></div></dl></div>
+</div></div></div>
+<div class="blk g2"><div><span class="lbl k"><span class="zh">从摄像头到屏幕：各层的智能类型</span><span class="en">From camera to screen: the type of each layer</span></span><div class="chain" id="chain">
+<div class="layerx"><span class="lv">1</span><div><h4><span class="zh">手部关键点</span><span class="en">Hand keypoints</span></h4><p><span class="zh">MediaPipe Hand Landmarker 在本机 Worker 运行，只输出 21 个关键点，画面不上传。</span><span class="en">MediaPipe Hand Landmarker runs in an on-device worker and outputs only 21 keypoints; frames are never uploaded.</span></p></div><span class="s"><span class="zh">预训练模型</span><span class="en">Pre-trained model</span></span></div>
+<div class="layerx"><span class="lv">2</span><div><h4><span class="zh">质量门控与手部特征</span><span class="en">Quality gate and hand features</span></h4><p><span class="zh">有效 / 不确定 / 丢失；3D 关键点上的张开、捏合、指向、挥动，看不清输出 unknown。</span><span class="en">Valid, uncertain or lost; open, pinch, point and wave on 3D keypoints, unclear gives unknown.</span></p></div><span class="s"><span class="zh">规则</span><span class="en">Rules</span></span></div>
+<div class="layerx"><span class="lv">3</span><div><h4><span class="zh">角色决策</span><span class="en">Character decision</span></h4><p><span class="zh">硬约束先行，再对行为做手写效用打分，带惯性以防抖动。</span><span class="en">Hard constraints first, then hand-written utility scoring with inertia to avoid flicker.</span></p></div><span class="s"><span class="zh">约束 → 效用</span><span class="en">Constraints → utility</span></span></div>
+<div class="layerx"><span class="lv">4</span><div><h4><span class="zh">记忆与得分</span><span class="en">Memory and scores</span></h4><p><span class="zh">累计 3 次有效事件才出现可见变化，离开即清空。</span><span class="en">Visible change needs 3 valid events and is cleared when the visitor leaves.</span></p></div><span class="s"><span class="zh">有界统计</span><span class="en">Bounded statistics</span></span></div>
+<div class="layerx"><span class="lv">5</span><div><h4><span class="zh">解释</span><span class="en">Explanation</span></h4><p><span class="zh">MIND 面板、员工视图与测试读取同一份决策记录。</span><span class="en">The MIND panel, staff view and tests read one decision record.</span></p></div><span class="s"><span class="zh">展示记录</span><span class="en">Record display</span></span></div>
+</div></div><div><span class="lbl k"><span class="zh">对外表述边界</span><span class="en">Claims we do not make</span></span><div class="card"><ul class="ethic"><li><span class="zh">“AI 理解用户的情绪或性格”：模型只输出有界的动作类别</span><span class="en">“The AI understands emotion or personality”: the model only outputs bounded action classes</span></li><li><span class="zh">“用机器学习学会了用户”：适应是统计估计，不是在线训练</span><span class="en">“It learned the user with machine learning”: adaptation is a statistical estimate, not online training</span></li><li><span class="zh">“手势识别准确率 xx%”：未在真实手上评估前不报数</span><span class="en">“Gesture accuracy is xx%”: no figure before evaluation on real hands</span></li><li><span class="zh">“本地推理无需摄像头权限”：仍需浏览器授权</span><span class="en">“Local inference needs no camera permission”: browser consent is still required</span></li></ul><p class="para" style="margin-top:14px;font-size:14px"><span class="zh">同一能力，“在习惯这个节奏”与“了解你的性格”是两种承诺；文案属于产品设计。</span><span class="en">For one capability, “getting used to this rhythm” and “knows your personality” are different promises. Copy is product design.</span></p></div></div></div>
+</div></section>
+<section class="ch" id="c-evo" data-nav="版本演进|Evolution"><div class="wrap">
+<div class="head"><div class="row"><span class="lbl">04 · <span class="zh">版本演进：功能与视觉</span><span class="en">Evolution of features and visuals</span></span></div><h2><span class="zh">三轮迭代的界面、功能与问题</span><span class="en">Interface, features and findings across three iterations</span></h2><p class="lede"><span class="zh">下列截图与录屏均来自各版本的真实构建，点击图片可放大。</span><span class="en">All screenshots and clips come from the real builds of each version. Click an image to enlarge.</span></p></div>
+<div class="vrow first"><div class="vinfo"><div class="vnum">V1</div><h3><span class="zh">原型：比较两条交互路线</span><span class="en">Prototypes: comparing two interaction routes</span></h3><dl><div><dt><span class="zh">目标</span><span class="en">Goal</span></dt><dd class=""><span class="zh">验证“自主生活”与“照护工具”哪条路线更适合展览。</span><span class="en">Test whether autonomous life or care tools suits an exhibition better.</span></dd></div><div><dt><span class="zh">主要功能</span><span class="en">Features</span></dt><dd class=""><span class="zh">A：慢手抚摸 / 快手追逐，效用 AI，程序化身体，MIND 面板。B：喂、玩、摸三个工具，状态机，需求条。</span><span class="en">A: slow hand pets, fast hand chases, utility AI, procedural body, MIND panel. B: Feed, Play and Pet tools, state machine, need bars.</span></dd></div><div><dt><span class="zh">视觉</span><span class="en">Visual</span></dt><dd class=""><span class="zh">深色丛林、衬线标题、半透明面板；B 为叶片背景加文字需求条。</span><span class="en">Dark jungle, serif titles, translucent panels; B uses a leaf backdrop with text need bars.</span></dd></div><div><dt><span class="zh">发现</span><span class="en">Finding</span></dt><dd class="finding"><span class="zh">手速会被误读；信任只是单一数值，无法解释。</span><span class="en">Hand speed is misread; trust is a single number that explains nothing.</span></dd></div></dl></div><div><div class="vgrid"><figure class="tilt"><div class="fig " data-zoom="media/v1-a-intro.webp"><img src="media/v1-a-intro.webp" alt="Prototype A entry screen" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh"><b>原型 A</b> 入口：三种互动与手势说明</span><span class="en"><b>Prototype A</b> entry: three modes and gesture guide</span></figcaption></figure><figure class="tilt"><div class="fig " data-zoom="media/v1-a-play.webp"><img src="media/v1-a-play.webp" alt="Prototype A gameplay" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh"><b>原型 A</b> 玩法：手形光标与 MIND 面板</span><span class="en"><b>Prototype A</b> play: hand cursor and MIND panel</span></figcaption></figure><figure class="tilt"><div class="fig " data-zoom="media/v1-b-intro.webp"><img src="media/v1-b-intro.webp" alt="Prototype B entry screen" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh"><b>原型 B</b> 入口：选择手或鼠标</span><span class="en"><b>Prototype B</b> entry: hand or mouse</span></figcaption></figure><figure class="tilt"><div class="fig " data-zoom="media/v1-b-play.webp"><img src="media/v1-b-play.webp" alt="Prototype B gameplay" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh"><b>原型 B</b> 玩法：三个工具与需求条</span><span class="en"><b>Prototype B</b> play: three tools and need bars</span></figcaption></figure></div></div></div>
+<div class="vrow"><div class="vinfo"><div class="vnum">V2</div><h3><span class="zh">把证据、意图与选择分开</span><span class="en">Separating evidence, intent and choice</span></h3><dl><div><dt><span class="zh">目标</span><span class="en">Goal</span></dt><dd class=""><span class="zh">可评估的手势识别、可解释的决策、有界适应。</span><span class="en">Evaluable gesture recognition, explainable decisions, bounded adaptation.</span></dd></div><div><dt><span class="zh">主要功能</span><span class="en">Features</span></dt><dd class=""><span class="zh">质量门控、unknown 拒识、原因码、6 个工具、成长系统、小猫间关系、少样本教把戏、日志明信片、员工面板。</span><span class="en">Quality gate, unknown rejection, reason codes, six tools, growth, litter bonds, few-shot tricks, journal and postcard, staff panel.</span></dd></div><div><dt><span class="zh">视觉</span><span class="en">Visual</span></dt><dd class=""><span class="zh">暖色绘本风：奶油色虚线卡片、圆体字（Fredoka / Nunito）、手绘阳光世界。</span><span class="en">Warm storybook look: cream dashed cards, rounded type (Fredoka / Nunito), a hand-painted sunlit world.</span></dd></div><div><dt><span class="zh">发现</span><span class="en">Finding</span></dt><dd class="finding"><span class="zh">满足 Brief，但首分钟都在读界面：选猫、选工具、学手势；工具与成长条像任务清单。</span><span class="en">It met the brief, but the first minute went on reading: pick a kitten, a tool, learn gestures. Tools and a growth bar felt like a task list.</span></dd></div></dl></div><div><div class="vgrid c3"><figure class="tilt"><div class="fig " data-zoom="media/v2-banner.webp"><img src="media/v2-banner.webp" alt="V2 entry screen" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh">入口：选择小猫</span><span class="en">Entry: choose a kitten</span></figcaption></figure><figure class="tilt"><div class="fig " data-zoom="media/v2-growth.webp"><img src="media/v2-growth.webp" alt="V2 growth panel and toolbar" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh">成长面板、6 个工具</span><span class="en">Growth panel, six tools</span></figcaption></figure><figure class="tilt"><div class="fig " data-zoom="media/v2-hand.webp"><img src="media/v2-hand.webp" alt="V2 tracked hand" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh">追踪的手与手形请求</span><span class="en">Tracked hand and hand-shape request</span></figcaption></figure><figure class="tilt"><div class="fig " data-zoom="media/v2-hiss.webp"><img src="media/v2-hiss.webp" alt="V2 hissing standoff" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh">小猫之间的对峙</span><span class="en">A standoff between kittens</span></figcaption></figure><figure class="tilt"><div class="fig " data-zoom="media/v2-tricks.webp"><img src="media/v2-tricks.webp" alt="V2 trick teaching" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh">教把戏（少样本学习）</span><span class="en">Teaching a trick (few-shot)</span></figcaption></figure><figure class="tilt"><div class="fig " data-zoom="media/v2-refusal-staff.webp"><img src="media/v2-refusal-staff.webp" alt="V2 staff panel" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh">拒绝与员工面板</span><span class="en">Refusal and staff panel</span></figcaption></figure></div><div class="vgrid vsub"><figure><div class="fig vid"><video muted loop playsinline preload="none" poster="media/v2-demo-poster.jpg" src="media/v2-demo.mp4" aria-label="V2 stroking"></video></div><figcaption><span class="zh">抚摸：毛发随手划过、呼噜波纹</span><span class="en">Stroking: fur brushes along the hand, purr rings</span></figcaption></figure><figure><div class="fig vid"><video muted loop playsinline preload="none" poster="media/v2-hunt-poster.jpg" src="media/v2-hunt.mp4" aria-label="V2 hunting"></video></div><figcaption><span class="zh">第二章：狩猎</span><span class="en">Chapter II: hunting</span></figcaption></figure></div></div></div>
+<div class="vrow"><div class="vinfo"><div class="vnum">V3.1</div><h3><span class="zh">手即界面：减少阅读，增强场景内反馈</span><span class="en">The hand as interface: less reading, more in-scene feedback</span></h3><dl><div><dt><span class="zh">目标</span><span class="en">Goal</span></dt><dd class=""><span class="zh">缩短首分钟理解成本，让用户直接伸手而不是先选工具。</span><span class="en">Cut first-minute comprehension cost; users reach out instead of picking a tool.</span></dd></div><div><dt><span class="zh">主要功能</span><span class="en">Features</span></dt><dd class=""><span class="zh">无工具栏；手与鼠标等价；道具小包；整窝响应；抢食对峙；三栖息地；常驻 MIND；摄像头预览；每猫得分日志；手机适配。</span><span class="en">No toolbar; hand and mouse parity; a pouch; whole-litter response; food standoffs; three habitats; always-on MIND; camera preview; per-kitten journal; phone layout.</span></dd></div><div><dt><span class="zh">视觉</span><span class="en">Visual</span></dt><dd class=""><span class="zh">保留手绘世界；界面改为深色细线套件与半透明面板，38 个线性图标，退到场景之后。</span><span class="en">Hand-drawn world kept; interface rebuilt as a dark thin-line kit with translucent panels and 38 line icons, receding behind the scene.</span></dd></div><div><dt><span class="zh">发现</span><span class="en">Finding</span></dt><dd class="finding"><span class="zh">真实的手需要 3D 特征、掌心落背规则与更大的点击目标，均已纳入 V3.1。</span><span class="en">Real hands needed 3D features, a palm-on-back rule and larger targets, all added in V3.1.</span></dd></div></dl></div><div><span class="lbl"><span class="zh">设计稿（6 屏中的 3 屏）</span><span class="en">Wireframes (3 of 6 screens)</span></span><div class="vgrid c3" style="margin-top:10px"><figure class="tilt"><div class="fig " data-zoom="media/mk-1-entry.webp"><img src="media/mk-1-entry.webp" alt="Wireframe: entry" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh">入口</span><span class="en">Entry</span></figcaption></figure><figure class="tilt"><div class="fig " data-zoom="media/mk-3-act1-approach.webp"><img src="media/mk-3-act1-approach.webp" alt="Wireframe: approach" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh">第一幕：靠近</span><span class="en">Act 1: approach</span></figcaption></figure><figure class="tilt"><div class="fig " data-zoom="media/mk-5-ai-view.webp"><img src="media/mk-5-ai-view.webp" alt="Wireframe: AI view" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh">AI 视角</span><span class="en">AI view</span></figcaption></figure></div><span class="lbl vsub"><span class="zh">实现</span><span class="en">Built</span></span><div class="vgrid c3"><figure class="tilt"><div class="fig " data-zoom="media/v3-cover.webp"><img src="media/v3-cover.webp" alt="V3 entry screen" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh">入口：选择手或鼠标</span><span class="en">Entry: hand or mouse</span></figcaption></figure><figure class="tilt"><div class="fig " data-zoom="media/v3-journal.webp"><img src="media/v3-journal.webp" alt="V3 journal" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh">结尾：每只小猫一张得分卡</span><span class="en">End: a score card per kitten</span></figcaption></figure><figure class="tilt"><div class="fig contain" data-zoom="media/v3-phone.webp"><img src="media/v3-phone.webp" alt="V3 on a phone" loading="lazy"><span class="z"><span class="zh">放大</span><span class="en">Zoom</span></span></div><figcaption><span class="zh">手机竖屏</span><span class="en">Phone portrait</span></figcaption></figure></div></div></div>
+<div class="blk g2"><div><span class="lbl k"><span class="zh">视觉语言对照</span><span class="en">Visual language comparison</span></span>
+<div class="tw "><table><thead><tr><th><span class="zh"></span><span class="en"></span></th><th><span class="zh">V1</span><span class="en">V1</span></th><th><span class="zh">V2</span><span class="en">V2</span></th><th><span class="zh">V3.1</span><span class="en">V3.1</span></th></tr></thead><tbody><tr><td><span class="zh">色彩</span><span class="en">Colour</span></td><td><span class="zh">深绿黑底</span><span class="en">Dark green-black</span></td><td><span class="zh">奶油、鼠尾草绿</span><span class="en">Cream, sage</span></td><td><span class="zh">深色面板、暖金强调</span><span class="en">Dark panels, warm gold accent</span></td></tr><tr><td><span class="zh">界面容器</span><span class="en">Containers</span></td><td><span class="zh">半透明玻璃</span><span class="en">Translucent glass</span></td><td><span class="zh">虚线缝线卡片</span><span class="en">Stitched dashed cards</span></td><td><span class="zh">磨砂细线面板</span><span class="en">Frosted thin-line panels</span></td></tr><tr><td><span class="zh">字体</span><span class="en">Type</span></td><td><span class="zh">衬线</span><span class="en">Serif</span></td><td><span class="zh">圆体 Fredoka / Nunito</span><span class="en">Rounded Fredoka / Nunito</span></td><td><span class="zh">圆体，层级更少</span><span class="en">Rounded, fewer levels</span></td></tr><tr><td><span class="zh">状态表达</span><span class="en">State</span></td><td><span class="zh">数值条</span><span class="en">Numeric bars</span></td><td><span class="zh">文字气泡与面板</span><span class="en">Speech bubbles, panels</span></td><td><span class="zh">身体、图标、MIND 面板</span><span class="en">Body, icons, MIND panel</span></td></tr></tbody></table></div>
+</div><div><span class="lbl k"><span class="zh">同屏对比：拖动查看（V2 → V3.1）</span><span class="en">Same screen compared: drag (V2 → V3.1)</span></span><div class="ba" id="ba" style="--x:50%"><img src="media/feast.jpg" alt="V3.1 screen"><img class="af" src="media/v2-growth.webp" alt="V2 screen"><span class="t l">V3.1</span><span class="t r">V2</span><div class="hd"></div><input type="range" min="2" max="98" value="50" id="ba-r" aria-label="Compare V2 and V3.1"></div><figcaption><span class="zh">自查统计：V2 同屏约 20 个界面元素；V3.1 只保留名称与三颗心、一个小包、一个 MIND 面板。</span><span class="en">My audit counted about 20 interface elements on a V2 screen; V3.1 keeps a name with three hearts, one pouch and one MIND panel.</span></figcaption></div></div>
+<div class="blk"><p class="para"><span class="zh"><b>放弃的路线：</b>为提升真实感，试验了购买的 3D 猫模型、程序化猫库、“照片地面 + V2 小猫”，整体都不及 V2 手绘世界。自查的 9 项根因中，R2–R8 是流程问题，换画面解决不了，所以保留手绘并重构流程。</span><span class="en"><b>Route dropped:</b> I tried a bought 3D cat, a procedural cat library and a photo ground with the V2 kitten; none beat the V2 hand-drawn world. R2–R8 in my audit were flow problems a new picture cannot fix, so I kept the art and rebuilt the flow.</span></p></div>
+</div></section>
+<section class="ch alt" id="c-ux" data-nav="交互设计|Interaction"><div class="wrap">
+<div class="head"><div class="row"><span class="lbl">05 · <span class="zh">V3.1 交互设计</span><span class="en">V3.1 interaction design</span></span></div><h2><span class="zh">以手部直接操作取代工具选择</span><span class="en">Direct hand manipulation replaces tool selection</span></h2><p class="lede"><span class="zh">手与鼠标功能等价：捏合即点击，掌心落背即抚摸。录屏取自当前可玩版本，由脚本输入驱动。</span><span class="en">Hand and mouse reach the same features: a pinch is a click, a palm on the back is stroking. Clips come from the playable build with scripted input.</span></p></div>
+<ol class="flow" style="--n:5"><li><i>1</i><b><span class="zh">入口</span><span class="en">Entry</span></b><span class="d"><span class="zh">选择手或鼠标</span><span class="en">Choose hand or mouse</span></span></li><li><i>2</i><b><span class="zh">靠近</span><span class="en">Approach</span></b><span class="d"><span class="zh">被嗅闻，建立接触</span><span class="en">Get sniffed, make contact</span></span></li><li><i>3</i><b><span class="zh">回应需求</span><span class="en">Respond</span></b><span class="d"><span class="zh">抚摸、喂食、逗玩</span><span class="en">Stroke, feed, play</span></span></li><li><i>4</i><b><span class="zh">探索</span><span class="en">Explore</span></b><span class="d"><span class="zh">三个栖息地</span><span class="en">Three habitats</span></span></li><li><i>5</i><b><span class="zh">结束</span><span class="en">End</span></b><span class="d"><span class="zh">日志与得分</span><span class="en">Journal and scores</span></span></li></ol>
+<div class="blk car" id="car"><div class="car-track" id="car-track">
+<div class="slide" data-i="0"><div><span class="sn">1 / 5</span><h3><span class="zh">抚摸</span><span class="en">Stroke</span></h3><p><span class="zh">掌心落在小猫背上即为抚摸，几乎立即呼噜；MIND 面板切换为 “Be stroked”。</span><span class="en">A palm on the back is stroking; it purrs almost at once and the MIND panel switches to “Be stroked”.</span></p><div class="why"><span class="lbl"><span class="zh">设计依据</span><span class="en">Rationale</span></span><p><span class="zh">V2 中选着 Feed 去摸猫毫无反应，是自查中最严重的根因（工具模式）。</span><span class="en">In V2, stroking with Feed selected did nothing, the most serious root cause in my audit (tool mode).</span></p></div></div><div class="fig vid"><video muted loop playsinline preload="none" poster="media/stroke.jpg" src="media/stroke.mp4" aria-label="Stroke"></video></div></div>
+<div class="slide" data-i="1"><div><span class="sn">2 / 5</span><h3><span class="zh">抛下一条鱼</span><span class="en">Drop a fish</span></h3><p><span class="zh">附近每只饥饿的小猫都会抢食；两只对峙哈气，直至一方退让。</span><span class="en">Every hungry kitten nearby rushes the fish; two face off and hiss until one backs down.</span></p><div class="why"><span class="lbl"><span class="zh">设计依据</span><span class="en">Rationale</span></span><p><span class="zh">同一事件引发整窝各自的反应，让用户看到“选择”，而不是只有选中的那只在动。</span><span class="en">One event triggers each kitten’s own reaction, so users see choices being made, not one chosen kitten moving.</span></p></div></div><div class="fig vid"><video muted loop playsinline preload="none" poster="media/feast.jpg" src="media/feast.mp4" aria-label="Drop a fish"></video></div></div>
+<div class="slide" data-i="2"><div><span class="sn">3 / 5</span><h3><span class="zh">投球</span><span class="en">Throw a ball</span></h3><p><span class="zh">挥动并捏合（或点击）后小猫追球；在雪原中球变为雪球。</span><span class="en">Swing and pinch (or click) and the kittens chase; in the snowfields the ball becomes a snowball.</span></p><div class="why"><span class="lbl"><span class="zh">设计依据</span><span class="en">Rationale</span></span><p><span class="zh">手势贴近真实动作；捏合可吸附到最近的按钮，降低对精度的要求。</span><span class="en">Gestures follow real actions; a pinch snaps to the nearest button, lowering the precision required.</span></p></div></div><div class="fig vid"><video muted loop playsinline preload="none" poster="media/ball.jpg" src="media/ball.mp4" aria-label="Throw a ball"></video></div></div>
+<div class="slide" data-i="3"><div><span class="sn">4 / 5</span><h3><span class="zh">放下水碗</span><span class="en">Set down water</span></h3><p><span class="zh">沙漠中放下水碗，口渴的小猫走来舔水，路过的同伴可能加入。</span><span class="en">In the desert a bowl is set down; a thirsty kitten laps at it and a passing litter-mate may join.</span></p><div class="why"><span class="lbl"><span class="zh">设计依据</span><span class="en">Rationale</span></span><p><span class="zh">各栖息地道具不同，但道具小包不变，无需重新学习。</span><span class="en">Props differ per habitat while the pouch stays the same, so nothing new has to be learned.</span></p></div></div><div class="fig vid"><video muted loop playsinline preload="none" poster="media/water.jpg" src="media/water.mp4" aria-label="Set down water"></video></div></div>
+<div class="slide" data-i="4"><div><span class="sn">5 / 5</span><h3><span class="zh">挥手驱散</span><span class="en">Wave to scatter</span></h3><p><span class="zh">近处快速挥手，无论方向，小猫都会受惊散开。</span><span class="en">A fast hand nearby startles the kittens whichever way it moves.</span></p><div class="why"><span class="lbl"><span class="zh">设计依据</span><span class="en">Rationale</span></span><p><span class="zh">反应轻、可恢复、有前兆；以上下文区分意图，而非只看速度。</span><span class="en">Reactions are light, recoverable and foreshadowed; context, not speed alone, separates intent.</span></p></div></div><div class="fig vid"><video muted loop playsinline preload="none" poster="media/scare.jpg" src="media/scare.mp4" aria-label="Wave to scatter"></video></div></div>
+</div><div class="car-ctl"><button class="nav" type="button" id="car-prev" aria-label="Previous">←</button><div class="dots" id="car-dots"></div><button class="nav" type="button" id="car-next" aria-label="Next">→</button></div></div>
+<div class="blk"><span class="lbl k"><span class="zh">单屏解析：点击编号查看设计意图</span><span class="en">Anatomy of one screen: select a number for the intent</span></span><div class="hs"><div class="hs-img"><img src="media/hs.jpg" alt="V3.1 gameplay screen with annotated regions" loading="lazy">
+<button class="hot on" type="button" data-h="0" style="left:1.4%;top:2.5%;width:17%;height:8.5%" aria-label="Name and bond"><b>1</b></button>
+<button class="hot" type="button" data-h="1" style="left:37%;top:3.1%;width:26%;height:5.2%" aria-label="Contextual hint"><b>2</b></button>
+<button class="hot" type="button" data-h="2" style="left:55.8%;top:52%;width:5.8%;height:10%" aria-label="Held item"><b>3</b></button>
+<button class="hot" type="button" data-h="3" style="left:1.4%;top:45.4%;width:20.8%;height:52%" aria-label="MIND panel (always on)"><b>4</b></button>
+<button class="hot" type="button" data-h="4" style="left:61%;top:80.2%;width:37.6%;height:17.3%" aria-label="Pouch"><b>5</b></button>
+<button class="hot" type="button" data-h="5" style="left:91.2%;top:36.2%;width:7.4%;height:6.9%" aria-label="Habitat arrow"><b>6</b></button>
+<button class="hot" type="button" data-h="6" style="left:84.7%;top:2.5%;width:13.9%;height:5.6%" aria-label="Icon buttons"><b>7</b></button>
+</div><div class="hs-list" id="hs-list">
+<button type="button" data-h="0" class="on"><span class="i">1</span><span class="t"><span class="zh">角色名与关系</span><span class="en">Name and bond</span></span><span class="d"><span class="zh">关系仅用词语和三颗心表达，不显示百分比。</span><span class="en">The bond is shown as a phrase and three hearts, never a percentage.</span></span></button>
+<button type="button" data-h="1" class=""><span class="i">2</span><span class="t"><span class="zh">情境提示</span><span class="en">Contextual hint</span></span><span class="d"><span class="zh">每个动作只给一行提示，随栖息地与道具变化。</span><span class="en">One line of guidance per action, changing with habitat and item.</span></span></button>
+<button type="button" data-h="2" class=""><span class="i">3</span><span class="t"><span class="zh">手中道具</span><span class="en">Held item</span></span><span class="d"><span class="zh">拿起的道具一直留在手里，直到选择“手”清空。</span><span class="en">The picked-up item stays in the hand until Hand empties it.</span></span></button>
+<button type="button" data-h="3" class=""><span class="i">4</span><span class="t"><span class="zh">MIND 面板（常驻）</span><span class="en">MIND panel (always on)</span></span><span class="d"><span class="zh">最近小猫的行为、想法、五项需求、对用户动作的解读与待选欲望；被屏蔽项附原因。</span><span class="en">The nearest kitten’s action, thought, five needs, its reading of the user’s move and the desires it weighs; blocked options carry a reason.</span></span></button>
+<button type="button" data-h="4" class=""><span class="i">5</span><span class="t"><span class="zh">道具小包</span><span class="en">Pouch</span></span><span class="d"><span class="zh">鱼、羽毛、球（雪原为雪球）、水和“手”；所有栖息地共用同一个小包。</span><span class="en">Fish, feather, ball (snowball in snow), water and Hand; one pouch across all habitats.</span></span></button>
+<button type="button" data-h="5" class=""><span class="i">6</span><span class="t"><span class="zh">栖息地箭头</span><span class="en">Habitat arrow</span></span><span class="d"><span class="zh">手停在箭头上，圆环填满后切换；点击或捏合同样有效。</span><span class="en">Rest the hand on an arrow until a ring fills; a click or pinch also works.</span></span></button>
+<button type="button" data-h="6" class=""><span class="i">7</span><span class="t"><span class="zh">图标按钮</span><span class="en">Icon buttons</span></span><span class="d"><span class="zh">摄像头预览、声音、帮助、结束；常驻界面仅保留这些。</span><span class="en">Camera preview, sound, help, end; the persistent UI is limited to these.</span></span></button>
+</div></div></div></div></section>
+<section class="ch" id="c-ds" data-nav="设计系统|Design system"><div class="wrap">
+<div class="head"><div class="row"><span class="lbl">06 · <span class="zh">设计系统</span><span class="en">Design system</span></span></div><h2><span class="zh">用统一的反馈约定区分系统、手、角色与解释</span><span class="en">One feedback convention separates system, hand, character and explanation</span></h2></div>
+<div class="g2"><div><span class="lbl k"><span class="zh">色彩令牌（tokens.json）</span><span class="en">Colour tokens (tokens.json)</span></span><div class="sw">
+<div><i style="background:#F8EAD0"></i><p><b>ink</b><span>#F8EAD0</span></p></div>
+<div><i style="background:#C8C1A9"></i><p><b>muted</b><span>#C8C1A9</span></p></div>
+<div><i style="background:#F3CE87"></i><p><b>accent</b><span>#F3CE87</span></p></div>
+<div><i style="background:#272D22"></i><p><b>surface</b><span>#272D22</span></p></div>
+<div><i style="background:#363F2C"></i><p><b>surface-hover</b><span>#363F2C</span></p></div>
+<div><i style="background:#171E16"></i><p><b>surface-pressed</b><span>#171E16</span></p></div>
+<div><i style="background:#747C63"></i><p><b>line</b><span>#747C63</span></p></div>
+<div><i style="background:#F8DEA3"></i><p><b>focus</b><span>#F8DEA3</span></p></div>
+<div><i style="background:#A6A396"></i><p><b>disabled</b><span>#A6A396</span></p></div>
+</div><div class="spec" style="margin-top:20px"><div><b>44<small style="font-size:.5em"> px</small></b><p><span class="zh">最小点击目标</span><span class="en">min hit target</span></p></div><div><b>24<small style="font-size:.5em"> px</small></b><p><span class="zh">图标画板，1.5 px 线宽</span><span class="en">icon grid, 1.5 px stroke</span></p></div><div><b>900<small style="font-size:.5em"> ms</small></b><p><span class="zh">手悬停填满圆环</span><span class="en">hand dwell to fill ring</span></p></div><div><b>140<small style="font-size:.5em"> ms</small></b><p><span class="zh">状态过渡</span><span class="en">state transition</span></p></div></div><p class="para" style="margin-top:14px;font-size:14px"><span class="zh">控件状态包含默认、悬停、按下、禁用、键盘焦点，以及为隔空操作新增的<b>手势停留填充</b>。</span><span class="en">Control states cover default, hover, pressed, disabled, keyboard focus and a state added for touchless use: <b>hand-dwell fill</b>.</span></p></div>
+<div><span class="lbl k"><span class="zh">图标（共 38 个，节选）</span><span class="en">Icons (38 in total, a selection)</span></span><div class="ico-grid"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12s3.5-5.5 9.5-5.5 9.5 5.5 9.5 5.5-3.5 5.5-9.5 5.5S2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.5"/></svg><span><span class="zh">看见用户</span><span class="en">Sees you</span></span></div><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 13V6.5a1 1 0 0 1 2 0V11 4.7a1 1 0 0 1 2 0V11 5.3a1 1 0 0 1 2 0V11 7a1 1 0 0 1 2 0v6l1.4-1.4a1.4 1.4 0 0 1 2 2l-3.2 3.1H9.6L6 16a1.5 1.5 0 0 1 2-2Z"/><path d="m15 6 2 2 3.5-4"/></svg><span><span class="zh">手已识别</span><span class="en">Hand found</span></span></div><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 13V6.5a1 1 0 0 1 2 0V11 4.7a1 1 0 0 1 2 0V11 5.3a1 1 0 0 1 2 0V11 7a1 1 0 0 1 2 0v6l1.4-1.4a1.4 1.4 0 0 1 2 2l-3.2 3.1H9.6L6 16a1.5 1.5 0 0 1 2-2Z"/><path d="M3 21 21 3"/></svg><span><span class="zh">手丢失</span><span class="en">Hand lost</span></span></div><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5h3m10 0h3v3m0 8v3h-3m-10 0H4v-3m3-4c2.5-5 4.7 5 7 0 1-2 2-2.4 3.2-1"/></svg><span><span class="zh">动作不清</span><span class="en">Unclear</span></span></div><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16v11H9l-5 3Z"/><circle cx="8.5" cy="11" r="0.42"/><circle cx="12" cy="11" r="0.42"/><circle cx="15.5" cy="11" r="0.42"/></svg><span><span class="zh">思考</span><span class="en">Thinking</span></span></div><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4Zm3.2 6.7 1.9 2 3.6-3.7"/></svg><span><span class="zh">已记住</span><span class="en">Remembered</span></span></div><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11 4.8 5.5 9 8h6l4.2-2.5L19 11a7 7 0 1 1-14 0Z"/><path d="M7.8 13.3c1 1 2 1 3 0m2.4 0c1 1 2 1 3 0m-5.4 3.3 1.2.8 1.2-.8"/></svg><span><span class="zh">放松</span><span class="en">Relaxed</span></span></div><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11 4.8 5.5 9 8h6l4.2-2.5L19 11a7 7 0 1 1-14 0Z"/><path d="m8 14 1.3-1.2 1.1 1.1m3.2 0 1.3-1.1 1.1 1.2m-5.9 2.1q2 3 4 0"/></svg><span><span class="zh">想玩</span><span class="en">Playful</span></span></div><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11 4.8 5.5 9 8h6l4.2-2.5L19 11a7 7 0 1 1-14 0Z"/><path d="M8 13h2m4 0h2m-5.3 3.1c0 2.8 2.6 2.8 2.6 0Z"/></svg><span><span class="zh">饥饿</span><span class="en">Hungry</span></span></div><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11 4.8 5.5 9 8h6l4.2-2.5L19 11a7 7 0 1 1-14 0Z"/><path d="M8 13.8h2m4 0h2m-5.8 3.2h.01m1.8.8h.01m1.8-.8h.01M16 3h4l-4 3h4"/></svg><span><span class="zh">困倦</span><span class="en">Sleepy</span></span></div><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11 4.8 5.5 9 8h6l4.2-2.5L19 11a7 7 0 1 1-14 0Z"/><circle cx="9" cy="13" r="0.7"/><circle cx="15" cy="13" r="0.7"/><circle cx="12" cy="17" r="1.1"/><path d="M12 3v2"/></svg><span><span class="zh">受惊</span><span class="en">Startled</span></span></div><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19s-7-3.8-7-8a3.5 3.5 0 0 1 7-1 3.5 3.5 0 0 1 7 1c0 4.2-7 8-7 8Z"/><path d="m3 14 1 3m16 0 1-3"/></svg><span><span class="zh">亲近</span><span class="en">Close</span></span></div><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 11C10 7 15 5 20.5 8c-1.3 5.5-6.5 8.6-12 7.2L4 18v-7Z"/><circle cx="16.5" cy="9.7" r="0.6"/></svg><span><span class="zh">零食</span><span class="en">Treat</span></span></div><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4.5 20 9-9m-2 3c-.4-5.4 4.6-9.5 8.7-10.3.2 4.3-2.5 10-8.7 10.3Zm.5-.6 4.7-4.4m-2.8.4.5 1.8m1.7-4.6.3 2.1"/></svg><span><span class="zh">逗猫棒</span><span class="en">Wand</span></span></div><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="7.8"/><path d="M5.5 15.6c5.6-1.6 9.5-5.5 10.7-10.4m-9 12.9c5.8-.4 10.1-4.7 11-10.1"/></svg><span><span class="zh">球</span><span class="en">Ball</span></span></div><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 11v1a6 6 0 0 0 12 0v-1m-6 7v3m-3 0h6"/></svg><span><span class="zh">唤它</span><span class="en">Call</span></span></div></div></div></div></div></section>
+<section class="ch alt" id="c-end" data-nav="验证与总结|Evaluation"><div class="wrap">
+<div class="head"><div class="row"><span class="lbl">07 · <span class="zh">验证与总结</span><span class="en">Evaluation and takeaways</span></span></div><h2><span class="zh">已验证与未测量的内容分开呈现</span><span class="en">Verified and unmeasured results are reported separately</span></h2><p class="lede"><span class="zh">我将“计划、实现、验证、确认”作为四种不同状态分别追踪，每项指标注明证据类型。</span><span class="en">Planned, implemented, verified and confirmed are tracked as four states, and each metric names its evidence type.</span></p></div>
+<div class="tw"><table><thead><tr><th><span class="zh">指标</span><span class="en">Metric</span></th><th><span class="zh">做法与目标</span><span class="en">Method and target</span></th><th><span class="zh">状态</span><span class="en">State</span></th></tr></thead><tbody><tr><td><b><span class="zh">产品逻辑</span><span class="en">Product logic</span></b></td><td><span class="zh">123 个确定性回放测试（固定种子、60 Hz 时钟），覆盖 AT01–AT17 及多猫、抢食、栖息地、掌心落背。</span><span class="en">123 deterministic replay tests (fixed seed, 60 Hz clock) covering AT01–AT17, multi-kitten focus, food standoffs, habitats and palm-on-back.</span></td><td><span class="res pass"><span class="zh">已验证</span><span class="en">Verified</span></span></td></tr><tr><td><b><span class="zh">不公平扣分</span><span class="en">No unfair penalty</span></b></td><td><span class="zh">含遮挡、闪断、暂停的回放中，追踪无效导致的关系值扣减为 0（AT02、AT09）。</span><span class="en">In replays with occlusion, flicker and pause, relationship points lost to invalid tracking: 0 (AT02, AT09).</span></td><td><span class="res pass"><span class="zh">已验证</span><span class="en">Verified</span></span></td></tr><tr><td><b><span class="zh">手部特征</span><span class="en">Hand features</span></b></td><td><span class="zh">合成 3D 手在不同角度下，张开、握拳、捏合读数一致（仅合成数据）。</span><span class="en">Synthetic 3D hands at varied angles read open, fist and pinch consistently (synthetic data only).</span></td><td><span class="res pass"><span class="zh">已验证</span><span class="en">Verified</span></span></td></tr><tr><td><b><span class="zh">换人清空</span><span class="en">Clean turnover</span></b></td><td><span class="zh">逻辑已验证（AT12、AT14）；目标设备上 30 轮待测。</span><span class="en">Logic verified (AT12, AT14); 30 rounds on the target device pending.</span></td><td><span class="res part"><span class="zh">部分</span><span class="en">Partly</span></span></td></tr><tr><td><b><span class="zh">首次有效动作 / 理解原因 / 感知变化</span><span class="en">First action / reason understood / change noticed</span></b></td><td><span class="zh">目标分别为 ≥ 8/10、≥ 8/10、≥ 7/10；10 人研究方案已就绪，尚无数据。</span><span class="en">Targets ≥ 8/10, ≥ 8/10 and ≥ 7/10; the 10-person study plan is ready and no data exists yet.</span></td><td><span class="res gap"><span class="zh">待测</span><span class="en">Planned</span></span></td></tr><tr><td><b><span class="zh">手势模型与真实手</span><span class="en">Gesture model and real hands</span></b></td><td><span class="zh">目标：留出参与者宏平均 F1 ≥ 0.85。采集页与评估脚本已就绪，模型未训练；规则基线标为 rule_baseline，不计入 ML 指标，不报准确率。</span><span class="en">Target: macro F1 ≥ 0.85 on held-out participants. Capture page and evaluator ready, model not trained; the rule baseline is labelled rule_baseline, not counted as ML, and no accuracy is claimed.</span></td><td><span class="res gap"><span class="zh">待测</span><span class="en">Planned</span></span></td></tr></tbody></table></div>
+<div class="blk g2"><div><span class="lbl k"><span class="zh">经验总结</span><span class="en">Takeaways</span></span><ul class="ethic ok"><li><span class="zh">在会拒绝用户的 AI 中，说明“拒绝来自哪里”比提升模型指标更能建立信任。</span><span class="en">In an AI that refuses users, explaining where a refusal comes from builds more trust than improving a model metric.</span></li><li><span class="zh">可验证的 AI 逻辑不等于可感知的体验：V2 测试全通过，用户首分钟仍在读界面，两层要一起评估。</span><span class="en">Verifiable AI logic is not felt experience: V2 passed every test, yet users still read the interface for a minute. Evaluate both layers together.</span></li><li><span class="zh">取消工具栏、成长条、手足手势和 3D 路线，是价值最高的几项决策。</span><span class="en">Removing the toolbar, growth bar, sibling gestures and 3D route were the highest-value decisions.</span></li></ul></div>
+<div><span class="lbl k"><span class="zh">下一步与来源说明</span><span class="en">Next steps and provenance</span></span><div class="card"><p style="font-size:14.5px;color:var(--ink-2)"><span class="zh"><b>下一步：</b>采集 16 位参与者训练并评估手势模型；完成 10 人研究；目标设备上跑 4 小时与 30 次换人。<br><br><b>来源：</b>PRD、AI 行为、体验与界面、前端与核心逻辑、测试与文档均出自我，两个原型也是。第三方：p5.js、MediaPipe Hand Landmarker、二维码库、Fredoka 与 Nunito 字体，均随项目打包。</span><span class="en"><b>Next:</b> capture 16 participants to train and evaluate the gesture model; run the 10-person study; 4 hours and 30 turnovers on the target device.<br><br><b>Provenance:</b> PRDs, AI behaviour, experience and interface, front-end and core logic, tests and docs are mine, as are both prototypes. Third party: p5.js, MediaPipe Hand Landmarker, a QR library, Fredoka and Nunito fonts, all bundled.</span></p></div></div></div>
+</div></section>
+<section class="ch" style="padding-bottom:0"><div class="wrap"><div class="big" aria-hidden="true">Wildling</div><p class="tagline">Learning each other’s distance.</p><div class="ctas" style="justify-content:center;margin:0 0 34px"><a class="pill dark" href="https://katherine0292.github.io/wildling/" target="_blank" rel="noopener">▶ <span class="zh">试玩</span><span class="en">Play the build</span></a><a class="pill" href="https://github.com/katherine0292/wildling" target="_blank" rel="noopener">GitHub ↗</a></div></div><footer><div class="wrap"><div class="in"><span>Wildling · <span class="zh">AI 产品与体验设计作品集</span><span class="en">AI product and experience design portfolio</span></span><span><span class="zh">数据均来自仓库文档与测试</span><span class="en">All figures come from the repository docs and tests</span></span></div></div></footer></section></div>
+<script>
+(function(){
+  var $=function(s,r){return (r||document).querySelector(s)};
+  var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+  var root=document.documentElement;
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var fine=window.matchMedia&&window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+  var hasIO='IntersectionObserver' in window;
+  function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+  root.classList.add('js');
+
+  /* language */
+  function setLang(l){
+    root.classList.toggle('en',l==='en');
+    root.setAttribute('lang',l==='en'?'en':'zh-CN');
+    $('#l-zh').setAttribute('aria-pressed',l==='zh');
+    $('#l-en').setAttribute('aria-pressed',l==='en');
+    store('wl-lang',l);
+  }
+  $('#l-zh').onclick=function(){setLang('zh')};
+  $('#l-en').onclick=function(){setLang('en')};
+  setLang(store('wl-lang')==='en'?'en':'zh');
+
+  /* chapters */
+  var secs=$$('section[data-nav]');
+  var rail=$('#rail'),dot=$('#rail-dot'),mlist=$('#menu-list');
+  function pair(s){var p=s.split('|');return '<span class="zh">'+p[0]+'</span><span class="en">'+p[1]+'</span>'}
+  secs.forEach(function(s,i){
+    var li=document.createElement('li');li.innerHTML='<button type="button">'+pair(s.dataset.nav)+'</button>';
+    li.firstChild.onclick=function(){go(s)};rail.appendChild(li);
+    var mi=document.createElement('li');mi.innerHTML='<button type="button"><small>'+('0'+i).slice(-2)+'</small>'+pair(s.dataset.nav)+'</button>';
+    mi.firstChild.onclick=function(){closeMenu();setTimeout(function(){go(s)},250)};mlist.appendChild(mi);
+  });
+  function go(el){window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-64,behavior:reduce?'auto':'smooth'})}
+  var menu=$('#menu');
+  function closeMenu(){menu.classList.remove('open')}
+  $('#menu-open').onclick=function(){menu.classList.add('open')};$('#menu-close').onclick=closeMenu;
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeMenu();var l=$('.lb');if(l)l.remove()}});
+
+  var lis=$$('li',rail),hero=$('#hero'),prog=$('#prog'),railnav=$('#railnav'),ticking=false;
+  function onScroll(){
+    if(ticking)return;ticking=true;
+    requestAnimationFrame(function(){
+      ticking=false;
+      var y=window.scrollY,h=root.scrollHeight-window.innerHeight;
+      prog.style.setProperty('--p',h>0?Math.min(1,y/h):0);
+      var cur=0;secs.forEach(function(s,i){if(s.getBoundingClientRect().top<window.innerHeight*.38)cur=i});
+      lis.forEach(function(l,i){l.classList.toggle('on',i===cur)});
+      if(lis[cur])dot.style.transform='translateY('+(lis[cur].offsetTop+6)+'px)';
+      railnav.classList.toggle('away',hero.getBoundingClientRect().bottom>window.innerHeight*.6);
+    });
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});window.addEventListener('resize',onScroll);onScroll();
+
+  /* heading underline sweep */
+  var heads=$$('.head');
+  if(hasIO){var hio=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');hio.unobserve(e.target)}})},{threshold:.4});heads.forEach(function(h){hio.observe(h)})}
+  else heads.forEach(function(h){h.classList.add('in')});
+
+  /* count-up */
+  if(!reduce&&hasIO){
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){
+      if(!e.isIntersecting)return;io.unobserve(e.target);
+      var el=e.target,to=+el.dataset.c;if(!to)return;var t0=performance.now();
+      (function f(t){var p=Math.min(1,(t-t0)/1100);el.firstChild.nodeValue=Math.round(to*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(f)})(t0);
+    })},{threshold:.6});
+    $$('[data-c]').forEach(function(el){if(el.firstChild&&el.firstChild.nodeType===3)io.observe(el)});
+  }
+
+  /* scenario lab */
+  var sb=$$('#lab-opts button'),sc=$$('.out-pane .sc');
+  sb.forEach(function(b,i){b.onclick=function(){
+    sb.forEach(function(x,j){x.setAttribute('aria-pressed',i===j)});
+    sc.forEach(function(x,j){x.classList.toggle('on',i===j)});
+  }});
+
+  /* chain cycling */
+  var layers=$$('#chain .layerx'),ci=0,chainOn=false;
+  function tick(){layers.forEach(function(l,i){l.classList.toggle('on',i===ci)});ci=(ci+1)%layers.length}
+  layers.forEach(function(l,i){l.onclick=function(){ci=i;tick()}});
+  if(layers.length&&hasIO){
+    new IntersectionObserver(function(es){chainOn=es[0].isIntersecting;if(chainOn)tick()},{threshold:.3}).observe($('#chain'));
+    if(!reduce)setInterval(function(){if(chainOn)tick()},2600);
+  }else if(layers.length){tick()}
+
+  /* hotspots */
+  var hots=$$('.hot'),hlist=$$('#hs-list button');
+  function pick(i){hots.forEach(function(h,j){h.classList.toggle('on',i===j)});hlist.forEach(function(h,j){h.classList.toggle('on',i===j)})}
+  hots.concat(hlist).forEach(function(h){h.onclick=function(){pick(+h.dataset.h)}});
+
+  /* carousel */
+  var track=$('#car-track'),slides=$$('.slide',track),dots=$('#car-dots'),idx=0;
+  slides.forEach(function(s,i){var b=document.createElement('button');b.type='button';b.setAttribute('aria-label','Slide '+(i+1));b.onclick=function(){show(i)};dots.appendChild(b)});
+  function show(i){idx=(i+slides.length)%slides.length;track.scrollTo({left:slides[idx].offsetLeft-track.offsetLeft,behavior:reduce?'auto':'smooth'})}
+  $('#car-prev').onclick=function(){show(idx-1)};$('#car-next').onclick=function(){show(idx+1)};
+  function mark(){$$('button',dots).forEach(function(b,i){b.classList.toggle('on',i===idx)})}mark();
+  if(hasIO){
+    var so=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting&&e.intersectionRatio>.55){idx=slides.indexOf(e.target);mark()}})},{root:track,threshold:[.56]});
+    slides.forEach(function(s){so.observe(s)});
+  }
+
+  /* videos play only while visible */
+  var vids=$$('video');
+  if(reduce){vids.forEach(function(v){v.controls=true})}
+  else if(hasIO){
+    var vio=new IntersectionObserver(function(es){es.forEach(function(e){
+      var v=e.target;
+      if(e.isIntersecting){var p=v.play();if(p&&p.catch)p.catch(function(){})}else v.pause();
+    })},{threshold:.5});
+    vids.forEach(function(v){vio.observe(v)});
+  }
+
+  /* before / after */
+  var ba=$('#ba'),br=$('#ba-r');
+  if(br)br.oninput=function(){ba.style.setProperty('--x',br.value+'%')};
+
+  /* lightbox */
+  $$('[data-zoom]').forEach(function(f){f.onclick=function(){
+    var d=document.createElement('div');d.className='lb';
+    d.innerHTML='<img src="'+f.dataset.zoom+'" alt=""><button type="button">✕</button>';
+    d.onclick=function(){d.remove()};document.body.appendChild(d);
+  }});
+
+  /* ---------- game-style pointer: comfort ring, target lock-on, paw-print trail, click shockwave ---------- */
+  if(!reduce&&fine){
+    var ring=$('#ring'),lock=$('#lock'),lab=$('#lockl'),fx=$('#fx'),ctx=fx.getContext('2d');
+    var mx=-100,my=-100,rx=-100,ry=-100,lastT=0,lastX=0,lastY=0,speed=0,stillSince=0,active=false;
+    var sparks=[],paws=[],dpr=Math.min(2,window.devicePixelRatio||1),side=1,lastPx=0,lastPy=0,target=null;
+    function size(){fx.width=innerWidth*dpr;fx.height=innerHeight*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
+    size();window.addEventListener('resize',size);
+    var SEL='a,button,input,[data-zoom],.hot,.ba,.ico,.layerx';
+    function labelFor(t){
+      var en=root.classList.contains('en'),k;
+      if(t.matches('[data-zoom]'))k=['放大','ZOOM'];
+      else if(t.matches('.ba,input[type=range]'))k=['拖动','DRAG'];
+      else if(t.matches('.hot'))k=['查看','INSPECT'];
+      else if(t.closest('.car-ctl'))k=['切换','NEXT'];
+      else if(t.matches('a'))k=['打开','OPEN'];
+      else if(t.matches('.ico,.layerx'))k=['查看','LOOK'];
+      else k=['选择','SELECT'];
+      return en?k[1]:k[0];
+    }
+    function setTarget(t){
+      if(t===target)return;target=t;
+      lock.classList.toggle('on',!!t);lab.classList.toggle('on',!!t);
+      if(t)lab.textContent=labelFor(t);
+    }
+    window.addEventListener('mousemove',function(e){
+      var t=performance.now(),dt=Math.max(1,t-lastT);
+      var d=Math.hypot(e.clientX-lastX,e.clientY-lastY);
+      speed=speed*.7+(d/dt)*.3;lastT=t;lastX=e.clientX;lastY=e.clientY;mx=e.clientX;my=e.clientY;
+      if(!active){active=true;ring.classList.add('on');rx=mx;ry=my;lastPx=mx;lastPy=my}
+      stillSince=t;
+      if(speed>1.4&&sparks.length<80)sparks.push({x:mx,y:my,vx:(Math.random()-.5)*1.2,vy:(Math.random()-.5)*1.2-.3,l:1,s:2+Math.random()*3,c:Math.random()<.5?0:1});
+      var tg=e.target.closest?e.target.closest(SEL):null;if(tg&&tg.closest('.rail,.menu'))tg=null;setTarget(tg);
+    },{passive:true});
+    document.addEventListener('mouseleave',function(){ring.classList.toggle('on',false);setTarget(null)});
+    document.addEventListener('mouseenter',function(){if(active)ring.classList.add('on')});
+    window.addEventListener('mousedown',function(e){
+      var s=document.createElement('div');s.className='shock';s.style.left=e.clientX+'px';s.style.top=e.clientY+'px';
+      document.body.appendChild(s);setTimeout(function(){s.parentNode&&s.parentNode.removeChild(s)},650);
+      for(var i=0;i<5;i++){var a=i/5*6.283+Math.random()*.6;paws.push({x:e.clientX,y:e.clientY,vx:Math.cos(a)*2.4,vy:Math.sin(a)*2.4,a:a+1.57,l:1,sc:.8,burst:1,c:i%2})}
+    });
+    var CP=['157,144,255','108,192,141'];
+    function paw(x,y,ang,sc,al,c){
+      ctx.save();ctx.translate(x,y);ctx.rotate(ang);ctx.scale(sc,sc);ctx.fillStyle='rgba('+CP[c]+','+al+')';
+      ctx.beginPath();ctx.ellipse(0,3,5.2,4.4,0,0,6.283);ctx.fill();
+      [[-5.6,-3],[-2,-7],[2,-7],[5.6,-3]].forEach(function(t){ctx.beginPath();ctx.ellipse(t[0],t[1],2,2.5,0,0,6.283);ctx.fill()});
+      ctx.restore();
+    }
+    var c2=['rgba(157,144,255,','rgba(231,184,244,'];
+    (function loop(t){
+      rx+=(mx-rx)*.22;ry+=(my-ry)*.22;
+      ring.style.transform='translate('+rx+'px,'+ry+'px)';
+      speed*=.94;
+      var st=target?'link':(speed>1.4?'fast':((t-stillSince>500)?'calm':''));
+      ring.className=(active&&!target?'on ':'')+st;
+      if(target){
+        var r=target.getBoundingClientRect(),p=6;
+        lock.style.width=(r.width+p*2)+'px';lock.style.height=(r.height+p*2)+'px';
+        lock.style.transform='translate('+(r.left-p)+'px,'+(r.top-p)+'px)';
+        lab.style.transform='translate('+(r.left-p)+'px,'+(Math.max(4,r.top-p-24))+'px)';
+      }
+      /* walking kitten: drop alternating paw prints while the pointer moves at a calm pace */
+      var dx=mx-lastPx,dy=my-lastPy,dist=Math.hypot(dx,dy);
+      if(active&&dist>36&&speed<1.4&&!target){
+        var ang=Math.atan2(dy,dx),nx=-Math.sin(ang)*5*side,ny=Math.cos(ang)*5*side;side=-side;
+        paws.push({x:mx+nx,y:my+ny,vx:0,vy:0,a:ang+1.57,l:1,sc:1,c:(Math.random()<.25)?1:0});
+        lastPx=mx;lastPy=my;if(paws.length>40)paws.shift();
+      }else if(dist>120){lastPx=mx;lastPy=my}
+      ctx.clearRect(0,0,innerWidth,innerHeight);
+      for(var i=sparks.length-1;i>=0;i--){
+        var q=sparks[i];q.l-=.03;if(q.l<=0){sparks.splice(i,1);continue}
+        q.x+=q.vx;q.y+=q.vy;ctx.fillStyle=c2[q.c]+(q.l*.55)+')';ctx.beginPath();ctx.arc(q.x,q.y,q.s*q.l,0,6.283);ctx.fill();
+      }
+      for(var j=paws.length-1;j>=0;j--){
+        var w=paws[j];w.l-=w.burst?.03:.011;if(w.l<=0){paws.splice(j,1);continue}
+        if(w.burst){w.x+=w.vx;w.y+=w.vy;w.vx*=.93;w.vy*=.93}
+        paw(w.x,w.y,w.a,w.sc*(w.burst?.9+w.l*.3:1),Math.min(.55,w.l*.6),w.c);
+      }
+      requestAnimationFrame(loop);
+    })(0);
+
+    /* tilt on figures */
+    $$('.tilt').forEach(function(el){
+      el.addEventListener('mousemove',function(e){
+        var r=el.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;
+        el.style.transform='perspective(900px) rotateY('+(x*5)+'deg) rotateX('+(-y*4)+'deg) translateY(-2px)';
+      });
+      el.addEventListener('mouseleave',function(){el.style.transform=''});
+    });
+  }
+
+  /* chapter rail: fisheye that magnifies the entries nearest the pointer */
+  (function(){
+    if(reduce)return;var nav=$('#railnav'),ol=$('#rail');
+    function reset(){nav.classList.toggle('hot',false);$$('li',ol).forEach(function(li){li.style.transform='';li.style.opacity='';li.classList.toggle('near',false)})}
+    ol.addEventListener('mousemove',function(e){
+      nav.classList.add('hot');
+      $$('li',ol).forEach(function(li){
+        var r=li.getBoundingClientRect(),d=(e.clientY-(r.top+r.height/2))/r.height,f=Math.max(0,1-Math.abs(d)/3);
+        li.style.transform='translateX('+(f*12).toFixed(1)+'px) translateZ('+(f*70).toFixed(1)+'px) rotateX('+Math.max(-50,Math.min(50,d*-11)).toFixed(1)+'deg)';
+        li.style.opacity=(.35+f*.65).toFixed(2);li.classList.toggle('near',f>.66);
+      });
+    });
+    ol.addEventListener('mouseleave',reset);
+  })();
+
+  /* hero: leaves and fireflies that behave like the kittens: they scatter from a fast pointer and drift towards a slow one */
+  var bn=$('#hero'),lc=$('#leaves');
+  if(!reduce&&lc){
+    var lx=lc.getContext('2d'),W=0,H=0,P=[],vis=true,px=-999,py=-999,psp=0,pl=0,pt=0;
+    function lsize(){W=lc.width=bn.clientWidth;H=lc.height=bn.clientHeight;
+      if(!P.length)for(var i=0;i<46;i++)P.push(mk(true))}
+    function mk(init){
+      var fly=Math.random()<.35;
+      return {x:Math.random()*W,y:init?Math.random()*H:-20,vx:0,vy:fly?0:.25+Math.random()*.5,fly:fly,
+        r:fly?1.5+Math.random()*2:6+Math.random()*9,a:Math.random()*6.28,w:(Math.random()-.5)*.02,ph:Math.random()*6.28,
+        c:['#6FBF73','#9BD66F','#B993FF','#E7B8F4','#F3CE87'][(Math.random()*5)|0]}
+    }
+    lsize();window.addEventListener('resize',lsize);
+    bn.addEventListener('mousemove',function(e){
+      var r=bn.getBoundingClientRect(),t=performance.now(),x=e.clientX-r.left,y=e.clientY-r.top;
+      var d=Math.hypot(x-pl,y-pt);psp=psp*.7+d*.3;pl=x;pt=y;px=x;py=y;
+      bn.style.setProperty('--mx',(x/r.width*100)+'%');bn.style.setProperty('--my',(y/r.height*100)+'%');
+      var im=$('#bn-img');im.style.transform='scale(1.04) translate('+((x/r.width-.5)*-10)+'px,'+((y/r.height-.5)*-6)+'px)';
+    },{passive:true});
+    bn.addEventListener('mouseleave',function(){px=py=-999;$('#bn-img').style.transform=''});
+    if(hasIO)new IntersectionObserver(function(es){vis=es[0].isIntersecting}).observe(bn);
+    (function draw(t){
+      requestAnimationFrame(draw);if(!vis)return;
+      lx.clearRect(0,0,W,H);psp*=.92;
+      P.forEach(function(p,i){
+        var dx=p.x-px,dy=p.y-py,d=Math.hypot(dx,dy)||1;
+        if(d<190){
+          if(psp>9){var f=(190-d)/190*3.2;p.vx+=dx/d*f;p.vy+=dy/d*f}          /* fast hand: scatter */
+          else if(psp<3){p.vx-=dx/d*.05;p.vy-=dy/d*.05}                        /* slow hand: drift closer */
+        }
+        p.vx*=.96;p.vy=p.fly?p.vy*.96:p.vy*.98+(.3-p.vy*.0)*.002;
+        p.x+=p.vx+Math.sin(t/900+p.ph)*(p.fly?.35:.5);p.y+=p.vy+(p.fly?Math.cos(t/1100+p.ph)*.25:0);p.a+=p.w+p.vx*.01;
+        if(p.y>H+20||p.x<-30||p.x>W+30||p.y<-30){P[i]=mk(false);return}
+        lx.save();lx.translate(p.x,p.y);lx.rotate(p.a);
+        if(p.fly){lx.fillStyle=p.c;lx.shadowColor=p.c;lx.shadowBlur=10;lx.globalAlpha=.6+.4*Math.sin(t/400+p.ph);lx.beginPath();lx.arc(0,0,p.r,0,6.283);lx.fill()}
+        else{lx.fillStyle=p.c;lx.globalAlpha=.55;lx.beginPath();lx.ellipse(0,0,p.r,p.r*.42,0,0,6.283);lx.fill();lx.strokeStyle='rgba(255,255,255,.35)';lx.beginPath();lx.moveTo(-p.r,0);lx.lineTo(p.r,0);lx.stroke()}
+        lx.restore();
+      });
+    })(0);
+  }
+})();
+
+</script>
