@@ -39,7 +39,8 @@ export class InputTrack {
 
   setWorld(world) { this.world = world; }
 
-  // sample: { t, seq, source, present, x, y, handScale?, open?, keypointCount? }
+  // t is capture time (motion); receivedAt is main-thread result time (camera continuity).
+  // sample: { t, receivedAt?, seq, source, present, x, y, handScale?, open?, keypointCount? }
   ingest(s) {
     if (s.source !== this.source) this.reset(s.source);
     if (typeof s.seq === 'number') {
@@ -54,6 +55,7 @@ export class InputTrack {
     const ok = this.isValid(s);
     if (!ok) { this.stableSince = null; return false; }
 
+    const receivedAt = s.source === 'camera' ? s.receivedAt ?? s.t : s.t;
     const wx = s.x * this.world.w, wy = s.y * this.world.h;
     if (s.touchPhase === 'start' || s.touchPhase === 'move') {
       const t = s.touchTime ?? s.t;
@@ -69,15 +71,15 @@ export class InputTrack {
         this.rejects++;
         this.stableSince = null;
         this.samples = [];
-        this.lastValid = { t: s.t, x: wx, y: wy, open: s.open ?? 1 };
+        this.lastValid = { t: s.t, receivedAt, x: wx, y: wy, open: s.open ?? 1 };
         return false;
       }
     }
 
     // First valid sample after a gap: speed starts at 0, never a spike.
-    const resumed = !prev || this.stableSince === null || s.t - prev.t > this.p.maxSampleAgeMs;
-    if (resumed) { this.samples = []; this.speed = 0; this.stableSince = s.t; }
-    if (this.stableSince === null) this.stableSince = s.t;
+    const resumed = !prev || this.stableSince === null || receivedAt - prev.receivedAt > this.p.maxSampleAgeMs;
+    if (resumed) { this.samples = []; this.speed = 0; this.stableSince = receivedAt; }
+    if (this.stableSince === null) this.stableSince = receivedAt;
 
     if (!resumed && prev) {
       const dt = Math.max((s.t - prev.t) / 1000, 1e-3);
@@ -87,7 +89,7 @@ export class InputTrack {
     this.x = this.x === null || resumed ? wx : this.x * 0.4 + wx * 0.6;
     this.y = this.y === null || resumed ? wy : this.y * 0.4 + wy * 0.6;
 
-    const v = { t: s.t, x: wx, y: wy, open: s.open ?? 1 };
+    const v = { t: s.t, receivedAt, x: wx, y: wy, open: s.open ?? 1 };
     this.lastValid = v;
     this.samples.push(v);
     this.validCount++;
@@ -101,6 +103,9 @@ export class InputTrack {
     if (!Number.isFinite(s.x) || !Number.isFinite(s.y)) return false;
     if (s.x < -0.05 || s.x > 1.05 || s.y < -0.05 || s.y > 1.05) return false;
     if (s.source !== 'camera') return true; // mouse / keyboard positions are exact
+    const receivedAt = s.receivedAt ?? s.t;
+    if (!Number.isFinite(receivedAt) || receivedAt < s.t
+      || receivedAt - s.t > (this.p.maxInferenceMs ?? PARAMS.quality.maxInferenceMs)) return false;
     if (s.keypointCount !== 21) return false;
     if (!(s.handScale >= this.p.minHandScale && s.handScale <= this.p.maxHandScale)) return false;
     return true;
@@ -110,7 +115,7 @@ export class InputTrack {
   update(now) {
     const last = this.lastValid;
     if (!this.present || !last) { this.quality = 'lost'; this.speed = 0; return; }
-    const age = now - last.t;
+    const age = now - (this.source === 'camera' ? last.receivedAt : last.t);
     if (this.source !== 'camera') {
       this.quality = 'valid';
       if (this.source === 'mouse' && age > 250) this.speed *= 0.5; // a resting mouse has no speed

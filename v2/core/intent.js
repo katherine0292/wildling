@@ -155,7 +155,10 @@ export class IntentClassifier {
       if (swipedNear(track.touchPoints, cat, now, ip)) return out('fast_approach', { wave: true });
     }
 
-    const { points, coverage } = track.window(now, ip.windowMs, ip.sampleHz);
+    // Camera results describe captured frames, not the time inference finished. Only use
+    // this history after the quality gate above has checked result freshness and latency.
+    const windowEnd = isCamera ? track.lastValid.t : now;
+    const { points, coverage } = track.window(windowEnd, ip.windowMs, ip.sampleHz);
     if (isCamera && coverage < ip.minCoverage) { this.pendingCount = 0; return out('unknown', { coverage }); }
     const f = extractFeatures(points, cat, this.p);
     if (!f) return out(isCamera ? 'unknown' : 'neutral_motion', { coverage });

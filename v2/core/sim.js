@@ -143,7 +143,7 @@ export class Simulation {
     if (sample.source === 'keyboard') this.keyboardHold = !!sample.hold;
     const accepted = this.track.ingest(sample);
     if (sample.source !== 'camera') return;
-    this.track.update(sample.t);
+    this.track.update(sample.receivedAt ?? sample.t);
     if (accepted) this.readPose(sample);
     // a pinch is a click on every screen the visitor can act on, so the hand can do all the mouse can
     const valid = accepted && this.track.valid && ['ACTIVE', 'PAUSED', 'REFLECTION'].includes(this.session.state);

@@ -99,7 +99,7 @@ const HOW = [
 ];
 
 const T = {
-  calibLoading: 'Starting the camera…',
+  calibLoading: 'Loading hand tracking… The first load can take a minute or two.',
   calibLooking: 'Looking for your hand…',
   calibHold: 'There you are. Hold still for a moment…',
   pausedReasons: { user: 'Take your time.', hidden: 'The page went into the background.', idle: 'It seemed nobody was here.', system: 'Something needs a moment.' },

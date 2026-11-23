@@ -7,9 +7,10 @@ export const PARAMS = Object.freeze({
 
   // F2-03 tracking quality gate
   quality: {
-    // A CPU hand model on an ordinary laptop can take 150–300 ms per frame; one slow frame is
-    // not a lost hand, so the gate allows up to 350 ms before calling the evidence stale.
+    // CPU inference can take 150–300 ms per frame. Measure gaps between returned results,
+    // separately from capture-to-result latency, so normal inference does not look like loss.
     maxSampleAgeMs: 350,
+    maxInferenceMs: 1000, // a returned result must still describe a reasonably recent frame
     maxMissingRatio: 0.2,
     jumpS: 0.35,          // a jump larger than this within one sample is a tracking error
     holdForFadeMs: 200,

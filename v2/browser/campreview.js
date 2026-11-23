@@ -3,7 +3,7 @@
 // is in frame and found. Frames are drawn to this canvas only; nothing is stored.
 
 const BONES = [[0, 1, 2, 3, 4], [0, 5, 6, 7, 8], [5, 9, 10, 11, 12], [9, 13, 14, 15, 16], [13, 17, 18, 19, 20], [0, 17]];
-const CAPTION = { loading: 'Starting the camera…', valid: 'Hand found', uncertain: 'Hold your hand still', lost: 'Show one open hand', failed: 'Camera off' };
+const CAPTION = { loading: 'Loading hand tracking…', valid: 'Hand found', uncertain: 'Hold your hand still', lost: 'Show one open hand', failed: 'Camera off' };
 
 export class CameraPreview {
   constructor(camera) {

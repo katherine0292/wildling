@@ -1,5 +1,7 @@
 // Video frames are transferred to a local worker and never recorded or uploaded.
-const START_TIMEOUT_MS = 25000;
+// A cold start downloads the local model and WASM (about 17 MB). Allow slower
+// connections time to finish; loading is separate from the steady-hand calibration.
+const START_TIMEOUT_MS = 120000;
 const PALM = [0, 5, 9, 13, 17];
 // The screen maps to the middle of the camera frame. The bottom margin is the widest: the
 // wrist and forearm hang below the palm, so a palm low on the screen must still leave the
@@ -112,7 +114,7 @@ export class CameraInput {
     const hands = landmarks.map((points, i) => ({ points, world: worldLandmarks?.[i] }))
       .filter(({ points }) => points.length === 21 && points.every((k) => Number.isFinite(k.x) && Number.isFinite(k.y)));
     this.multiHand = hands.length > 1;
-    const sample = { t: time, seq: ++this.seq, source: 'camera', present: hands.length > 0 };
+    const sample = { t: time, receivedAt: performance.now(), seq: ++this.seq, source: 'camera', present: hands.length > 0 };
     if (!hands.length) {
       this.sample = sample;
       // keep drawing the last hand briefly: one missed frame should not make it blink
