@@ -81,7 +81,7 @@
 
 GitHub 之外的依据：
 
-- **Nintendogs / EyePet / Peridot**：评论和开发者访谈反复出现同一个观点，愉悦感来自宠物的**回应**，包括它不理人的时候；完全写实的行为反而不好玩（"只会睡、吃和打架"）；EyePet 团队刻意回避恐怖谷。Niantic 在 Peridot 中用生成式 AI 的方式是**从已有动画库里挑选**合适的反应，而不是生成动作，这和现有"规则 + utility"的思路兼容。来源：[Animals in video games](https://www.wikipedia.org/wiki/Animals_in_video_games)、[Kill Screen](https://www.killscreen.com/today-on-ks-nintendogs-cats-has-its-day/)、[Niantic](https://nianticlabs.com/news/peridot-generative-ai)。
+- **Nintendogs / EyePet / Peridot**：评论和开发者访谈反复出现同一个观点，愉悦感来自宠物的**回应**，包括它不理人的时候；完全写实的行为反而不好玩（"只会睡、吃和打架"）；EyePet 团队刻意回避恐怖谷。Niantic 在 Peridot 中用生成式 AI 的方式是**从已有动画库里挑选**合适的反应，而不是生成动作，这和现有"规则 + utility"的思路兼容。来源：[Animals in video games](https://www.wikipedia.org/wiki/Animals_in_video_games)、[Kill Screen](https://www.killscreen.com/today-on-ks-nintendogs-cats-has-its-day/)、[Niantic](https://playperidot.com/news/generative-ai)。
 - **猫的慢眨眼研究（2020）**：人对猫慢眨眼后，猫更可能回眨，也更可能靠近伸出的手。这是一个现成的、有科学依据的"AI 感知 + 真实习性"互动点。来源：[Optimist Daily 的报道](https://www.optimistdaily.com/2025/02/want-to-bond-with-your-cat-science-says-you-just-need-to-blink/)（原始论文尚未逐字核对，正式引用前需要查原文）。
 - **MediaPipe Gesture Recognizer（Web）**：支持自定义手势模型；官方文档明确说识别会阻塞主线程，建议放进 Web Worker。来源：[Google 文档](https://developers.google.com/edge/mediapipe/solutions/vision/gesture_recognizer/web_js)。
 
