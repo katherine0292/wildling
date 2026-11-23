@@ -2,6 +2,8 @@
 // sees, with the detected hand drawn on top. Visitors can check at a glance that their hand
 // is in frame and found. Frames are drawn to this canvas only; nothing is stored.
 
+import { cameraLoadingText } from './camera.js?v=20261123.2';
+
 const BONES = [[0, 1, 2, 3, 4], [0, 5, 6, 7, 8], [5, 9, 10, 11, 12], [9, 13, 14, 15, 16], [13, 17, 18, 19, 20], [0, 17]];
 const CAPTION = { loading: 'Loading hand tracking…', valid: 'Hand found', uncertain: 'Hold your hand still', lost: 'Show one open hand', failed: 'Camera off' };
 
@@ -21,7 +23,8 @@ export class CameraPreview {
     if (!on) return;
     const state = cam.status === 'loading' ? 'loading' : quality ?? 'lost';
     this.el.dataset.state = state;
-    if (this.caption.textContent !== CAPTION[state]) this.caption.textContent = CAPTION[state];
+    const caption = state === 'loading' ? cameraLoadingText(cam, true) : CAPTION[state];
+    if (this.caption.textContent !== caption) this.caption.textContent = caption;
     const { ctx, canvas } = this, W = canvas.width, H = canvas.height, v = cam.video;
     ctx.save();
     ctx.fillStyle = '#10160f'; ctx.fillRect(0, 0, W, H);

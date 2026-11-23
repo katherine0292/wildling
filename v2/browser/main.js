@@ -13,16 +13,16 @@
 
 import { Simulation } from '../core/sim.js';
 import { Renderer } from './render.js';
-import { UI } from './ui.js';
-import { StaffPanel } from './staff.js';
+import { UI } from './ui.js?v=20261123.2';
+import { StaffPanel } from './staff.js?v=20261123.2';
 import { SoundAdapter } from './audio.js';
-import { CameraInput } from './camera.js';
+import { CameraInput } from './camera.js?v=20261123.2';
 import { KeyboardHand } from './keyboard.js';
 import { KITTENS } from '../core/config.js';
 import { Keepsakes } from './keepsake.js';
 import { PassersBy } from './presence.js';
 import { Coach } from './coach.js';
-import { CameraPreview } from './campreview.js';
+import { CameraPreview } from './campreview.js?v=20261123.2';
 
 // Moments worth a photo for the album: [event test, caption, delay in seconds].
 const NAMES = Object.fromEntries(KITTENS.map((k) => [k.id, k.name]));

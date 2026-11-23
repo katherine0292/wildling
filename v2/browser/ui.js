@@ -6,7 +6,7 @@
 // body and a pictogram, never with sentences. Words are kept for the system's own messages.
 
 import { COPY, KITTENS } from '../core/config.js';
-import { CAMERA_ERRORS } from './camera.js';
+import { CAMERA_ERRORS, cameraLoadingText } from './camera.js?v=20261123.2';
 import { kit } from './kit.js';
 import { svg } from './icons.js';
 import { drawPostcard } from './keepsake.js';
@@ -99,7 +99,6 @@ const HOW = [
 ];
 
 const T = {
-  calibLoading: 'Loading hand tracking… The first load can take a minute or two.',
   calibLooking: 'Looking for your hand…',
   calibHold: 'There you are. Hold still for a moment…',
   pausedReasons: { user: 'Take your time.', hidden: 'The page went into the background.', idle: 'It seemed nobody was here.', system: 'Something needs a moment.' },
@@ -396,7 +395,7 @@ export class UI {
   calibrating(snap, cam) {
     const stable = Math.min(1, (snap.timers.calibStable ?? 0) / 1.5);
     $('calibArc').style.strokeDashoffset = String(289 * (1 - stable));
-    $('calibStatus').textContent = cam.status === 'loading' ? T.calibLoading : stable > 0 ? T.calibHold : T.calibLooking;
+    $('calibStatus').textContent = cam.status === 'loading' ? cameraLoadingText(cam) : stable > 0 ? T.calibHold : T.calibLooking;
   }
 
   reflection(snap) {

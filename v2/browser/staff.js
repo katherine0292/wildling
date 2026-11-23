@@ -54,6 +54,7 @@ export class StaffPanel {
       <div class="row"><span>actions</span><span><button data-action="end">End session</button> <button data-action="next">Next</button></span></div>
       <h3>1 · Observed</h3>
       <div class="row"><span>source</span><span>${inp.source}${inp.source === 'camera' ? ` · cam ${camera.status}${camera.error ? ` (${camera.error})` : ''}` : ''}</span></div>
+      ${inp.source === 'camera' ? `<div class="row"><span>hand tracker</span><span>${esc(camera.loading?.phase ?? camera.delegate ?? '—')}</span></div>${camera.errorDetail ? `<div class="log">${esc(camera.errorDetail)}</div>` : ''}` : ''}
       <div class="row"><span>quality</span><span>${inp.quality} · valid ${(inp.validRatio * 100).toFixed(0)}% · rejected ${inp.rejected}</span></div>
       <div class="row"><span>speed</span><span>${f2(inp.speedSPerSecond)} S/s</span></div>
       <div class="row"><span>intent</span><span>${i.label}</span></div>

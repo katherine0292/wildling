@@ -1,6 +1,6 @@
 // Video frames are transferred to a local worker and never recorded or uploaded.
-// A cold start downloads the local model and WASM (about 17 MB). Allow slower
-// connections time to finish; loading is separate from the steady-hand calibration.
+// A cold start downloads about 17 MB. This is an inactivity timeout: actual download
+// progress resets it, so a slow connection may finish without being cut off halfway.
 const START_TIMEOUT_MS = 120000;
 const PALM = [0, 5, 9, 13, 17];
 // The screen maps to the middle of the camera frame. The bottom margin is the widest: the
@@ -62,7 +62,7 @@ export class CameraInput {
       return;
     }
     this.stream = stream;
-    this.timer = setTimeout(() => this.fail('library'), START_TIMEOUT_MS);
+    this.armStartTimeout(run);
     stream.getVideoTracks()[0]?.addEventListener('ended', () => {
       if (run === this.run) this.fail('disconnected');
     });
@@ -74,24 +74,40 @@ export class CameraInput {
     try {
       await video.play();
       if (run !== this.run) return;
-      const worker = new Worker(new URL('./hand-worker.js', import.meta.url));
+      const worker = new Worker(new URL('./hand-worker.js?v=20261123.2', import.meta.url));
       this.worker = worker;
       worker.onmessage = ({ data }) => {
         if (run !== this.run) return;
-        if (data.type === 'error') return this.fail('library');
+        if (data.type === 'error') return this.fail(data.stage === 'download' ? 'download' : 'library', data.message);
+        if (data.type === 'loading') {
+          this.loading = { phase: data.phase, loaded: data.loaded, total: data.total };
+          this.armStartTimeout(run);
+          return; // The detector is not ready to receive frames yet.
+        }
         if (data.type === 'ready') {
           clearTimeout(this.timer);
           this.status = 'ready';
-        } else {
+          this.loading = null;
+          this.delegate = data.delegate ?? null;
+        } else if (data.type === 'hands') {
           this.onHands(data);
-        }
+        } else return;
         this.nextFrame(run);
       };
-      worker.onerror = () => { if (run === this.run) this.fail('library'); };
-      worker.postMessage({ type: 'start' });
+      worker.onerror = (error) => { if (run === this.run) this.fail('library', error.message); };
+      worker.postMessage({ type: 'start', progress: true });
     } catch {
       if (run === this.run) this.fail('library');
     }
+  }
+
+  armStartTimeout(run) {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      if (run === this.run && this.status === 'loading') {
+        this.fail(this.loading?.phase === 'download' ? 'download' : 'library', 'Hand tracking startup stopped making progress.');
+      }
+    }, START_TIMEOUT_MS);
   }
 
   nextFrame(run) {
@@ -168,7 +184,7 @@ export class CameraInput {
 
   take() { const sample = this.sample; this.sample = null; return sample; }
 
-  fail(kind) { this.stop(); this.status = 'failed'; this.error = kind; }
+  fail(kind, detail = null) { this.stop(); this.status = 'failed'; this.error = kind; this.errorDetail = detail; }
 
   stop() {
     this.run++;
@@ -181,6 +197,9 @@ export class CameraInput {
     this.video = null;
     this.status = 'off';
     this.error = null;
+    this.errorDetail = null;
+    this.loading = null;
+    this.delegate = null;
     this.sample = null;
     this.keypoints = null;
     this.raw = null;
@@ -197,8 +216,22 @@ export const CAMERA_ERRORS = {
     no_device: 'No camera was found. You can carry on with the mouse.',
     in_use: 'The camera is busy in another app. You can carry on with the mouse.',
     library: 'Hand tracking could not load. Try again or use the mouse.',
+    download: 'The hand-tracking download stopped. Check your connection and try again, or use the mouse.',
     timeout: 'No steady hand was found in time. Try again or use the mouse.',
     insecure: 'Hand tracking needs a secure page. You can carry on with the mouse.',
     disconnected: 'The camera disconnected. You can carry on with the mouse.',
   },
 };
+
+export function cameraLoadingText(camera, compact = false) {
+  const load = camera.loading;
+  if (load?.phase === 'initializing') return 'Preparing hand tracking…';
+  if (load?.phase === 'download' && load.total > 0) {
+    const pct = Math.min(100, Math.floor(load.loaded / load.total * 100));
+    if (compact) return `Downloading hand tracking: ${pct}%`;
+    const mb = (n) => (n / 1048576).toFixed(1);
+    return `Downloading hand tracking: ${pct}% (${mb(load.loaded)} / ${mb(load.total)} MB). Keep this page open.`;
+  }
+  if (load?.phase === 'download') return 'Starting hand-tracking download…';
+  return 'Loading hand tracking…';
+}
