@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Wildling</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -98,9 +103,9 @@ html.en .intro h1{font-weight:300}
 .meta2 li::before{content:"— ";color:var(--acc)}
 
 /* chapters */
-section.ch{position:relative;padding-block:clamp(40px,4.8vw,70px)}
+section.ch{position:relative;padding-block:clamp(36px,3.5vw,52px)}
 section.ch.alt{background:var(--paper-2)}
-.head{display:grid;gap:10px;margin-bottom:clamp(22px,2.8vw,36px)}
+.head{display:grid;gap:10px;margin-bottom:clamp(20px,2.2vw,28px)}
 .head .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .head h2{font-size:clamp(24px,2.6vw,35px);line-height:1.22;max-width:28ch;position:relative;padding-bottom:14px}
 html:not(.en) .head h2{line-height:1.38;max-width:24em;font-size:clamp(22px,2.4vw,31px)}
@@ -108,7 +113,7 @@ html:not(.en) .head h2{line-height:1.38;max-width:24em;font-size:clamp(22px,2.4v
 .js .head h2::after{transform:scaleX(0);transition:transform 1s var(--ease)}
 .js .head.in h2::after{transform:scaleX(1)}
 .head .lede{font-size:15.5px;color:var(--ink-2);max-width:70ch;margin-top:4px}
-.blk{margin-top:clamp(36px,4.6vw,64px)}
+.blk{margin-top:clamp(28px,3vw,40px)}
 .blk:first-child{margin-top:0}
 .h2{font-size:clamp(21px,2.2vw,29px);font-weight:400;letter-spacing:-.01em;line-height:1.32;margin:8px 0 14px;max-width:28em}
 .para{font-size:clamp(15px,1.2vw,16.5px);color:var(--ink-2);line-height:1.75;max-width:74ch}
@@ -121,7 +126,7 @@ html:not(.en) .head h2{line-height:1.38;max-width:24em;font-size:clamp(22px,2.4v
 .k{margin-bottom:10px}
 .insight{font-size:clamp(18px,1.8vw,22px);font-weight:300;letter-spacing:-.01em;line-height:1.5}
 html:not(.en) .insight{font-weight:400}
-.qband{color:#fff;padding-block:clamp(44px,5.5vw,76px);background:linear-gradient(120deg,var(--deep) 0%,var(--deep-2) 62%,#9a5fd8 100%);position:relative;overflow:hidden}
+.qband{color:#fff;padding-block:clamp(36px,3.5vw,52px);background:linear-gradient(120deg,var(--deep) 0%,var(--deep-2) 62%,#9a5fd8 100%);position:relative;overflow:hidden}
 .qband::after{content:"";position:absolute;right:-8%;top:-60%;width:46%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(231,184,244,.5),transparent 68%);pointer-events:none}
 .qband .lbl{color:rgba(255,255,255,.75)}
 .qband h2{font-size:clamp(21px,2.4vw,32px);font-weight:400;line-height:1.4;margin:12px 0 16px;max-width:26em;letter-spacing:-.01em}
@@ -193,7 +198,7 @@ figcaption b{color:var(--ink);font-weight:500}
 .tilt{transition:transform .35s var(--ease);will-change:transform}
 
 /* version rows */
-.vrow{display:grid;grid-template-columns:minmax(0,.78fr) minmax(0,1.5fr);gap:clamp(20px,3.4vw,48px);padding-block:clamp(26px,3.4vw,44px);border-top:1px solid var(--line-2);align-items:start}
+.vrow{display:grid;grid-template-columns:minmax(0,.78fr) minmax(0,1.5fr);gap:clamp(20px,3.4vw,48px);padding-block:clamp(24px,2.4vw,32px);border-top:1px solid var(--line-2);align-items:start}
 .vrow.first{border-top:0;padding-top:0}
 .vinfo{position:sticky;top:84px}
 .vnum{font-size:clamp(46px,5.6vw,78px);font-weight:300;letter-spacing:-.05em;line-height:.95;background:linear-gradient(120deg,var(--ink) 20%,var(--acc) 80%);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -404,7 +409,18 @@ footer .in{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;al
 .rail.hot li.near button{color:var(--ink)}
 @media (prefers-reduced-motion:reduce){#lock,#lockl,.shock{display:none}}
 
+
+/* Compact chapter rhythm on smaller screens. */
+@media (max-width:760px){
+  section.ch{padding-block:30px}
+  .intro{padding-top:30px}
+  .qband{padding-block:32px}
+  .blk{margin-top:28px}
+  .vrow{padding-block:24px}
+}
 </style>
+</head>
+<body>
 <header class="top" id="top"><div class="in">
 <a class="word" href="#hero">WILDLING</a>
 <button class="menu-btn" id="menu-open" type="button" aria-haspopup="dialog"><i><b></b><b></b></i><span>Menu</span></button>
@@ -793,3 +809,5 @@ footer .in{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;al
 })();
 
 </script>
+</body>
+</html>
