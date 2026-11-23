@@ -30,7 +30,14 @@
 | **My role** | AI product and interaction designer, and developer: PRDs, AI behaviour, experience design, the build, and the evidence. |
 | **What it is now** | **V3.1.** No tools to choose: the hand *is* the interface, and a pouch holds what it carries. Three habitats, a whole litter that reacts to the hand, food standoffs, an always-on MIND panel, a camera preview, a per-kitten score at the end, and full parity between hand and mouse. |
 | **What it runs on** | Plain ES modules, p5.js and MediaPipe Hand Landmarker in a worker. Everything runs in the browser; camera frames never leave the device. |
-| **Evidence** | 119 deterministic replay tests across 19 suites, run in CI. What has not been measured on real hands is labelled as such. |
+| **Evidence** | Deterministic scenario replays, synthetic hand-feature checks and automated camera-startup checks. Real-hand and venue study targets remain labelled as unmeasured. |
+
+
+## Prototype delivery
+
+The [portfolio](portfolio/index.html) presents the browser prototype and design delivery, with verification from **23 November 2026**. It includes deterministic replays, synthetic hand-feature checks and camera-loading checks. Qualitative camera-trial feedback informed V3.1; participant usability studies and venue performance tests remain next steps.
+
+I initiated V3 after my own audit of the earlier prototype. Current V3.1 uses MediaPipe keypoints, gesture rules and utility behaviour in the browser. The original briefs and later specifications document that development path. I did not participate in post-delivery operation or receive later usage or business data.
 
 ## What you can do
 
@@ -111,14 +118,14 @@ The full statement is in [`docs/ai-boundaries.md`](docs/ai-boundaries.md).
 | Version | What it was | What we learned |
 |---|---|---|
 | **V1** · prototypes | Care tools (feed, play, pet) and a kitten with its own rhythm ([Prototype A](docs/prototype-a.md)) | Hand *speed* alone misread a public room; trust as one number explained nothing |
-| **V2** · [case study](docs/case-study-v2.md) | Evidence, intent and choice separated; reason codes; growth, bonds, few-shot tricks, keepsakes | It answered the brief, but visitors spent their first minute reading: pick a kitten, pick a tool, learn hand shapes |
-| **V3 → V3.1** · [spec](docs/design/experience-spec-v3.md) · [self-audit](docs/redesign/self-audit.zh.md) | No tools and no kitten to choose. The hand is the interface; the whole litter answers; three habitats with one pouch; MIND always on; a score per kitten | Real hands needed 3D features, a palm-on-back rule and bigger targets; those are in V3.1 |
+| **V2** · [case study](docs/case-study-v2.md) | Evidence, intent and choice separated; reason codes; growth, bonds, few-shot tricks, keepsakes | My audit found reading and mode-switching overhead: pick a kitten, pick a tool, learn hand shapes; this is not a measured participant result |
+| **V3 → V3.1** · [spec](docs/design/experience-spec-v3.md) · [self-audit](docs/redesign/self-audit.zh.md) | No tools and no kitten to choose. The hand is the interface; the whole litter answers; three habitats with one pouch; MIND always on; a score per kitten | Qualitative camera-trial requests informed 3D features, a palm-on-back rule and bigger targets in V3.1; no recognition rate is claimed |
 
 ## Evaluation
 
 | What | How | Where it stands |
 |---|---|---|
-| Product logic | 119 deterministic replay tests in CI (fixed seed, fixed 60 Hz clock) | ✅ Acceptance cases AT01–AT17 that need no hardware, plus multi-cat focus, food standoffs, habitats, the pouch, stroke, wave, pinch and palm-on-back, and per-kitten scores |
+| Product logic | Deterministic replay checks in CI (fixed seed, fixed 60 Hz clock) | ✅ Acceptance cases AT01–AT17 that need no hardware, plus multi-cat focus, food standoffs, habitats, the pouch, stroke, wave, pinch and palm-on-back, and per-kitten scores |
 | No unfair penalty | Replays with occlusion, flicker and pause | ✅ No trust lost to invalid tracking |
 | Hand features | Synthetic 3D hands at different angles | ✅ Open, fist and pinch read the same when the hand is turned |
 | Real hands at the venue | Recognition rate of stroke and pinch at venue distance and light | 📝 Not yet measured; no accuracy figure is claimed ([study plan](docs/research/usability-test-plan.md)) |
